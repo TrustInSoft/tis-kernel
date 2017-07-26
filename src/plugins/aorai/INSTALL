@@ -1,0 +1,56 @@
+(**************************************************************************)
+(*                                                                        *)
+(*  This file is part of TrustInSoft Kernel.                              *)
+(*                                                                        *)
+(*  TrustInSoft Kernel is a fork of Frama-C. All the differences are:     *)
+(*    Copyright (C) 2016-2017 TrustInSoft                                 *)
+(*                                                                        *)
+(*  TrustInSoft Kernel is released under GPLv2                            *)
+(*                                                                        *)
+(**************************************************************************)
+
+(**************************************************************************)
+(*                                                                        *)
+(*  This file is part of Frama-C.                                         *)
+(*                                                                        *)
+(*  Copyright (C) 2007-2010                                               *)
+(*    INSA  (Institut National des Sciences Appliquees)                   *)
+(*    INRIA (Institut National de Recherche en Informatique et en         *)
+(*           Automatique)                                                 *)
+(*                                                                        *)
+(*  you can redistribute it and/or modify it under the terms of the GNU   *)
+(*  Lesser General Public License as published by the Free Software       *)
+(*  Foundation, version 2.1.                                              *)
+(*                                                                        *)
+(*  It is distributed in the hope that it will be useful,                 *)
+(*  but WITHOUT ANY WARRANTY; without even the implied warranty of        *)
+(*  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *)
+(*  GNU Lesser General Public License for more details.                   *)
+(*                                                                        *)
+(*  See the GNU Lesser General Public License version 2.1                 *)
+(*  for more details (enclosed in the file licenses/LGPLv2.1).            *)
+(*                                                                        *)
+(**************************************************************************)
+
+
+INSTALLATION
+============
+
+You need frama-c framework to use this plug-in.
+You need Objective Caml >= 3.0.2 to compile the sources.
+OCaml >= 3.11 is required for easiest use Aorai as a dynamic plug-ins.
+
+To compile, just do:
+
+    autoconf
+    ./configure
+    make depend
+    make 
+    sudo make install    // You may need superuser permissions.
+
+    
+If you have any questions, please refer to the official web site: 
+        http://amazones.gforge.inria.fr/aorai/
+or contact:
+        nicolas.stouls@insa-lyon.fr
+

@@ -1,0 +1,338 @@
+############################################################################
+#                                                                          #
+#  This file is part of TrustInSoft Kernel.                                #
+#                                                                          #
+#  TrustInSoft Kernel is a fork of Frama-C. All the differences are:       #
+#    Copyright (C) 2016-2017 TrustInSoft                                   #
+#                                                                          #
+#  TrustInSoft Kernel is released under GPLv2                              #
+#                                                                          #
+############################################################################
+
+##########################################################################
+#                                                                        #
+#  This file is part of Frama-C.                                         #
+#                                                                        #
+#  Copyright (C) 2007-2015                                               #
+#    CEA (Commissariat à l'énergie atomique et aux énergies              #
+#         alternatives)                                                  #
+#                                                                        #
+#  you can redistribute it and/or modify it under the terms of the GNU   #
+#  Lesser General Public License as published by the Free Software       #
+#  Foundation, version 2.1.                                              #
+#                                                                        #
+#  It is distributed in the hope that it will be useful,                 #
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of        #
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         #
+#  GNU Lesser General Public License for more details.                   #
+#                                                                        #
+#  See the GNU Lesser General Public License version 2.1                 #
+#  for more details (enclosed in the file licenses/LGPLv2.1).            #
+#                                                                        #
+##########################################################################
+
+##########################################################################
+#                                                                        #
+# Define common stuff shared by makefiles.                               #
+#                                                                        #
+##########################################################################
+
+include $(MAKECONFIG_DIR)/Makefile.config
+
+#######################
+# Working directories #
+#######################
+
+# TrustInSoft Kernel kernel directories
+TIS_KERNEL_SRC_DIRS= plugins/slicing_types plugins/pdg_types plugins/value_types \
+	       libraries/stdlib libraries/utils \
+	       libraries/project libraries/datatype \
+	       kernel_internals/parsing \
+	       kernel_internals/typing \
+	       kernel_internals/runtime \
+	       $(LICENSE_DIR) \
+	       kernel_services/parsetree \
+	       kernel_services/ast_data \
+	       kernel_services/ast_queries \
+	       kernel_services/ast_printing \
+	       kernel_services/cmdline_parameters \
+	       kernel_services/plugin_entry_points \
+	       kernel_services/abstract_interp \
+	       kernel_services/visitors \
+	       kernel_services/analysis \
+	       kernel_services/ast_transformations \
+	       plugins/gui
+TIS_KERNEL_SRC_DIRS:= $(addprefix src/, $(TIS_KERNEL_SRC_DIRS))
+
+ifeq ($(OCAMLWIN32),yes)
+ifneq ($(CYGPATH),no)
+winpath=$(shell $(CYGPATH) -m "$(1)")
+else
+winpath=$(1)
+endif #CYGPATH
+else
+winpath=$(1)
+endif #OCAMLWIN32
+
+##################
+# Flags          #
+##################
+
+# findstring returns an empty string if it does not match, and the value it
+# searches if it matches. Hence we compare with the empty string and negate
+# the condition
+ifneq ($(findstring 3.12,$(OCAMLVERSION)),) # 3.12
+  HAS_OCAML4 = no
+  HAS_OCAML402 = no
+else  # >=4
+  HAS_OCAML4 = yes
+  ifneq ($(findstring 4.00,$(OCAMLVERSION)),) # 4.00
+    HAS_OCAML402 = no
+  else
+    ifneq ($(findstring 4.01,$(OCAMLVERSION)),) # 4.01
+      HAS_OCAML402 = no
+    else # >= 4.02
+      HAS_OCAML402 = yes
+    endif
+  endif
+endif
+
+# Most warnings are activated by default. The few that are deactivated are
+# impossible to silence with the current TrustInSoft Kernel. Those settings are inherited
+# in the compilation of external plugins. Note that -warn-error is not used
+# here: it is only set for TrustInSoft Kernel itself (and the standard plugins), and is
+# defined in the root Makefile
+WARNINGS?= -w @a-4-6-9-41-44-45-48-50-58
+
+FLAGS	= $(WARNINGS) $(OCAML_ANNOT_OPTION) $(OPTIM)
+DEBUG	= -g
+
+#############
+# Verbosing #
+#############
+
+ifneq ($(VERBOSEMAKE),no) # Do not change to ifeq ($(VERBOSEMAKE),yes), as this
+                          # version makes it easier for the user to set the
+			  # option on the command-line to investigate
+			  # Makefile-related problems
+# ignore the PRINT_* materials but print all the other commands
+  PRINT = @true
+# prevent the warning "jobserver unavailable: using -j1".
+# see GNU make manual (section 5.7.1 and appendix B)
+  QUIET_MAKE:= + $(MAKE)
+# prevent the warning: "-jN forced in submake: disabling jobserver mode".
+# see GNU make manual (appendix B)
+  MAKE := MAKEFLAGS="$(patsubst j,,$(MAKEFLAGS))" $(MAKE)
+else
+# print the PRINT_* materials
+  PRINT = @echo
+# but silently execute all the other commands
+# fixed bug #637: do not write spaces between flags
+  OLDFLAGS:=r$(MAKEFLAGS)
+  MAKEFLAGS:=rs$(MAKEFLAGS)
+# do not silently execute other makefiles (e.g the one of why):
+# the redefinition of MAKE below is for this purpose
+# but use QUIET_MAKE in order to call silently the initial Makefile
+  QUIET_MAKE:= + $(MAKE)
+  MAKE := MAKEFLAGS="$(OLDFLAGS)" $(MAKE)
+endif
+
+################
+# Calling Make #
+################
+
+# Function to be called to call make on a given plugin (first argument) and
+# a given rule (second argument)
+external_make = \
+  $(MAKE) TIS_KERNEL_INTERNAL=yes \
+	  TIS_KERNEL_SRC=$(TIS_KERNEL_TOP_SRCDIR) \
+          PLUGIN_LIB_DIR="\
+             $(if $(filter /%,$(PLUGIN_LIB_DIR)),$(PLUGIN_LIB_DIR),\
+                    $(TIS_KERNEL_TOP_SRCDIR)/$(PLUGIN_LIB_DIR))" \
+          PLUGIN_GUI_LIB_DIR="\
+            $(if $(filter /%,$(PLUGIN_GUI_LIB_DIR)),$(PLUGIN_GUI_LIB_DIR),\
+                   $(TIS_KERNEL_TOP_SRCDIR)/$(PLUGIN_GUI_LIB_DIR))" \
+          TIS_KERNEL_LIBDIR="$(TIS_KERNEL_TOP_SRCDIR)/lib/fc" \
+          TIS_KERNEL_SHARE="$(TIS_KERNEL_TOP_SRCDIR)/share" -C $(1) $(2)
+
+##################
+# Shell commands #
+##################
+
+# prefer to use these commands and not directly "cp" or others
+
+CAT	= cat
+CHMOD	= chmod
+CHMOD_RO= chmod a-w
+CHMOD_RW= sh -c \
+'for f in "$$@"; do \
+  if test -e $$f; then chmod u+w $$f; fi \
+done' chmod_rw
+CP      = install
+REPLACE      = sh -c \
+  'if cmp -s $$1 $$2; \
+   then touch -r $$2 $$1; \
+   else echo "Generating  $$2"; install $$1 $$2; fi' replace
+#follow symbolic link
+CP_L    = cp -fL
+ECHO	= echo
+MKDIR   = mkdir -p
+MV	= mv
+ISED	= sh -c \
+'new_temp=`mktemp /tmp/tis-kernel.XXXXXXX` || exit 1; \
+sed "$$@" > $$new_temp; \
+eval last=\$${$$\#}; \
+mv $$new_temp $$last' sed_inplace
+SED	= LC_ALL=C sed
+RM	= rm -f
+TAR	= tar
+TOUCH	= touch
+GIT	= git
+
+##################
+# Make commands #
+##################
+
+map=$(foreach a,$(2),$(call $(1),$(a)))
+
+define assert_defined
+ifndef $(1)
+$$(error Undefined variable $(1) please report.)
+endif
+endef
+
+###########################
+# Command pretty printing #
+###########################
+
+PRINT_OCAMLC   	=$(PRINT) 'Ocamlc      '#
+PRINT_OCAMLOPT 	=$(PRINT) 'Ocamlopt    '#
+PRINT_DEP      	=$(PRINT) 'Ocamldep    '#
+PRINT_OCAMLLEX 	=$(PRINT) 'Ocamllex    '#
+PRINT_OCAMLYACC	=$(PRINT) 'Ocamlyacc   '#
+PRINT_OCAMLMKTOP=$(PRINT) 'Ocamlmktop  '#
+PRINT_DOC	=$(PRINT) 'Ocamldoc    '#
+PRINT_OCAMLCP  	=$(PRINT) 'Profiling   '#
+PRINT_CAMLP4   	=$(PRINT) 'Camlp4      '#
+PRINT_PACKING  	=$(PRINT) 'Packing     '#
+PRINT_LINKING  	=$(PRINT) 'Linking     '#
+PRINT_INFERRING	=$(PRINT) 'Inferring   '#
+PRINT_CC   	=$(PRINT) 'CC          '#
+
+PRINT_MAKING   	=$(PRINT) 'Generating  '#
+PRINT_MV       	=$(PRINT) 'Moving to   '#
+PRINT_CP       	=$(PRINT) 'Copying to  '#
+PRINT_RM       	=$(PRINT) 'Cleaning    '#
+PRINT_EXEC	=$(PRINT) 'Running     '#
+PRINT_TAR    	=$(PRINT) 'Archiving   '#
+PRINT_UNTAR    	=$(PRINT) 'Unarchiving '#
+PRINT_CONFIG   	=$(PRINT) 'Configuring '#
+PRINT_BUILD   	=$(PRINT) 'Building    '#
+PRINT_INSTALL  	=$(PRINT) 'Installing  '#
+PRINT_UPDATE  	=$(PRINT) 'Updating    '#
+
+PRINT_DOT	=$(PRINT) 'Dot         '#
+PRINT_LATEX	=$(PRINT) 'Latex       '#
+PRINT_DVIPS	=$(PRINT) 'Dvips       '#
+PRINT_HEVEA	=$(PRINT) 'Hevea       '#
+
+#########
+# Tests #
+#########
+
+define COMPILE_TESTS_ML_FILES
+# Function with two arguments:
+#  - $(1) is the test directory under consideration.
+#  - $(2) is the name of TrustInSoft Kernel component under test (plugin or some core part)
+ML_TESTS:=$(wildcard tests/$(1)/*.ml)
+.PRECIOUS: $(patsubst %.ml, %.cmo, $(ML_TESTS)) \
+	$(patsubst %.ml, %.cmx, $(ML_TESTS)) \
+	$(patsubst %.ml, %.cmxs, $(ML_TESTS)) \
+	$(patsubst %.ml, %.opt, $(ML_TESTS)) \
+	$(patsubst %.ml, %.byte, $(ML_TESTS))
+
+# [JS 2009/03/18] in the 5 rules below, don't print anything while VERBOSEMAKE
+# is not set (otherwise "make tests" is too much verbose)
+
+$(1)_TESTS_INCLUDES=$$(addprefix -I tests/, $$($(2)_TESTS_DIRS))
+
+tests/$(1)/%.cmo: BFLAGS+=$$($(2)_BFLAGS) $$($(1)_TESTS_INCLUDES)
+
+tests/$(1)/%.cmo: tests/$(1)/%.ml $$(CMO) $$($(2)_CMO) $$(GEN_BYTE_LIBS)
+	$$(OCAMLC) -c $$(BFLAGS) $$($(1)_TESTS_INCLUDES) $$<
+
+tests/$(1)/%.byte: tests/$(1)/%.cmo $(3:.cmx=.cmo) bin/toplevel.byte$$(EXE)
+	$$(OCAMLC) $$(BLINKFLAGS) $$($(1)_TESTS_INCLUDES) -o $$@ \
+	  $$(BYTE_LIBS) $$(filter-out $$(STARTUP_CMO),$$(ALL_BATCH_CMO)) $(3:.cmx=.cmo) \
+	  $$< $$(STARTUP_CMO)
+
+# [JS 2009/05/29] don't use $$(CMX)
+# [VP 2010/04/22] don't call directly ocamlopt, just refine flags of generic
+# rule, which is chosen by make anyway
+tests/$(1)/%.cmx: OFLAGS+= $$($(2)_OFLAGS) $$($(1)_TESTS_INCLUDES)
+
+$(patsubst %.ml,%.cmx,$(wildcard tests/$(1)/*.ml tests/$(1)/*/*.ml)): \
+           $$(CMO:.cmo=.cmx) $$($(2)_CMX) $$(GEN_OPT_LIBS)
+
+tests/$(1)/%.cmxs: OFLAGS+= $$($(2)_OFLAGS) $$($(1)_TESTS_INCLUDES)
+
+$(patsubst %.ml,%.cmxs,$(wildcard tests/$(1)/*.ml tests/$(1)/*/*.ml)): \
+           $$(CMO:.cmo=.cmx) $$($(2)_CMX) $$(GEN_OPT_LIBS)
+
+tests/$(1)/%.opt: tests/$(1)/%.cmx $(3) bin/toplevel.opt$$(EXE)
+	$$(OCAMLOPT) $$(OLINKFLAGS) $$($(1)_TESTS_INCLUDES) -o $$@ \
+	  $$(OPT_LIBS) $$(filter-out $$(STARTUP_CMX),$$(ALL_BATCH_CMX)) $(3) $$< $$(STARTUP_CMX)
+
+$(filter-out $(3),$(patsubst %.ml,%.cmx,$(wildcard tests/$(1)/*.ml))): $(3)
+$(filter-out $(3:.cmx=.cmo), \
+    $(patsubst %.ml,%.cmo,$(wildcard tests/$(1)/*.ml))): \
+     $(3:.cmx=.cmo)
+
+endef #COMPILE_TESTS_ML_FILES
+
+#################
+# Documentation #
+#################
+
+ifeq ("$(OCAMLDOC)","ocamldoc.opt")
+DOC_PLUGIN=$(DOC_DIR)/docgen.cmxs
+else
+DOC_PLUGIN=$(DOC_DIR)/docgen.cmo
+endif
+
+##########################
+# Plugin File Generation #
+##########################
+
+#take the name of the plugin as argument $(1)
+define include_generic_plugin_Makefile
+$(call assert_defined,PLUGIN_DIR)
+$(PLUGIN_DIR)/Makefile.plugin.generated: $(MAKECONFIG_DIR)/Makefile.plugin.template
+	$(PRINT_MAKING)	$$@
+	$(SED) -e "s/@PLUGIN_NAME@/$(1)/g" $$< > $$@
+clean::
+	rm -rf $(PLUGIN_DIR)/Makefile.plugin.generated
+
+#We always define this variable because it can't wait the generation
+#of the Makefile.plugin.generated since the targets of rules defined in the
+#Makefile of the plugins could use this variable
+$(1)_DIR:=$(PLUGIN_DIR)
+
+sinclude $(PLUGIN_DIR)/Makefile.plugin.generated
+
+endef
+
+%.check_mli_exists: %.mli
+	touch $@
+
+.PHONY:common_force_rule
+
+%.check_mli_exists: common_force_rule
+	$(error "The file '$*.mli' must be provided. The simplest workaround is 'touch $*.mli')
+
+
+##########################################################################
+# Local Variables:
+# compile-command: "make"
+# mode: makefile
+# End:

@@ -1,0 +1,89 @@
+############################################################################
+#                                                                          #
+#  This file is part of TrustInSoft Kernel.                                #
+#                                                                          #
+#  TrustInSoft Kernel is a fork of Frama-C. All the differences are:       #
+#    Copyright (C) 2016-2017 TrustInSoft                                   #
+#                                                                          #
+#  TrustInSoft Kernel is released under GPLv2                              #
+#                                                                          #
+############################################################################
+
+##########################################################################
+#                                                                        #
+#  This file is part of Frama-C.                                         #
+#                                                                        #
+#  Copyright (C) 2007-2015                                               #
+#    CEA (Commissariat à l'énergie atomique et aux énergies              #
+#         alternatives)                                                  #
+#                                                                        #
+#  you can redistribute it and/or modify it under the terms of the GNU   #
+#  Lesser General Public License as published by the Free Software       #
+#  Foundation, version 2.1.                                              #
+#                                                                        #
+#  It is distributed in the hope that it will be useful,                 #
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of        #
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         #
+#  GNU Lesser General Public License for more details.                   #
+#                                                                        #
+#  See the GNU Lesser General Public License version 2.1                 #
+#  for more details (enclosed in the file licenses/LGPLv2.1).            #
+#                                                                        #
+##########################################################################
+
+# This Makefile could be inlined inside $FRAMAC/Makefile. It is standalone
+# for performance reasons, as it performs many costly string operations
+
+PATHS := src
+
+SOURCES := $(shell find $(PATHS) -name '*.ml*')
+SOURCES := $(basename $(SOURCES))
+
+# .cm* files with no corresponding .ml*, but that must be kept nonetheless
+ML_NO_SOURCE := src/plugins/wp/qed/src/Qed src/plugins/wp/qed/bin/Qed
+# .o files with no corresponding .ml*
+O_NO_SOURCE := src/libraries/utils/c_bindings
+
+ML_SOURCE := $(SOURCES) $(ML_NO_SOURCE)
+O_SOURCE := $(ML_SOURCE) $(O_NO_SOURCE)
+
+CMO_SOURCE := $(addsuffix .cmo, $(ML_SOURCE))
+CMO_FOUND := $(shell find $(PATHS) -name '*.cmo')
+CMO_SPURIOUS := $(filter-out $(CMO_SOURCE),$(CMO_FOUND))
+
+CMI_SOURCE := $(addsuffix .cmi, $(ML_SOURCE))
+CMI_FOUND := $(shell find $(PATHS) -name '*.cmi')
+CMI_SPURIOUS := $(filter-out $(CMI_SOURCE),$(CMI_FOUND))
+
+CMX_SOURCE := $(addsuffix .cmx, $(ML_SOURCE))
+CMX_FOUND := $(shell find $(PATHS) -name '*.cmx')
+CMX_SPURIOUS := $(filter-out $(CMX_SOURCE),$(CMX_FOUND))
+
+CMXS_SOURCE := $(addsuffix .cmxs, $(ML_SOURCE))
+CMXS_FOUND := $(shell find $(PATHS) -name '*.cmxs')
+CMXS_SPURIOUS := $(filter-out $(CMXS_SOURCE),$(CMXS_FOUND))
+
+O_SOURCE := $(addsuffix .o, $(O_SOURCE))
+O_FOUND := $(shell find $(PATHS) -name '*.o')
+O_SPURIOUS := $(filter-out $(O_SOURCE),$(O_FOUND))
+
+CMT_SOURCE := $(addsuffix .cmt, $(ML_SOURCE)) $(addsuffix .cmti, $(ML_SOURCE))
+CMT_FOUND := $(shell find $(PATHS) -name '*.cmt' -or -name '*.cmti')
+CMT_SPURIOUS := $(filter-out $(CMT_SOURCE),$(CMT_FOUND))
+
+smartclean-list:
+	@echo CMO $(CMO_SPURIOUS)
+	@echo CMI $(CMI_SPURIOUS)
+	@echo CMX $(CMX_SPURIOUS)
+	@echo CMXS $(CMOXS_SPURIOUS)
+	@echo O $(O_SPURIOUS)
+	@echo CMT* $(CMT_SPURIOUS)
+	@echo rm -f $(CMO_SPURIOUS) $(CMI_SPURIOUS) $(CMX_SPURIOUS) $(CMXS_SPURIOUS) $(O_SPURIOUS) $(CMT_SPURIOUS)
+
+smartclean:
+	rm -f $(CMO_SPURIOUS) $(CMI_SPURIOUS) $(CMX_SPURIOUS) $(CMXS_SPURIOUS) $(O_SPURIOUS) $(CMT_SPURIOUS)
+
+
+# Local Variables:
+# mode: makefile
+# End:

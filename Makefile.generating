@@ -1,0 +1,185 @@
+############################################################################
+#                                                                          #
+#  This file is part of TrustInSoft Kernel.                                #
+#                                                                          #
+#  TrustInSoft Kernel is a fork of Frama-C. All the differences are:       #
+#    Copyright (C) 2016-2017 TrustInSoft                                   #
+#                                                                          #
+#  TrustInSoft Kernel is released under GPLv2                              #
+#                                                                          #
+############################################################################
+
+##########################################################################
+#                                                                        #
+#  This file is part of Frama-C.                                         #
+#                                                                        #
+#  Copyright (C) 2007-2015                                               #
+#    CEA (Commissariat à l'énergie atomique et aux énergies              #
+#         alternatives)                                                  #
+#                                                                        #
+#  you can redistribute it and/or modify it under the terms of the GNU   #
+#  Lesser General Public License as published by the Free Software       #
+#  Foundation, version 2.1.                                              #
+#                                                                        #
+#  It is distributed in the hope that it will be useful,                 #
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of        #
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         #
+#  GNU Lesser General Public License for more details.                   #
+#                                                                        #
+#  See the GNU Lesser General Public License version 2.1                 #
+#  for more details (enclosed in the file licenses/LGPLv2.1).            #
+#                                                                        #
+##########################################################################
+
+ptests/ptests_config.ml: Makefile.generating share/Makefile.config
+	$(PRINT_MAKING) $@
+	$(RM) $@
+	$(TOUCH) $@
+	$(ECHO) \
+	 "let no_native_dynlink = " \
+	 $(subst yes,false,$(subst no,true,$(USABLE_NATIVE_DYNLINK))) ";;" \
+	 >> $@
+	$(CHMOD_RO) $@
+
+tests/ptests_config: Makefile.generating share/Makefile.config
+	$(PRINT_MAKING) $@
+	$(RM) $@
+	$(TOUCH) $@
+	$(ECHO) "DEFAULT_SUITES=$(PLUGIN_TESTS_LIST)" >> $@
+	$(ECHO) "TOPLEVEL_PATH=bin/toplevel.$(OCAMLBEST)$(EXE)" >> $@
+	$(ECHO) "OCAMLRUNPARAM=" >> $@
+	$(ECHO) "TIS_KERNEL_SESSION=." >> $@
+	$(ECHO) "TIS_KERNEL_SHARE=./share" >> $@
+	$(ECHO) "TIS_KERNEL_PLUGIN=./lib/plugins" >> $@
+	$(ECHO) "TIS_KERNEL_PLUGIN_GUI=./lib/plugins/gui" >> $@
+	$(ECHO) "TIS_KERNEL_LIB=./lib/fc" >> $@
+	$(CHMOD_RO) $@
+
+share/Makefile.kernel: Makefile.generating share/Makefile.config share/Makefile.common
+	$(PRINT_MAKING) $@
+	$(RM) $@
+	$(ECHO) "# This makefile was automatically generated." > $@
+	$(ECHO) "# Do not modify." >> $@
+	$(ECHO) "ifeq (\$$(TIS_KERNEL_INTERNAL),yes)" >> $@
+	$(ECHO) "DYN_BLINKFLAGS=$(filter-out $(INCLUDES), $(BLINKFLAGS)) $(foreach d, $(INCLUDES:-I%=%), -I $(TIS_KERNEL_TOP_SRCDIR)/$(d))" >> $@
+	$(ECHO) "DYN_GEN_BYTE_LIBS=$(addprefix $(TIS_KERNEL_TOP_SRCDIR)/, $(GEN_BYTE_LIBS))" >> $@
+	$(ECHO) "DYN_BYTE_LIBS=$(filter-out $(GEN_BYTE_LIBS), $(BYTE_LIBS))" >> $@
+	$(ECHO) "DYN_ALL_BATCH_CMO=$(addprefix $(TIS_KERNEL_TOP_SRCDIR)/, $(notdir $(ALL_BATCH_CMO)))" >> $@
+	$(ECHO) "DYN_OLINKFLAGS=$(filter-out $(INCLUDES), $(OLINKFLAGS)) $(foreach d, $(INCLUDES:-I%=%), -I $(TIS_KERNEL_TOP_SRCDIR)/$(d))" >> $@
+	$(ECHO) "DYN_GEN_OPT_LIBS=$(addprefix $(TIS_KERNEL_TOP_SRCDIR)/, $(GEN_OPT_LIBS))" >> $@
+	$(ECHO) "DYN_OPT_LIBS=$(filter-out $(GEN_OPT_LIBS), $(OPT_LIBS))" >> $@
+	$(ECHO) "DYN_ALL_BATCH_CMX=$(addprefix $(TIS_KERNEL_TOP_SRCDIR)/, $(ALL_BATCH_CMX))" >> $@
+	$(ECHO) "else" >> $@
+	$(ECHO) "DYN_BLINKFLAGS=$(filter-out $(INCLUDES), $(BLINKFLAGS)) $(addprefix -I ,$(filter +%,$(INCLUDES)))" >> $@
+	$(ECHO) "DYN_GEN_BYTE_LIBS=$(addprefix $(TIS_KERNEL_LIBDIR)/, $(notdir $(GEN_BYTE_LIBS)))" >> $@
+	$(ECHO) "DYN_BYTE_LIBS=$(filter-out $(GEN_BYTE_LIBS), $(BYTE_LIBS))" >> $@
+	$(ECHO) "DYN_ALL_BATCH_CMO=$(addprefix $(TIS_KERNEL_LIBDIR)/, $(notdir $(ALL_BATCH_CMO)))" >> $@
+	$(ECHO) "DYN_OLINKFLAGS=$(filter-out $(INCLUDES), $(OLINKFLAGS))  $(addprefix -I ,$(filter +%,$(INCLUDES)))" >> $@
+	$(ECHO) "DYN_GEN_OPT_LIBS=$(addprefix $(TIS_KERNEL_LIBDIR)/, $(notdir $(GEN_OPT_LIBS)))" >> $@
+	$(ECHO) "DYN_OPT_LIBS=$(filter-out $(GEN_OPT_LIBS), $(OPT_LIBS))" >> $@
+	$(ECHO) "DYN_ALL_BATCH_CMX=$(addprefix $(TIS_KERNEL_LIBDIR)/, $(notdir $(ALL_BATCH_CMX)))" >> $@
+	$(ECHO) "endif" >> $@
+	$(CHMOD_RO) $@
+
+$(CONFIG_FILE): $(CONFIG_FILE).in VERSION share/Makefile.config Makefile.generating configure.in
+	$(SED) \
+	  -e "s|@VERSION@|$(VERSION)|" \
+          -e "s|@CURR_DATE@|$$(LC_ALL=C date)|" \
+	  -e "s|@OCAMLC@|$(OCAMLC)|" \
+          -e "s|@OCAMLOPT@|$(OCAMLOPT)|" \
+          -e "s|@TIS_KERNEL_DATADIR@|$(TIS_KERNEL_DATADIR)|" \
+	  -e "s|@TIS_KERNEL_LIBDIR@|$(TIS_KERNEL_LIBDIR)|" \
+	  -e "s|@TIS_KERNEL_TOP_SRCDIR@|$(TIS_KERNEL_TOP_SRCDIR)|" \
+	  -e "s|@TIS_KERNEL_PLUGINDIR@|$(TIS_KERNEL_PLUGINDIR)|" \
+	  -e "s|@TIS_KERNEL_DEFAULT_CPP@|$(TIS_KERNEL_DEFAULT_CPP)|" \
+	  -e "s|@TIS_KERNEL_GNU_CPP@|$(TIS_KERNEL_GNU_CPP)|" \
+          -e "s|@DEFAULT_CPP_KEEP_COMMENTS@|$(DEFAULT_CPP_KEEP_COMMENTS)|" \
+	  -e "s|@STATIC_PLUGINS@|$(STATIC_PLUGINS)|" \
+          -e "s|@STATIC_GUI_PLUGINS@|$(STATIC_GUI_PLUGINS)|" \
+          -e "s|@COMPILATION_UNITS@|$(COMPILATION_UNITS)|" \
+          -e "s|@LIBRARY_NAMES@|$(LIBRARY_NAMES)|" \
+	  -e "s|@OPTDOT@|$(OPTDOT)|" \
+          -e "s|@EXE@|$(EXE)|" \
+          $< > $@.tmp
+	@touch $< -r $@.tmp
+	$(REPLACE) $@.tmp $@
+	$(RM) $@.tmp
+	$(CHMOD_RO) $@
+
+ifeq ("$(LOCAL_MACHDEP)","yes")
+
+MACHDEP_PATH=share
+
+# Create the machine dependency module
+# If the cl command cannot be run then the MSVC part will be identical to GCC
+.PHONY : machdep $(MACHDEP_PATH)/local_machdep.ml
+machdep: $(MACHDEP_PATH)/local_machdep.ml
+bin/machdep.exe: machdep
+
+config.h:
+	$(PRINT_MAKING) $@
+	$(ECHO) "missing config.h file generated at configure stage using --enable-localmachdep option."
+	exit 1;
+
+$(MACHDEP_PATH)/local_machdep.ml: \
+  $(MACHDEP_PATH)/machdep.c config.h Makefile.generating
+	$(PRINT_MAKING) $@
+	$(RM) $@
+	$(ECHO) "(* This module was generated automatically by code in Makefile and machdep.c *)" >$@
+# Now generate the type definition
+	$(ECHO) "open Cil_types" >> $@
+	if $(CC) -D_GNUCC $< -o bin/machdep.exe ;then \
+	    $(ECHO) "machdep.exe created succesfully."; \
+	else \
+	    $(RM) $@; exit 1; \
+	fi
+	$(ECHO) "let gcc = {" >>$@
+	./bin/machdep.exe >>$@
+	$(ECHO) "}"          >>$@
+	if cl /D_MSVC $< /Febin/machdep.exe /Fobin/machdep.obj ;then \
+	   $(ECHO) "let hasMSVC = true" >>$@; \
+	else \
+	   $(ECHO) "let hasMSVC = false" >>$@; \
+	fi
+	$(ECHO) "let msvc = {" >>$@
+	./bin/machdep.exe >>$@
+	$(ECHO) "}"          >>$@
+	$(ECHO) \
+	  "let gccHas__builtin_va_list = $(HAVE_BUILTIN_VA_LIST)" >>$@
+	$(ECHO) "let __thread_is_keyword = $(THREAD_IS_KEYWORD)"  >>$@
+	$(ECHO) \
+	  "$@ generated. You may have this file merged into TrustInSoft Kernel by developers."
+	$(CHMOD_RO) $@
+
+endif
+
+
+
+#############################
+# TrustInSoft Kernel-config #
+#############################
+
+src/kernel_internals/runtime/tis_kernel_config.ml: src/kernel_internals/runtime/config.ml \
+	src/kernel_internals/runtime/tis_kernel_config.ml.in Makefile.generating
+	$(PRINT_MAKING) $@
+	$(RM) $@
+	$(ECHO) "module Filepath = struct let add_symbolic_dir _ _ = () end" >> $@
+	$(ECHO) "module Config = struct" >> $@
+	$(CAT) src/kernel_internals/runtime/config.ml >> $@
+	$(ECHO) "end" >> $@
+	$(CAT) src/kernel_internals/runtime/tis_kernel_config.ml.in >> $@
+	$(CHMOD_RO) $@
+
+GENERATED+= src/kernel_internals/runtime/tis_kernel_config.ml
+
+bin/tis-kernel-config$(EXE): src/kernel_internals/runtime/tis_kernel_config.ml
+ifeq ($(OCAMLBEST),opt)
+	$(OCAMLOPT) str.cmxa $< -o $@
+else
+	$(OCAMLC) str.cma $< -o $@
+endif
+
+
+# Local Variables:
+# mode: makefile
+# End:

@@ -1,0 +1,353 @@
+#!/usr/bin/env bash
+############################################################################
+#                                                                          #
+#  This file is part of tis-interpreter.                                   #
+#                                                                          #
+#    Copyright (C) 2016-2017 TrustInSoft                                   #
+#                                                                          #
+#  tis-interpreter is released under GPLv2                                 #
+#                                                                          #
+############################################################################
+
+set -e
+set -u
+set -o pipefail
+
+function error { echo "Error: $1"; exit 2; }
+
+
+############################################################################
+# Global variables
+
+PROG_NAME=$(basename "$0")
+
+# Constants
+FC_SHARE="$(tis-kernel-config -print-share-path)"
+TIS_SHARE="${TIS_SHARE:-$FC_SHARE/../tis}"
+
+# Variables
+EXECUTABLE=tis-kernel
+COLOR=yes
+FILESYSTEM=no
+SERVER=no
+MALLOC_RETURNS_NULL=no
+PP_ONLY=no
+TIS_INT_LIBC=yes
+VERBOSE=no
+
+# All other options
+OTHERS_OPTS=()
+
+############################################################################
+# Prepare the command
+
+TIS_INT_LIBC_BUILTINS=(
+    alloca:tis_alloc_size
+    asprintf:tis_asprintf_interpreter
+    atof:tis_atof_interpreter
+    atoi:tis_atoi_interpreter
+    atol:tis_atol_interpreter
+    atoll:tis_atoll_interpreter
+    atoq:tis_atoll_interpreter
+    ceil:Frama_C_ceil
+    floor:Frama_C_floor
+    fprintf:tis_fprintf
+    free:tis_free
+    malloc:tis_alloc_size
+    memchr:tis_memchr
+    memcmp:tis_memcmp
+    memcpy:tis_memcpy
+    memmove:tis_memmove
+    memset:tis_memset
+    printf:tis_printf
+    realloc:tis_realloc
+    scanf:tis_scanf
+    snprintf:tis_snprintf
+    sprintf:tis_sprintf
+    sqrt:Frama_C_sqrt
+    sscanf:tis_sscanf
+    strcat:tis_strcat
+    strchr:tis_strchr
+    strcmp:tis_strcmp
+    strcpy:tis_strcpy
+    strlen:tis_strlen
+    strncmp:tis_strncmp
+    strnlen:tis_strnlen
+    strtod:tis_strtod_interpreter
+    strtof:tis_strtof_interpreter
+    strtol:tis_strtol_interpreter
+    strtoll:tis_strtoll_interpreter
+    strtoul:tis_strtoul_interpreter
+    strtoull:tis_strtoull_interpreter
+    trunc:Frama_C_trunc
+    wcscat:tis_wcscat
+    wcscmp:tis_wcscmp
+    wcscpy:tis_wcscpy
+    wcslen:tis_wcslen
+    wcsncmp:tis_wcsncmp
+    wcsnlen:tis_wcsnlen
+    wmemcpy:tis_wmemcpy
+    wmemmove:tis_wmemmove
+    wprintf:tis_wprintf
+)
+
+
+OPTIONS_INTERPRETER_ONLY=(
+    -val
+    -val-stop-at-nth-alarm 1
+    -obviously-terminates
+    -val-exit-on-degeneration
+)
+
+OPTIONS_SERVER_ONLY=(
+    -tis-interpreter-gui
+    -server
+    -slevel 1073000000
+)
+
+OPTIONS=(
+    -cpp-gnu-like
+    -machdep x86_64
+    -no-val-print
+    -no-val-show-initial-state
+    -no-val-show-progress
+    -remove-unused-static-functions
+    -unspecified-access
+    -val-clone-on-recursive-calls
+    -val-interpreter-mode
+    -val-malloc-functions "calloc,strdup,strndup"
+    -val-malloc-plevel 1073000000
+    -val-print-callstacks
+    -val-show-slevel 1000000000
+    -val-slevel-merge-after-loop=-@all
+    -val-warn-harmless-function-pointers
+    -val-warn-pointer-arithmetic-out-of-bounds
+    -warn-decimal-float none
+)
+
+USER_LIBC_INCLUDE=(
+    -I.
+)
+TIS_INT_LIBC_INCLUDE=(
+    -isystem "$FC_SHARE/libc"
+    -I.
+    -I "$TIS_SHARE"
+)
+
+COMPILER=cc
+
+COMPILER_OPTS=(
+    -C
+    -E
+    -dD
+    -DTIS_INTERPRETER
+    -D__TIS_MKFS_STATIC_ALLOCATE
+    -D__TIS_MKFS_NO_ERR
+    -D__TIS_USER_FPUTS
+    -D__TIS_USER_PUTS
+    -nostdinc
+)
+
+
+############################################################################
+# Help
+
+function show_help {
+    cat <<EOF
+Usage: ${PROG_NAME} [<options>] [<file>...]
+
+TrustInSoft Interpreter options:
+  --cc compiler_options
+      Add C compiler options (as "-Ifolder -Iother"...)
+  --fs
+      Add the tis-mkfs runtime
+  --malloc-returns-null
+      The allocation built-ins are modeled as nondeterministically
+      returning a null pointer (default: no)
+  --no-color
+      Do not colorize the output
+  --preprocess-only
+      Do only the pre-processing of files, the analysis is not run
+  -no-tis-libc
+      Do not use the tool built-ins and specifications for libc functions.
+      This option is useful to analyze a libc or to use custom libc functions.
+  -h, -help, --help
+      Show this help and exit
+  -v, --verbose
+      Print the command before execution
+
+All other options are transmitted as-is to tis-interpreter.
+EOF
+}
+
+
+############################################################################
+# Parse options
+
+if test "$PROG_NAME" = 'tis-interpreter-gui'; then
+    set -- -server "$@"
+fi
+
+while test $# -gt 0; do
+    case "$1" in
+        --cc)
+            test $# -gt 1 || error "Option $1 takes an argument."
+            COMPILER_OPTS+=( "$2" )
+            shift
+            ;;
+
+        --fs)
+            FILESYSTEM=yes
+            ;;
+
+        -server)
+            SERVER=yes
+            ;;
+
+        --malloc-returns-null)
+            MALLOC_RETURNS_NULL=yes
+            ;;
+
+        --no-color)
+            COLOR=no
+            ;;
+
+        --preprocess-only)
+            PP_ONLY=yes
+            ;;
+
+        -no-tis-libc)
+            TIS_INT_LIBC=no
+            ;;
+
+        -h | -help | --help)
+            show_help
+            exit 0
+            ;;
+
+        -v | --verbose)
+            VERBOSE=yes
+            ;;
+
+        *)
+            OTHERS_OPTS+=( "$1" )
+            ;;
+    esac
+    shift
+done
+
+
+############################################################################
+# Sanity checks
+
+test "$FILESYSTEM" = "yes" -o "$FILESYSTEM" = "no"
+test "$SERVER" = "yes" -o "$SERVER" = "no"
+test "$MALLOC_RETURNS_NULL" = "yes" -o "$MALLOC_RETURNS_NULL" = "no"
+test "$COLOR" = "yes" -o "$COLOR" = "no"
+test "$PP_ONLY" = "yes" -o "$PP_ONLY" = "no"
+test "$VERBOSE" = "yes" -o "$VERBOSE" = "no"
+
+command -v "$EXECUTABLE" > /dev/null 2>&1 || \
+    error "'$EXECUTABLE' not found. Missing installation or wrong PATH variable?"
+
+if test ! -d "$FC_SHARE"; then
+    error "'tis-kernel-config -print-share-path' does not return an existing directory"
+    exit 1
+fi
+
+# Check if we can use colors with the current environment
+function check_color {
+    command -v perl > /dev/null 2>&1 || return 1
+    command -v tput > /dev/null 2>&1 || return 1
+    command -v tis-color > /dev/null 2>&1 || return 1
+    nb_colors=$(tput colors 2> /dev/null || echo '0')
+    test "$nb_colors" -gt 0 || return 1
+    return 0
+}
+test "$COLOR" = "no" || check_color || COLOR=no
+unset check_color
+
+if test "$FILESYSTEM" = "yes"; then
+    tis_mkfs_runtime="$TIS_SHARE/__tis_mkfs.c"
+    test -f "$tis_mkfs_runtime" || \
+        error "'$tis_mkfs_runtime' not found. Is the 'tis-mkfs' tool installed?"
+    OTHERS_OPTS+=( "$tis_mkfs_runtime" )
+fi
+
+
+############################################################################
+# Do the stuff
+
+if test "$TIS_INT_LIBC" = "no" ; then
+    INCLUDE=( "${USER_LIBC_INCLUDE[@]}" )
+else
+    OPTIONS+=( -tis-interpreter-libc )
+    INCLUDE=( "${TIS_INT_LIBC_INCLUDE[@]}" )
+fi
+
+CPP_CMD="$COMPILER ${INCLUDE[*]} ${COMPILER_OPTS[*]}"
+
+if test "$PP_ONLY" = "yes" ; then
+    if test "${#OTHERS_OPTS[@]}" -ne 0; then
+        for file in "${OTHERS_OPTS[@]}"; do
+            case "$file" in
+                -*) ;;
+                *.ci)
+                    test "$VERBOSE" = "no" || \
+                        echo "$CPP_CMD ${file%.ci}.c > $file"
+                    $CPP_CMD "${file%.ci}.c" > "$file"
+                    ;;
+                *.c)
+                    test "$VERBOSE" = "no" || \
+                        echo "$CPP_CMD $file > ${file%.c}.ci"
+                    $CPP_CMD "$file" > "${file%.c}.ci"
+                    ;;
+                *)
+                    error "Unknown file '$file'"
+            esac
+        done
+    fi
+else
+    if test "$SERVER" = "yes"; then
+        OPTIONS+=( "${OPTIONS_SERVER_ONLY[@]}" )
+    else
+        OPTIONS+=( "${OPTIONS_INTERPRETER_ONLY[@]}" )
+    fi
+
+    if test "$MALLOC_RETURNS_NULL" = "yes"; then
+        OPTIONS+=(
+            -val-split-return full
+            -val-malloc-returns-null
+        )
+    fi
+
+    if test "$TIS_INT_LIBC" = "yes" ; then
+      OPTIONS+=( ${TIS_INT_LIBC_BUILTINS[@]/#/-val-builtin } )
+    fi
+
+    CMD=(
+        $EXECUTABLE
+        -cpp-command="$CPP_CMD"
+        "${OPTIONS[@]}"
+    )
+
+    if test "${#OTHERS_OPTS[@]}" -ne 0; then
+        CMD+=( "${OTHERS_OPTS[@]}" )
+    fi
+
+    print_cmd() {
+        local args=( "${CMD[@]}" )
+        echo -n "${args[0]}"
+        unset args[0]
+        test "${#args[@]}" -eq 0 || printf ' "%s"' "${args[@]}"
+        echo ""
+    }
+
+    if test "$COLOR" = "yes"; then
+        test "$VERBOSE" = "no" || print_cmd
+        exec "${CMD[@]}" | tis-color
+    else
+        test "$VERBOSE" = "no" || print_cmd
+        exec "${CMD[@]}"
+    fi
+fi

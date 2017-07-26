@@ -1,0 +1,125 @@
+############################################################################
+#                                                                          #
+#  This file is part of TrustInSoft Kernel.                                #
+#                                                                          #
+#  TrustInSoft Kernel is a fork of Frama-C. All the differences are:       #
+#    Copyright (C) 2016-2017 TrustInSoft                                   #
+#                                                                          #
+#  TrustInSoft Kernel is released under GPLv2                              #
+#                                                                          #
+############################################################################
+
+##########################################################################
+#                                                                        #
+#  This file is part of WP plug-in of Frama-C.                           #
+#                                                                        #
+#  Copyright (C) 2007-2016                                               #
+#    CEA (Commissariat a l'energie atomique et aux energies              #
+#         alternatives)                                                  #
+#                                                                        #
+#  you can redistribute it and/or modify it under the terms of the GNU   #
+#  Lesser General Public License as published by the Free Software       #
+#  Foundation, version 2.1.                                              #
+#                                                                        #
+#  It is distributed in the hope that it will be useful,                 #
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of        #
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         #
+#  GNU Lesser General Public License for more details.                   #
+#                                                                        #
+#  See the GNU Lesser General Public License version 2.1                 #
+#  for more details (enclosed in the file licenses/LGPLv2.1).            #
+#                                                                        #
+##########################################################################
+
+m4_define([plugin_file],Makefile.in)
+
+m4_define([TIS_KERNEL_SHARE_ENV],
+          [m4_normalize(m4_esyscmd([echo $TIS_KERNEL_SHARE]))])
+
+m4_define([TIS_KERNEL_SHARE],
+	  [m4_ifval(TIS_KERNEL_SHARE_ENV,[TIS_KERNEL_SHARE_ENV],
+                                     [m4_esyscmd(tis-kernel -print-path)])])
+
+m4_ifndef([TIS_KERNEL_M4_MACROS],
+         [m4_include(TIS_KERNEL_SHARE/configure.ac)]
+        )
+
+check_plugin(wp,PLUGIN_RELATIVE_PATH(plugin_file),[WP plug-in],yes,yes)
+
+AC_ARG_ENABLE(
+  wp-coq,
+  [  --enable-wp-coq         Wp precompiled Coq libraries (default: yes)],
+  WPCOQ=$enableval,
+  WPCOQ=yes
+)
+
+AC_ARG_ENABLE(
+  wp-why3,
+  [  --enable-wp-why3        Wp precompiled Why3-Coq libraries (default: yes)],
+  WPWHY3COQ=$enableval,
+  WPWHY3COQ=yes
+)
+
+plugin_use(wp,gui)
+plugin_use(wp,rtegen)
+
+check_plugin_dependencies
+
+# NB: this would deserve to use plugin_requires mechanism
+if test "$ENABLE_WP" != "no"; then
+
+  ## Configuring for WP-COQ
+  if test "$WPCOQ" = "yes" ; then
+    AC_CHECK_PROG(COQC,coqc,yes,no)
+    if test "$COQC" = "yes" ; then
+      COQVERSION=`coqc -v | sed -n -e 's|.*version* *\([[^ ]]*\) .*$|\1|p' `
+      case $COQVERSION in
+        8.4pl6|8.5*|trunk)
+          AC_MSG_RESULT(coqc version $COQVERSION found)
+          ;;
+        *) 
+          AC_MSG_RESULT(unsupported coqc version $COQVERSION)
+          COQC="no"
+          ;;
+      esac
+    else
+      AC_MSG_NOTICE(rerun configure to make wp using coq 8.5)
+    fi
+  else
+    COQC="no"
+  fi
+  AC_SUBST(COQC)
+
+  ## Configuring for WHY3-COQ
+  if test "$COQC" = "yes" -a "$WPWHY3COQ" = "yes" ; then
+    AC_CHECK_PROG(WHY3COQC,why3,yes,no)
+    if test "$WHY3COQC" = "yes" ; then
+      WHY3VERSION=`why3 --version | sed -n -e 's|.*version* *\([[^ ]]*\) .*$|\1|p' `
+      case $WHY3VERSION in
+        0.86*|0.87*)
+          AC_MSG_RESULT(why3 version $WHY3VERSION found)
+	  WHY3LIB=`why3 --print-libdir`
+	  if test -f $WHY3LIB/coq/BuiltIn.vo ; then
+	    AC_MSG_RESULT(why3 compiled coq libraries found)
+	  else
+            AC_MSG_RESULT(why3 compiled coq libraries not found in $WHY3LIB)
+	    WHY3COQC="no"
+          fi
+          ;;
+        *) 
+          AC_MSG_RESULT(why3 unsupported version $WHY3VERSION) 
+          WHY3COQC="no"
+          ;;
+      esac
+    else
+      AC_MSG_NOTICE(rerun configure to make wp using why3 0.87)
+    fi
+  else
+    WHY3COQC="no"
+  fi
+  AC_SUBST(WHY3COQC)
+
+fi
+
+write_plugin_config(Makefile)
+

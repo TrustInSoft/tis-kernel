@@ -1,0 +1,337 @@
+############################################################################
+#                                                                          #
+#  This file is part of TrustInSoft Kernel.                                #
+#                                                                          #
+#  TrustInSoft Kernel is a fork of Frama-C. All the differences are:       #
+#    Copyright (C) 2016-2017 TrustInSoft                                   #
+#                                                                          #
+#  TrustInSoft Kernel is released under GPLv2                              #
+#                                                                          #
+############################################################################
+
+##########################################################################
+#                                                                        #
+#  This file is part of Frama-C.                                         #
+#                                                                        #
+#  Copyright (C) 2007-2015                                               #
+#    CEA (Commissariat à l'énergie atomique et aux énergies              #
+#         alternatives)                                                  #
+#                                                                        #
+#  you can redistribute it and/or modify it under the terms of the GNU   #
+#  Lesser General Public License as published by the Free Software       #
+#  Foundation, version 2.1.                                              #
+#                                                                        #
+#  It is distributed in the hope that it will be useful,                 #
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of        #
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         #
+#  GNU Lesser General Public License for more details.                   #
+#                                                                        #
+#  See the GNU Lesser General Public License version 2.1                 #
+#  for more details (enclosed in the file licenses/LGPLv2.1).            #
+#                                                                        #
+##########################################################################
+
+$(eval $(call assert_defined,PLUGIN_NAME))
+
+PLUGIN_ENABLE	?=yes
+PLUGIN_DIR	?=.
+
+TIS_KERNEL_SRC 	?=$(PLUGIN_DIR)/../../..
+
+TIS_KERNEL_INTERNAL	?=no
+
+ifndef MAKECONFIG_DIR
+MAKECONFIG_DIR	:=$(TIS_KERNEL_SHARE)
+endif
+
+ifndef PLUGIN_DYNAMIC
+PLUGIN_DYNAMIC	:=yes
+endif
+
+ifeq ($(NATIVE_DYNLINK),no)
+USABLE_NATIVE_DYNLINK ?=no
+endif
+
+#Do not generate documentation for this.
+PLUGIN_UNDOC:=$(PLUGIN_UNDOC)
+
+ifeq ($(TIS_KERNEL_INTERNAL),yes)
+## The plugin is not compiled from an installed tis-kernel, ie
+## internal plugin (in src/plugins or added during
+## ./configure with --enable-external)
+PLUGIN_RESET	:=yes
+
+else
+# The plugin is compiled from an installed tis-kernel
+PLUGIN_RESET	:=no
+include $(MAKECONFIG_DIR)/Makefile.common
+include $(MAKECONFIG_DIR)/Makefile.dynamic_config
+
+tests:: external_tests
+
+ifeq ($(PLUGIN_ENABLE),no)
+tests::
+doc::
+else
+
+.PHONY: plugin-doc/$(PLUGIN_NAME)
+ifneq ($(TIS_KERNEL_INTERNAL),yes)
+plugin-doc/$(PLUGIN_NAME):
+	if test ! -e $(DOC_DIR)/kernel-doc.ocamldoc; then \
+           echo "TrustInSoft Kernel was not installed with code documentation \
+support. Cannot compile API documentation. To install it, run 'make doc \
+install-doc-code' in TrustInSoft Kernel's main directory"; \
+           exit 1; \
+        fi
+	$(MKDIR) $($(@:plugin-doc/%=%_DOC_DIR))
+else
+ifeq ($(TIS_KERNEL_INTERNAL),yes)
+plugin-doc/$(PLUGIN_NAME):
+	:
+else
+plugin-doc/$(PLUGIN_NAME):
+	$(MKDIR) $($(@:plugin-doc/%=%_DOC_DIR))
+endif
+endif
+
+doc:: plugin-doc/$(PLUGIN_NAME) $(PLUGIN_NAME)_DOC
+
+clean-doc:: $(PLUGIN_DIR)/$(PLUGIN_NAME)_CLEAN_DOC
+
+ifneq ($(TIS_KERNEL_INTERNAL),yes)
+install-doc-code:: $(PLUGIN_NAME)_INSTALL_DOC
+endif
+
+$(PLUGIN_NAME)_INSTALL_DOC: plugin-doc/$(PLUGIN_NAME)
+	$(PRINT_CP) $(patsubst %_INSTALL_DOC,%,$@) Documentation
+	$(MKDIR) $(DOC_DIR)/$(@:%_INSTALL_DOC=%)
+	$(CP) $(patsubst %,"%", \
+	         $(wildcard $($(@:%_INSTALL_DOC=%_DOC_DIR))/*.css \
+	                    $($(@:%_INSTALL_DOC=%_DOC_DIR))/*.html \
+                            $($(@:%_INSTALL_DOC=%_DOC_DIR))/*.png)) \
+              $(DOC_DIR)/$(@:%_INSTALL_DOC=%)
+
+endif #PLUGIN_ENABLE
+endif #TIS_KERNEL_INTERNAL
+
+#Must be defined before section TESTS, because function call in make
+#replace not only $(1) but all the other $(..)
+PLUGIN_LIB_DIR	?= $(PLUGIN_DIR)
+PLUGIN_GUI_LIB_DIR ?= $(PLUGIN_DIR)/gui
+PLUGIN_INSTALL_DIR ?=$(DESTDIR)$(TIS_KERNEL_PLUGINDIR)
+
+######################## TESTS #################
+.PHONY: $(PLUGIN_NAME)_TESTS plugins_ptests_config
+
+$(eval $(call assert_defined,PLUGIN_LIB_DIR))
+$(eval $(call assert_defined,TIS_KERNEL_SHARE))
+$(eval $(call assert_defined,TIS_KERNEL_LIB))
+
+# Do not generate tests-related rules when PLUGIN_NO_TEST is set to 'no' but
+# there is no 'tests' directory. Typically useful for plugins released without
+# their tests.
+HAS_TESTS_DIR:=$(shell if test \! -d $(PLUGIN_DIR)/tests; then echo KO; fi)
+
+ifneq (,$(HAS_TESTS_DIR)$(PLUGIN_INTERNAL_TEST)$(PLUGIN_NO_TEST))
+$(PLUGIN_NAME)_TESTS:
+
+else
+PTESTS_DEP:=$(PLUGIN_DIR)/Makefile
+
+plugins_ptests_config: $(PLUGIN_DIR)/tests/ptests_config
+
+define TESTS_template
+$(PLUGIN_DIR)/tests/ptests_config: $(PTESTS_DEP)
+	$(PRINT_MAKING) $$@
+	$(MKDIR) tests
+	$(RM) $$@
+	$(ECHO) "DEFAULT_SUITES=" $(PLUGIN_TESTS_DIRS) > $$@
+	if test "$(USABLE_NATIVE_DYNLINK)" = "yes" \
+	     -o "$(TIS_KERNEL_INTERNAL)" = "yes"; then \
+	  $(ECHO) "TOPLEVEL_PATH=$(TIS_KERNEL_OPT)" >> $$@; \
+	else \
+	  $(ECHO) "TOPLEVEL_PATH=./tis-kernel-$(PLUGIN_NAME).$(OCAMLBEST)$(EXE)\";;" >> $$@; \
+	fi
+	$(ECHO) "TIS_KERNEL_SHARE=$(TIS_KERNEL_SHARE)" >> $$@
+	$(ECHO) "TIS_KERNEL_LIB=$(TIS_KERNEL_LIB)" >> $$@
+	if test "$(TIS_KERNEL_INTERNAL)" = "no"; then \
+	  $(ECHO) "TIS_KERNEL_PLUGIN=$(PLUGIN_LIB_DIR):$(PLUGIN_INSTALL_DIR)" >> $$@; \
+	  $(ECHO) "TIS_KERNEL_PLUGIN_GUI=$(PLUGIN_GUI_LIB_DIR):$(PLUGIN_INSTALL_DIR)/gui" >> $$@; \
+	  $(ECHO) "OCAMLPATH=$(TIS_KERNEL_PLUGINDIR):$(OCAMLPATH)" >> $$@; \
+        else \
+	  $(ECHO) "TIS_KERNEL_PLUGIN=$(PLUGIN_LIB_DIR)" >> $$@; \
+	  $(ECHO) "TIS_KERNEL_PLUGIN_GUI=$(PLUGIN_GUI_LIB_DIR)" >> $$@; \
+        fi
+	$(ECHO) "OCAMLRUNPARAM=" >> $$@
+	$(CHMOD_RO) $$@
+
+# $(PLUGIN_NAME)_DEFAULT_TESTS allows plugins to define rules that at
+# the same time depend on $(PLUGIN_NAME)_DEFAULT_TESTS and
+# $(PLUGIN_NAME)_TESTS depend on them
+
+.PHONY: $(PLUGIN_NAME)_DEFAULT_TESTS
+
+$(PLUGIN_NAME)_DEFAULT_TESTS: $$(TARGETS) $$(TARGETS_GUI) $(PLUGIN_DIR)/tests/ptests_config
+	$(PRINT) TESTING PLUG-IN $(PLUGIN_NAME)
+	cd $(PLUGIN_DIR) && \
+        time -p $(PTESTS) $$(PTESTS_OPTS) $(PLUGIN_PTESTS_OPTS)
+
+$(PLUGIN_NAME)_TESTS: $(PLUGIN_NAME)_DEFAULT_TESTS
+
+endef
+$(eval $(call TESTS_template))
+
+external_tests: $(PLUGIN_NAME)_TESTS
+
+endif
+################################################
+
+PLUGIN_FLAGS:=$(FLAGS) $(DEBUG) $(TIS_KERNEL_INCLUDES) $(OCAMLGRAPH_INCLUDE)
+PLUGIN_BFLAGS:=$(PLUGIN_FLAGS) $(PLUGIN_BFLAGS)
+PLUGIN_OFLAGS:=$(PLUGIN_FLAGS) $(PLUGIN_OFLAGS)
+ifeq ($(TIS_KERNEL_INTERNAL),yes)
+PLUGIN_DEPFLAGS:=$(PLUGIN_DEPFLAGS)
+else
+PLUGIN_DEPFLAGS:=$(TIS_KERNEL_INCLUDES) $(PLUGIN_DEPFLAGS)
+PLUGIN_DOC_DIR:=$(PLUGIN_DIR)/doc/code
+endif
+# For plugins that depends on the API of other ones, we need to add the
+# directory where the plugins' .cmi are compiled
+PLUGIN_DOCFLAGS:=\
+  $(TIS_KERNEL_INCLUDES) -I $(TIS_KERNEL_COMPILED_PLUGINDIR) $(PLUGIN_DOCFLAGS)
+
+$(eval $(call include_generic_plugin_Makefile,$(PLUGIN_NAME)))
+
+TARGETS := $(TARGET_META) $(TARGET_CMI) $(TARGET_CMO) $(TARGET_CMX) \
+	   $(TARGET_CMA) $(TARGET_CMXS)
+TARGETS_GUI := $(TARGET_META) $(TARGET_GUI_CMI) $(TARGET_GUI_CMO) \
+               $(TARGET_GUI_CMX) $(TARGET_GUI_CMXS)
+TARGETS_BYTE:= $(TARGET_META) $(TARGET_CMI) $(TARGET_CMO) $(TARGET_CMA)
+TARGETS_OPT:=  $(TARGET_META) $(TARGET_CMI) $(TARGET_CMX) $(TARGET_CMXS)
+
+include $(MAKECONFIG_DIR)/Makefile.kernel
+
+byte:: $(TARGETS_BYTE)
+opt:: $(TARGETS_OPT)
+gui:: $(TARGETS_GUI)
+
+# do not define additional targets if you come from the TrustInSoft Kernel Makefile
+ifneq ($(TIS_KERNEL_INTERNAL),yes)
+
+##########
+# Zarith #
+##########
+
+ifeq ($(HAS_ZARITH),yes)
+ZARITH_INCLUDES= -I $(ZARITH_PATH)
+endif
+
+##################
+# Static Linking #
+##################
+
+$(PLUGIN_DIR)/tis-kernel-$(PLUGIN_NAME).byte$(EXE): $(TARGET_CMO)
+	$(PRINT_LINKING) $@
+	$(OCAMLC) $(PLUGIN_LINK_BFLAGS) $(DYN_BLINKFLAGS) $(ZARITH_INCLUDES) \
+	  -o $@ $(DYN_BYTE_LIBS) $(DYN_GEN_BYTE_LIBS) \
+	  $(patsubst %boot.cmo, $(PLUGIN_EXTRA_BYTE) $(TARGET_CMO) %boot.cmo, \
+	    $(DYN_ALL_BATCH_CMO))
+
+$(PLUGIN_DIR)/tis-kernel-$(PLUGIN_NAME).opt$(EXE): $(TARGET_CMX)
+	$(PRINT_LINKING) $@
+	$(OCAMLOPT) $(PLUGIN_LINK_OFLAGS) $(DYN_OLINKFLAGS) $(ZARITH_INCLUDES) \
+	  -o $@ $(DYN_OPT_LIBS) $(DYN_GEN_OPT_LIBS) \
+	  $(patsubst %boot.cmx, $(PLUGIN_EXTRA_OPT) $(TARGET_CMX) %boot.cmx, \
+            $(DYN_ALL_BATCH_CMX))
+
+static.byte:: $(PLUGIN_DIR)/tis-kernel-$(PLUGIN_NAME).byte$(EXE)
+static.opt:: $(PLUGIN_DIR)/tis-kernel-$(PLUGIN_NAME).opt$(EXE)
+static:: $(PLUGIN_DIR)/tis-kernel-$(PLUGIN_NAME).byte$(EXE) \
+	 $(PLUGIN_DIR)/tis-kernel-$(PLUGIN_NAME).$(OCAMLBEST)$(EXE)
+
+###################
+# Clean & Install #
+###################
+
+.PHONY: tests all install uninstall clean depend $(PLUGIN_NAME)_CLEAN_DYNAMIC
+
+clean:: $(PLUGIN_NAME)_CLEAN_DYNAMIC
+
+$(PLUGIN_NAME)_CLEAN_DYNAMIC:
+	$(RM) $($(patsubst %_CLEAN_DYNAMIC,%_DIR,$@))/tests/ptests_config
+	$(RM) tis-kernel-$($(patsubst %_CLEAN_DYNAMIC,,$@)) \
+              tis-kernel-$($(patsubst %_CLEAN_DYNAMIC,,$@)).byte
+
+dist-clean distclean: $(PLUGIN_DIR)/$(PLUGIN_NAME)_DIST_CLEAN
+
+ifeq ($(USABLE_NATIVE_DYNLINK),no)
+STATIC=static
+else
+STATIC=
+endif
+
+all:: $(PLUGIN_DIR)/.depend byte $(OCAMLBEST) gui $(STATIC) plugins_ptests_config
+
+ifneq ($(PLUGIN_ENABLE),no)
+
+install::
+	$(PRINT_CP) $(PLUGIN_INSTALL_DIR)
+	$(MKDIR) $(PLUGIN_INSTALL_DIR)
+	$(CP) $(TARGETS) $(PLUGIN_INSTALL_DIR)
+	$(PRINT_CP) $(BINDIR)
+	if [ -f tis-kernel-$(PLUGIN_NAME).byte$(EXE) ]; then \
+	  $(CP) tis-kernel-$(PLUGIN_NAME).byte$(EXE) $(BINDIR); \
+	fi
+	if [ -f tis-kernel-$(PLUGIN_NAME).$(OCAMLBEST)$(EXE) ]; then \
+	  $(CP) tis-kernel-$(PLUGIN_NAME).$(OCAMLBEST)$(EXE) \
+		$(BINDIR)/tis-kernel-$(PLUGIN_NAME)$(EXE); \
+	fi
+ifeq ($(HAS_GUI),yes)
+	$(PRINT_CP) $(PLUGIN_INSTALL_DIR)/gui
+	$(MKDIR) $(PLUGIN_INSTALL_DIR)/gui
+	$(CP) $(TARGETS_GUI) $(PLUGIN_INSTALL_DIR)/gui
+endif
+
+uninstall::
+	$(PRINT_RM) installed $(PLUGIN_NAME)
+	$(RM) $(PLUGIN_INSTALL_DIR)/META.$(PLUGIN_PKG)
+	$(RM) $(PLUGIN_INSTALL_DIR)/$(PLUGIN_NAME).*
+	$(RM) $(BINDIR)/tis-kernel-$(PLUGIN_NAME).*
+ifeq ($(HAS_GUI),yes)
+	$(RM) $(PLUGIN_INSTALL_DIR)/gui/$(PLUGIN_NAME).*
+endif
+endif # PLUGIN_ENABLE <> no
+
+##########
+# Merlin #
+##########
+
+.PHONY: merlin_plugin
+merlin_plugin::
+	echo "B $(TIS_KERNEL_LIBDIR)" > .merlin
+	echo "B $(TIS_KERNEL_LIBDIR)/plugins" >> .merlin
+	echo "B $(TIS_KERNEL_LIBDIR)/plugins/gui" >> .merlin
+	echo "PKG ocamlgraph" >> .merlin
+	echo "PKG zarith" >> .merlin
+	echo "PKG lablgtk2" >> .merlin
+
+############
+# Cleaning #
+############
+
+clean:: $(PLUGIN_DIR)/$(PLUGIN_NAME)_CLEAN;
+
+################
+# Generic part #
+################
+
+include $(MAKECONFIG_DIR)/Makefile.generic
+
+endif # TIS_KERNEL_INTERNAL <> yes
+
+PLUGIN_PTESTS_OPTS:=
+
+###############################################################################
+# Local Variables:
+# mode: makefile
+# End:

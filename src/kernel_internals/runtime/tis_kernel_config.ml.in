@@ -1,0 +1,74 @@
+(**************************************************************************)
+(*                                                                        *)
+(*  This file is part of TrustInSoft Kernel.                              *)
+(*                                                                        *)
+(*  TrustInSoft Kernel is a fork of Frama-C. All the differences are:     *)
+(*    Copyright (C) 2016-2017 TrustInSoft                                 *)
+(*                                                                        *)
+(*  TrustInSoft Kernel is released under GPLv2                            *)
+(*                                                                        *)
+(**************************************************************************)
+
+(**************************************************************************)
+(*                                                                        *)
+(*  This file is part of Frama-C.                                         *)
+(*                                                                        *)
+(*  Copyright (C) 2007-2015                                               *)
+(*    CEA (Commissariat à l'énergie atomique et aux énergies              *)
+(*         alternatives)                                                  *)
+(*                                                                        *)
+(*  you can redistribute it and/or modify it under the terms of the GNU   *)
+(*  Lesser General Public License as published by the Free Software       *)
+(*  Foundation, version 2.1.                                              *)
+(*                                                                        *)
+(*  It is distributed in the hope that it will be useful,                 *)
+(*  but WITHOUT ANY WARRANTY; without even the implied warranty of        *)
+(*  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *)
+(*  GNU Lesser General Public License for more details.                   *)
+(*                                                                        *)
+(*  See the GNU Lesser General Public License version 2.1                 *)
+(*  for more details (enclosed in the file licenses/LGPLv2.1).            *)
+(*                                                                        *)
+(**************************************************************************)
+
+# 24 "src/kernel_internals/runtime/tis_kernel_config.ml.in"
+
+(** This file is *not* linked in TrustInSoft Kernel. Instead, is it is
+    concatenated to Config, to create a standalone executable *)
+
+let version _ =
+  Format.printf
+    "TrustInSoft Kernel %s@\n\
+     Environment:@\n  \
+     TIS_KERNEL_SHARE  = %S@\n  \
+     TIS_KERNEL_LIB    = %S@\n  \
+     TIS_KERNEL_PLUGIN = %S@."
+    Config.version
+    Config.datadir Config.libdir Config.plugin_path
+  ;
+  exit 0
+
+let options = Arg.([
+    "-print-share-path",
+    Unit (fun _ -> Format.printf "%s%!" Config.datadir; exit 0),
+    " Print the path of TrustInSoft Kernel share directory";
+
+    "-print-libpath",
+    Unit (fun _ -> Format.printf "%s%!" Config.libdir; exit 0),
+    " Print the path of TrustInSoft Kernel library";
+
+    "-print-plugin-path",
+    Unit (fun _ -> Format.printf "%s%!" Config.plugin_path; exit 0),
+    " Print the path where TrustInSoft Kernel dynamic plug-ins are searched for";
+
+    "-version",
+    Unit version,
+    " Display TrustInSoft Kernel version";
+  ])
+
+let usage = "\
+Usage:  tis-kernel-config <option>"
+
+let () =
+  Arg.parse options (fun _ -> ()) usage;
+  version () (* We only get here if no option has been specified *)

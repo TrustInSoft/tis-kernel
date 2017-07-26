@@ -1,0 +1,12 @@
+(**************************************************************************)
+(*                                                                        *)
+(*  This file is part of TrustInSoft Kernel.                              *)
+(*                                                                        *)
+(*  TrustInSoft Kernel is a fork of Frama-C. All the differences are:     *)
+(*    Copyright (C) 2016-2017 TrustInSoft                                 *)
+(*                                                                        *)
+(*  TrustInSoft Kernel is released under GPLv2                            *)
+(*                                                                        *)
+(**************************************************************************)
+
+let () = Printf.printf "%s" (String.capitalize Sys.argv.(1))

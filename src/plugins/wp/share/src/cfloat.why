@@ -1,0 +1,184 @@
+(**************************************************************************)
+(*                                                                        *)
+(*  This file is part of TrustInSoft Kernel.                              *)
+(*                                                                        *)
+(*  TrustInSoft Kernel is a fork of Frama-C. All the differences are:     *)
+(*    Copyright (C) 2016-2017 TrustInSoft                                 *)
+(*                                                                        *)
+(*  TrustInSoft Kernel is released under GPLv2                            *)
+(*                                                                        *)
+(**************************************************************************)
+
+(**************************************************************************)
+(*                                                                        *)
+(*  This file is part of WP plug-in of Frama-C.                           *)
+(*                                                                        *)
+(*  Copyright (C) 2007-2015                                               *)
+(*    CEA (Commissariat a l'energie atomique et aux energies              *)
+(*         alternatives)                                                  *)
+(*                                                                        *)
+(*  you can redistribute it and/or modify it under the terms of the GNU   *)
+(*  Lesser General Public License as published by the Free Software       *)
+(*  Foundation, version 2.1.                                              *)
+(*                                                                        *)
+(*  It is distributed in the hope that it will be useful,                 *)
+(*  but WITHOUT ANY WARRANTY; without even the implied warranty of        *)
+(*  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *)
+(*  GNU Lesser General Public License for more details.                   *)
+(*                                                                        *)
+(*  See the GNU Lesser General Public License version 2.1                 *)
+(*  for more details (enclosed in the file licenses/LGPLv2.1).            *)
+(*                                                                        *)
+(**************************************************************************)
+
+(* -------------------------------------------------------------------------- *)
+(* --- C-Integer Arithmetics for Alt-Ergo                                 --- *)
+(* -------------------------------------------------------------------------- *)
+
+theory Cfloat
+
+  use import real.RealInfix
+  use import real.Abs
+  use import real.Square
+
+  (* -------------------------------------------------------------------------- *)
+  (* --- C-Integer Arithmetics for Alt-Ergo                                 --- *)
+  (* -------------------------------------------------------------------------- *)
+
+  (* C-Float Conversion *)
+
+  function to_float32 real : real
+  function to_float64 real : real
+  predicate is_float32 (x : real) = to_float32(x)=x
+  predicate is_float64 (x : real) = to_float64(x)=x
+
+  (* C-Float Rounding Modes *)
+
+  type rounding_mode = Up | Down | ToZero | NearestTiesToAway | NearestTiesToEven
+  function round_double rounding_mode real : real
+  function round_float rounding_mode real : real
+
+  axiom float_32:
+    forall x:real [ round_float NearestTiesToEven x ].
+    to_float32 x = round_float NearestTiesToEven x
+
+  axiom float_64:
+    forall x:real [ round_double NearestTiesToEven x ].
+    to_float64 x = round_double NearestTiesToEven x
+
+  (* C-Float Classification *)
+
+  type float_kind = Real | Float32 | Float64 | NaN | Inf_pos | Inf_neg
+
+  function classify_float real : float_kind
+  predicate is_finite32(x:real) = classify_float x = Float32
+  predicate is_finite64(x:real) = classify_float(x) = Float32 ||
+                                  classify_float(x) = Float64
+  predicate is_NaN(x:real) = classify_float(x) = NaN
+  predicate is_infinite(x:real) = classify_float(x) = Inf_pos ||
+                                  classify_float(x) = Inf_neg
+  predicate is_positive_infinite(x:real) = classify_float(x) = Inf_pos
+  predicate is_negative_infinite(x:real) = classify_float(x) = Inf_neg
+
+  axiom is_finite_to_float_32 :
+    forall x:real [is_finite32(to_float32 x)]. is_finite32(to_float32 x)
+
+  axiom is_finite_to_float_64 :
+    forall x:real [is_finite64(to_float64 x)]. is_finite64(to_float64 x)
+
+  (* C-Float Rounded Arithmetics *)
+
+  function add_float32 (x:real)(y:real) : real = to_float32 (x +. y)
+  function add_float64 (x:real)(y:real) : real = to_float64 (x +. y)
+
+  function mul_float32 (x:real)(y:real) : real = to_float32 (x *. y)
+  function mul_float64 (x:real)(y:real) : real = to_float64 (x *. y)
+
+  function div_float32 (x:real)(y:real) : real = to_float32 (x /. y)
+  function div_float64 (x:real)(y:real) : real = to_float64 (x /. y)
+
+  function sqrt_float32 (x:real) : real = to_float32(sqrt x)
+  function sqrt_float64 (x:real) : real = to_float64(sqrt x)
+
+  function model real : real
+  function delta(x:real) : real = abs( x -. model x )
+  function error(x:real) : real = delta(x) /. abs(model x)
+
+  axiom model_float_32: forall x:real. model(to_float32 x) = model x
+  axiom model_float_64: forall x:real. model(to_float64 x) = model x
+  axiom model_add: forall x y:real. model (x +. y) = model x +. model y
+  axiom model_mul: forall x y:real. model (x *. y) = model x *. model y
+  axiom model_div: forall x y:real. model (x /. y) = model x /. model y
+  axiom model_sqrt: forall x:real. model (sqrt x) = sqrt(model(x))
+
+
+end
+
+(** Realization using why3 floats *)
+
+(*
+  (* C-Float IEEE-754 *)
+
+  use export floating_point.Rounding
+  use import floating_point.Single
+  use import floating_point.Double
+
+  type rounding_mode = Rounding.mode
+
+  function round_float  (m:rounding_mode) (x:real) : real = Single.round m x
+  function round_double (m:rounding_mode) (x:real) : real = Double.round m x
+
+  (* C-Float Conversion *)
+
+  function to_float32 (x:real) : real = Single.round NearestTiesToEven x
+  function to_float64 (x:real) : real = Double.round NearestTiesToEven x
+
+  predicate is_float32 real
+  predicate is_float64 real
+
+  axiom def_float32: forall x:real [ is_float32(x) ]. is_float32 x -> to_float32 x = x
+  axiom def_float64: forall x:real [ is_float64(x) ]. is_float64 x -> to_float64 x = x
+
+  predicate is_finite32 (x:real) = abs(x) <=. Single.max_single
+  predicate is_finite64 (x:real) = abs(x) <=. Double.max_double
+
+  axiom is_finite_to_float_32 :
+    forall x:real [is_finite32(to_float32 x)]. is_finite32(to_float32 x)
+
+  axiom is_finite_to_float_64 :
+    forall x:real [is_finite64(to_float64 x)]. is_finite64(to_float64 x)
+
+  (* C-Float Conversions are projections *)
+
+  axiom proj_float32 : forall x:real [ to_float32(to_float32 x) ]. to_float32(to_float32 x)=to_float32 x
+  axiom proj_float64 : forall x:real [ to_float64(to_float64 x) ]. to_float64(to_float64 x)=to_float64 x
+
+  (* C-Float Arithemtics *)
+
+  function add_float32(x:real)(y:real):real = to_float32(x +. y)
+  function add_float64(x:real)(y:real):real = to_float64(x +. y)
+
+  function mul_float32(x:real)(y:real):real = to_float32(x *. y)
+  function mul_float64(x:real)(y:real):real = to_float64(x *. y)
+
+  function div_float32(x:real)(y:real):real = to_float32(x /. y)
+  function div_float64(x:real)(y:real):real = to_float64(x /. y)
+
+  function sqrt_float32(x:real):real = to_float32(sqrt x)
+  function sqrt_float64(x:real):real = to_float64(sqrt x)
+
+  (* C-Float Precision *)
+
+  function model real : real
+  function delta (x:real) : real = abs ( x -. (model x) )
+  function error (x:real) : real = (delta x) /. (abs (model x))
+
+  axiom model_float_32: forall x:real. model(to_float32 x) = model x
+  axiom model_float_64: forall x:real. model(to_float64 x) = model x
+  axiom model_add: forall x y:real. model(x +. y) = model x +. model y
+  axiom model_mul: forall x y:real. model(x *. y) = model x *. model y
+  axiom model_div: forall x y:real. model(x /. y) = model x /. model y
+  axiom model_sqrt: forall x:real. model(sqrt(x)) = sqrt(model x)
+
+
+*)
