@@ -36,7 +36,9 @@
 TIS_KERNEL_SRC=.
 MAKECONFIG_DIR=share
 
-ifeq ($(NOLICENSE),yes)
+-include Makefile.tis_license
+
+ifneq ($(TIS_LICENSE), yes)
 LICENSE_FILES :=
 LICENSE_CMO := licenseFlags license
 LICENSE_CMO := $(addsuffix .cmo, $(LICENSE_CMO))
@@ -343,7 +345,7 @@ DISTRIB_FILES:=\
       devel_tool/size.ml*						\
       bin/sed_get_make_major bin/sed_get_make_minor                     \
       INSTALL INSTALL_WITH_WHY .make-clean	                        \
-      .make-clean-stamp .make-ocamlgraph-stamp .force-reconfigure 	\
+      .make-clean-stamp .force-reconfigure 				\
       opam/opam opam/descr opam/tis-kernel/opam opam/tis-kernel/descr	\
       opam/files/run_autoconf_if_needed.ml
 
@@ -381,24 +383,12 @@ dist: clean
 bdist: clean
 	$(QUIET_MAKE) OPTIM="-unsafe -noassert" DEBUG="" byte
 
-ifneq ("$(OCAMLGRAPH_LOCAL)","")
-archclean: clean
-	$(MAKE) -C $(OCAMLGRAPH_LOCAL) distclean
-	cd $(OCAMLGRAPH_LOCAL) ; ./configure
-
-clean-rebuild: archclean
-	$(MAKE) -C $(OCAMLGRAPH_LOCAL)
-	$(QUIET_MAKE) all
-
-OCAMLGRAPH_MERLIN="S `readlink -f $(OCAMLGRAPH_LOCAL)`\\nB `readlink -f $(OCAMLGRAPH_LOCAL)`"
-else
 archclean: clean
 
 clean-rebuild: archclean
 	$(QUIET_MAKE) all
 
 OCAMLGRAPH_MERLIN="PKG ocamlgraph"
-endif
 
 rebuild: config.status
 	$(MAKE) smartclean
@@ -472,94 +462,6 @@ OPT_LIBS+=$(OUNIT_LIB_OPT)
 # Ocamlgraph #
 ##############
 
-ifneq ("$(OCAMLGRAPH_LOCAL)","")
-
-GRAPH_FILES=graph.cmo
-ifeq ($(OCAMLBEST),opt)
-GRAPH_FILES+=graph.cmx
-endif
-
-lib/graph.cmi: .make-ocamlgraph $(wildcard $(OCAMLGRAPH_LOCAL)/src/*.ml*) \
-		$(OCAMLGRAPH_LOCAL)/Makefile
-	$(PRINT_BUILD) ocamlgraph
-	$(MAKE) -C $(OCAMLGRAPH_LOCAL) $(GRAPH_FILES)
-	$(PRINT_CP) $@
-	$(CP) $(patsubst lib/%,$(OCAMLGRAPH_LOCAL)/%,$@) $@
-
-lib/graph.cmo: lib/graph.cmi
-	$(PRINT_CP) $@
-	$(CP) $(patsubst lib/%,$(OCAMLGRAPH_LOCAL)/%,$@) $@
-
-lib/graph.cmx: lib/graph.cmi
-	$(PRINT_CP) $@
-	$(CP) $(patsubst lib/%,$(OCAMLGRAPH_LOCAL)/%,$@) $@
-
-lib/graph.o: lib/graph.cmi
-	$(PRINT_CP) $@
-	$(CP) $(patsubst lib/%,$(OCAMLGRAPH_LOCAL)/%,$@) $@
-
-GRAPH_LIB+= lib/graph.cmo lib/graph.cmi
-ifneq ($(OCAMLOPT),no)
-GRAPH_LIB+= lib/graph.cmx lib/graph.o
-endif
-
-GRAPH_BYTE_LIBS=lib/graph.cmo
-GRAPH_OPT_LIBS=lib/graph.cmx
-GEN_BYTE_LIBS+=$(GRAPH_BYTE_LIBS)
-GEN_OPT_LIBS+=$(GRAPH_OPT_LIBS)
-
-.PRECIOUS: .cmo .cmi .cmx .o .cmxa .cma
-
-# dgraph (included in ocamlgraph)
-ifeq ($(HAS_GNOMECANVAS),yes)
-ifneq ($(ENABLE_GUI),no)
-
-DGRAPH_FILES=dgraph/dgraph.cmo
-ifeq ($(OCAMLBEST),opt)
-DGRAPH_FILES+=dgraph/dgraph.cmx
-endif
-
-lib/dgraph.cmi: lib/graph.cmi
-	$(PRINT_BUILD) ocamlgraph GUI
-	$(MAKE) -C $(OCAMLGRAPH_LOCAL) $(DGRAPH_FILES)
-	$(PRINT_CP) $@
-	$(CP) $(patsubst lib/%,$(OCAMLGRAPH_LOCAL)/dgraph/%,$@) $@
-
-lib/dgraph.cmo: lib/dgraph.cmi
-	$(PRINT_CP) $@
-	$(CP) $(patsubst lib/%,$(OCAMLGRAPH_LOCAL)/dgraph/%,$@) $@
-
-lib/dgraph.cmx: lib/dgraph.cmi
-	$(PRINT_CP) $@
-	$(CP) $(patsubst lib/%,$(OCAMLGRAPH_LOCAL)/dgraph/%,$@) $@
-
-lib/dgraph.o: lib/dgraph.cmi
-	$(PRINT_CP) $@
-	$(CP) $(patsubst lib/%,$(OCAMLGRAPH_LOCAL)/dgraph/%,$@) $@
-
-GRAPH_GUICMO= lib/dgraph.cmo
-GRAPH_GUICMI= $(GRAPH_GUICMO:.cmo=.cmi)
-GRAPH_GUICMX= $(GRAPH_GUICMO:.cmo=.cmx)
-GRAPH_GUIO=  $(GRAPH_GUICMO:.cmo=.o)
-GRAPH_LIB+= $(GRAPH_GUICMI) $(GRAPH_GUICMO)
-ifneq ($(OCAMLOPT),no)
-GRAPH_LIB+= $(GRAPH_GUICMX) $(GRAPH_GUIO)
-endif
-
-GEN_BYTE_GUI_LIBS+=$(GRAPH_GUICMO)
-GEN_OPT_GUI_LIBS+=$(GRAPH_GUICMX)
-
-HAS_DGRAPH=yes
-
-else # enable_gui is no: disable dgraph
-HAS_DGRAPH=no
-endif
-else # gnome_canvas is not yes: disable dgraph
-HAS_DGRAPH=no
-endif
-
-else # does not use ocamlgraph local version
-
 INCLUDES+=$(OCAMLGRAPH_INCLUDE)
 BYTE_LIBS+= graph.cma
 OPT_LIBS+= graph.cmxa
@@ -578,43 +480,6 @@ endif
 else # gnome_canvas is not yes: disable dgraph
 HAS_DGRAPH=no
 endif
-
-endif # testing ocamlgraph is local
-
-GENERATED+=$(GRAPH_LIB)
-
-# Redoing ocamlgraph on need
-############################
-
-# If 'make untar-ocamlgraph' have to be performed after 'svn update':
-# change '.make-ocamlgraph-stamp' before 'cvs commit'
-.make-ocamlgraph: .make-ocamlgraph-stamp
-	$(TOUCH) $@
-ifneq ("$(OCAMLGRAPH_LOCAL)","")
-# Inline the rules of "untar-ocamlgraph" here
-# because calling a recursive make does not work
-	$(PRINT_UNTAR) ocamlgraph
-	$(RM) -r $(OCAMLGRAPH_LOCAL)
-	$(TAR) xzf ocamlgraph.tar.gz
-	cd $(OCAMLGRAPH_LOCAL) && ./configure
-	$(MAKE) clean
-endif
-
-include .make-ocamlgraph
-DISTRIB_FILES += .make-ocamlgraph
-
-# force "make untar-ocamlgraph" to be executed for all SVN users
-force-ocamlgraph:
-	expr `$(CAT) .make-ocamlgraph-stamp` + 1 > .make-ocamlgraph-stamp
-
-untar-ocamlgraph:
-	$(PRINT_UNTAR) $@
-	$(RM) -r $(OCAMLGRAPH_LOCAL)
-	$(TAR) xzf ocamlgraph.tar.gz
-	cd $(OCAMLGRAPH_LOCAL) && ./configure
-	$(MAKE) clean
-
-.PHONY: force-ocamlgraph untar-ocamlgraph
 
 ##########
 # Zarith #
@@ -1425,9 +1290,7 @@ INCLUDES_FOR_OCAMLDEP+=-I src/plugins/gui
 BYTE_GUI_LIBS+= lablgtk.cma
 OPT_GUI_LIBS += lablgtk.cmxa
 
-ifeq ("$(OCAMLGRAPH_LOCAL)","")
 GUI_INCLUDES += $(OCAMLGRAPH)
-endif
 
 ifeq ($(HAS_GNOMECANVAS),yes)
 BYTE_GUI_LIBS += lablgnomecanvas.cma
@@ -1513,10 +1376,6 @@ ALL_GUI_CMO= $(ALL_CMO) $(GRAPH_GUICMO) $(GUICMO)
 ALL_GUI_CMX= $(patsubst %.cma, %.cmxa, $(ALL_GUI_CMO:.cmo=.cmx))
 
 bin/viewer.byte$(EXE): BYTE_LIBS+=$(BYTE_GUI_LIBS) $(GRAPH_GUICMO)
-# recompile ocamlgraph on need iff we use its local version
-ifneq ("$(OCAMLGRAPH_LOCAL)","")
-bin/viewer.byte$(EXE): $(GRAPH_GUICMO)
-endif
 bin/viewer.byte$(EXE): $(filter-out $(GRAPH_GUICMO), $(ALL_GUI_CMO)) \
 			$(GEN_BYTE_LIBS) \
 			$(PLUGIN_DYN_CMO_LIST) $(PLUGIN_DYN_GUI_CMO_LIST)
@@ -1530,10 +1389,6 @@ bin/viewer.byte$(EXE): $(filter-out $(GRAPH_GUICMO), $(ALL_GUI_CMO)) \
 	  $(GUICMO) $(STARTUP_CMO)
 
 bin/viewer.opt$(EXE): OPT_LIBS+= $(OPT_GUI_LIBS) $(GRAPH_GUICMX)
-# recompile ocamlgraph on need iff we use its local version
-ifneq ("$(OCAMLGRAPH_LOCAL)","")
-bin/viewer.opt$(EXE): $(GRAPH_GUICMX) $(GRAPH_GUIO)
-endif
 bin/viewer.opt$(EXE): $(filter-out $(GRAPH_GUICMX), $(ALL_GUI_CMX)) \
 			$(GEN_OPT_LIBS) \
 			$(PLUGIN_DYN_CMX_LIST) $(PLUGIN_DYN_GUI_CMX_LIST) \
@@ -1900,11 +1755,7 @@ check-devguide: $(CHECK_CODE) $(DOC_DEPEND) $(DOC_DIR)/kernel-doc.ocamldoc
 # Installation #
 ################
 
-FILTER_INTERFACE_DIRS:=src/plugins/gui $(ZARITH_PATH)
-
-ifeq ("$(OCAMLGRAPH_LOCAL)","")
-FILTER_INTERFACE_DIRS+= $(OCAMLGRAPH_HOME)
-endif
+FILTER_INTERFACE_DIRS:=src/plugins/gui $(ZARITH_PATH) $(OCAMLGRAPH_HOME)
 
 #       line below does not work if INCLUDES contains twice the same directory
 #       Do not attempt to copy gui interfaces if gui is disabled
@@ -2220,17 +2071,10 @@ clean:: $(PLUGIN_LIST:=_CLEAN) $(PLUGIN_DYN_LIST:=_CLEAN) \
 smartclean:
 	$(MAKE) -f share/Makefile.clean smartclean
 
-distclean-ocamlgraph:
-	$(PRINT_RM) ocamlgraph
-	if [ -f ocamlgraph/Makefile ]; then \
-	  $(MAKE) --silent -C ocamlgraph distclean; \
-	  cd ocamlgraph; ./configure; \
-	fi
-
 # Do NOT use :: for this rule: it is mandatory to remove share/Makefile.config
 # as the very last step performed by make (who'll otherwise try to regenerate
 # it in the middle of cleaning)
-dist-clean distclean: clean clean-doc distclean-ocamlgraph \
+dist-clean distclean: clean clean-doc \
 	              $(PLUGIN_LIST:=_DIST_CLEAN) \
                       $(PLUGIN_DYN_LIST:=_DIST_CLEAN)
 	$(PRINT_RM) config
@@ -2267,13 +2111,10 @@ PLUGIN_DEP_LIST:=$(PLUGIN_LIST) $(PLUGIN_DYN_LIST)
 
 .PHONY: depend
 
-#$(ALL_CMO:.cmo=.cmi) $(ALL_CMO) $(ALL_CMX): $(GRAPH_LIB)
-
-GENERATED_FOR_OCAMLDEP:= $(filter-out $(GRAPH_LIB), $(GENERATED))
+GENERATED_FOR_OCAMLDEP:= $(GENERATED)
 
 .depend depend:: $(GENERATED_FOR_OCAMLDEP)				\
-		 share/Makefile.dynamic_config share/Makefile.kernel	\
-		 $(GRAPH_LIB)
+		 share/Makefile.dynamic_config share/Makefile.kernel
 	$(PRINT_MAKING) .depend
 	$(RM) .depend
 	$(OCAMLDEP) $(DEP_FLAGS) $(FILES_FOR_OCAMLDEP) > .depend
@@ -2406,7 +2247,7 @@ endif
 	@#for make 4.0+, using the 'file' function could be a better solution,
 	@#although it seems to segfault in 4.0 (but not in 4.1)
 	$(RM) file_list_to_archive.tmp
-	@$(foreach file,$(DISTRIB_FILES) $(DISTRIB_TESTS) ocamlgraph.tar.gz,\
+	@$(foreach file,$(DISTRIB_FILES) $(DISTRIB_TESTS),\
 			echo $(file) >> file_list_to_archive.tmp$(NEWLINE))
 	$(TAR) -cf - --files-from file_list_to_archive.tmp | $(TAR) -C $(CLIENT_DIR) -xf -
 	$(RM) file_list_to_archive.tmp

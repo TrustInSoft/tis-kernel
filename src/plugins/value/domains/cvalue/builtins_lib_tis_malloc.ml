@@ -387,7 +387,6 @@ let () =
 let () = Builtins.register_builtin "tis_alloc_size" (alloc_size Malloc Strong)
 let () =
   Builtins.register_builtin "Frama_C_alloc_size_weak" (alloc_size Malloc Weak)
-let _ = New, NewArray
 
 (* Variables that have been returned by a call to an allocation function
    at this callstack. The first allocated variable is at the top of the
@@ -488,7 +487,7 @@ let alloc_by_stack_generic =
     let loc = exp_size.eloc in
     let base, max_valid =
       alloc_by_stack_aux allocation ~max_level
-        initial_weakness loc stack sizev "malloc" state
+        initial_weakness loc stack sizev (name allocation) state
     in
     let new_state = add_uninitialized state base max_valid in
     let c_values = wrap_fallible_malloc base state new_state in
@@ -601,6 +600,8 @@ let frama_c_free allocation state actuals =
 
 let () = Builtins.register_builtin "Frama_C_free" (frama_c_free Malloc)
 let () = Builtins.register_builtin "tis_free" (frama_c_free Malloc)
+let () = Builtins.register_builtin "tis_delete" (frama_c_free New)
+let () = Builtins.register_builtin "tis_delete_array" (frama_c_free NewArray)
 
 
 (** {1 Realloc} *)
@@ -805,11 +806,17 @@ module MallocPrecision=
                   given callstack"
     end)
 
-let alloc_multiple_by_stack : Db.Value.builtin_sig =
-  fun state actuals ->
-    alloc_by_stack_generic Malloc (MallocPrecision.get ()) Strong state actuals
-let () = Builtins.register_builtin "Frama_C_alloc_tms" alloc_multiple_by_stack
-let () = Builtins.register_builtin "tis_alloc" alloc_multiple_by_stack
+let alloc_multiple_by_stack allocation state actuals =
+  alloc_by_stack_generic
+    allocation (MallocPrecision.get ()) Strong state actuals
+
+let () =
+  Builtins.register_builtin "Frama_C_alloc_tms" (alloc_multiple_by_stack Malloc)
+let () = Builtins.register_builtin "tis_alloc" (alloc_multiple_by_stack Malloc)
+let () = Builtins.register_builtin "tis_new" (alloc_multiple_by_stack New)
+let () =
+  Builtins.register_builtin "tis_new_array" (alloc_multiple_by_stack NewArray)
+
 let () = Builtins.register_builtin "tis_alloc_weak"
     (alloc_by_stack_generic Malloc 0 Weak)
 

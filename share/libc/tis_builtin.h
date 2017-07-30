@@ -193,6 +193,26 @@ size_t tis_block_size(const void *p) __THROW;
 */
 void tis_free(const void *p) __THROW;
 
+/*@ allocates \result;
+    assigns __fc_heap_status \from size, __fc_heap_status;
+    assigns \result \from size, __fc_heap_status;
+*/
+void *tis_new(size_t size);
+
+/*@ allocates \result;
+    assigns __fc_heap_status \from size, __fc_heap_status;
+    assigns \result \from size, __fc_heap_status;
+*/
+void *tis_new_array(size_t size);
+
+/*@ assigns __fc_heap_status \from indirect:p, __fc_heap_status;
+*/
+void tis_delete(const void *p) __THROW;
+
+/*@ assigns __fc_heap_status \from indirect:p, __fc_heap_status;
+*/
+void tis_delete_array(const void *p) __THROW;
+
 /*@ assigns \nothing; */
 void tis_variable_split(void *p, size_t s, int limit) __THROW;
 

@@ -209,7 +209,8 @@ let oneret (f: fundec) : unit =
     match f.svar.vtype with
       TFun(rt, _, _, _) -> rt
     | _ ->
-      Kernel.fatal "Function %s does not have a function type" f.svar.vname
+      Kernel.fatal "Function %a does not have a function type"
+        Printer.pp_varinfo f.svar
   in
   (* Does it return anything ? *)
   let hasRet = match unrollType retTyp with TVoid _ -> false | _ -> true in

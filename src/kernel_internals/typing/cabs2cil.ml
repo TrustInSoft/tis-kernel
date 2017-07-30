@@ -497,9 +497,9 @@ let _docEnv () =
   let doone fmt = function
       EnvVar varinfo, loc ->
       Format.fprintf fmt "Var(%s,global=%b) (at %a)"
-        varinfo.vname varinfo.vglob Cil_printer.pp_location loc
+        varinfo.vname varinfo.vglob Printer.pp_location loc
     | EnvEnum (_enumitem), loc ->
-      Format.fprintf fmt "Enum (at %a)" Cil_printer.pp_location loc
+      Format.fprintf fmt "Enum (at %a)" Printer.pp_location loc
     | EnvTyp _typ, _loc -> Format.fprintf fmt "typ"
     | EnvLabel label, _loc -> Format.fprintf fmt "label %s" label
   in
@@ -544,7 +544,7 @@ let alpha_convert_var_and_add_to_env (add_to_env : bool) varinfo : varinfo =
       Kernel.abort ~current:true
         "It seems that we would need to rename global %s (to %s) \
          because of previous occurrence at %a"
-        varinfo.vname new_name Cil_printer.pp_location old_location
+        varinfo.vname new_name Printer.pp_location old_location
     | false ->
       (* We have changed the name of a local variable. Can we try to detect if
          the other variable was also local in the same scope? Not for now. *)
@@ -725,7 +725,7 @@ let make_global_varinfo (is_a_definition: bool) varinfo : varinfo * bool =
       lookup_global_var lookup_name
     in
     Kernel.debug ~dkey:category_global "  %s(%d) already in the env at loc %a"
-      varinfo.vname old_varinfo.vid Cil_printer.pp_location old_location;
+      varinfo.vname old_varinfo.vid Printer.pp_location old_location;
     (* It was already defined. We must reuse the varinfo. But clean up the
        storage.  *)
     let new_storage = (** See 6.2.2 *)
@@ -768,8 +768,8 @@ let make_global_varinfo (is_a_definition: bool) varinfo : varinfo * bool =
         Kernel.warning ~current:true
           "static declaration of `%a' follows non-static declaration. \
            Previous declaration was at %a"
-          Cil_printer.pp_varinfo old_varinfo
-          Cil_printer.pp_location old_varinfo.vdecl;
+          Printer.pp_varinfo old_varinfo
+          Printer.pp_location old_varinfo.vdecl;
         Static
       (* 3) The [extern] specifier preserves the linkage of prior
             declaration. *)
@@ -798,17 +798,17 @@ let make_global_varinfo (is_a_definition: bool) varinfo : varinfo * bool =
         Kernel.warning ~current:true
           "non-static declaration of `%a' follows static declaration. \
            Previous declaration was at %a"
-          Cil_printer.pp_varinfo old_varinfo
-          Cil_printer.pp_location old_varinfo.vdecl;
+          Printer.pp_varinfo old_varinfo
+          Printer.pp_location old_varinfo.vdecl;
         Static
       | Static, NoStorage -> Static
       | NoStorage, Register | Register, NoStorage -> Register
       (* 5) Inconsistent storage specifiactions (only one case remaining). *)
       | Static, Register ->
         Kernel.warning ~current:true
-          "inconsistent storage specification for %s. \
+          "inconsistent storage specification for %a. \
            Previous declaration was at %a"
-          varinfo.vname Cil_printer.pp_location old_location;
+          Printer.pp_varinfo varinfo Printer.pp_location old_location;
         Static
     in
     old_varinfo.vinline <- old_varinfo.vinline || varinfo.vinline;
@@ -852,12 +852,13 @@ let make_global_varinfo (is_a_definition: bool) varinfo : varinfo * bool =
         Cil.update_var_type old_varinfo my_type
       with Failure reason ->
         Kernel.debug ~dkey:category_global "old type = %a\nnew type = %a\n"
-          Cil_printer.pp_typ old_varinfo.vtype
-          Cil_printer.pp_typ varinfo.vtype ;
+          Printer.pp_typ old_varinfo.vtype
+          Printer.pp_typ varinfo.vtype ;
         IncompatibleDeclHook.apply (old_varinfo, varinfo, reason);
         Kernel.abort ~current:true
-          "Declaration of %s does not match previous declaration from %a (%s)."
-          varinfo.vname Cil_printer.pp_location old_location reason
+          "Declaration of %a does not match previous declaration from %a (%s)."
+          Printer.pp_varinfo varinfo
+          Printer.pp_location old_location reason
     end;
     (* Update the storage and vdecl if useful. Do so only after the hooks have
        been applied, as they may need to read those fields. *)
@@ -1087,9 +1088,9 @@ let integral_cast typ term =
   raise
     (Failure
        (Pretty_utils.sfprintf "term %a has type %a, but %a is expected."
-          Cil_printer.pp_term term
-          Cil_printer.pp_logic_type Linteger
-          Cil_printer.pp_typ typ))
+          Printer.pp_term term
+          Printer.pp_logic_type Linteger
+          Printer.pp_typ typ))
 
 (* Exception raised by the instance of Logic_typing local to this module.
    See document of [error] below. *)
@@ -1264,7 +1265,7 @@ end = struct
                 | Some old_location ->
                   Kernel.error ~once:true ~current:true
                     "Duplicate local label '%s' (previous definition was at %a)"
-                    label Cil_printer.pp_location old_location
+                    label Printer.pp_location old_location
                 | None ->
                   (* Mark this label as defined. *)
                   let current_location = Some (Cil.CurrentLoc.get()) in
@@ -1274,7 +1275,7 @@ end = struct
                 if new_name <> label then
                   Kernel.error ~once:true ~current:true
                     "Duplicate label '%s' (previous definition was at %a)"
-                    label Cil_printer.pp_location old_location
+                    label Printer.pp_location old_location
             end
           | _ -> ()
         end;
@@ -1585,7 +1586,7 @@ let rec assign_init ~ghost
                      Kernel.abort ~current:true
                        "Non-constant index in designator for array \
                         initialization: %a"
-                       Cil_printer.pp_exp index_exp)
+                       Printer.pp_exp index_exp)
                 | NoOffset | Field _ ->
                   assert false (* We are supposed to have an array here. *)
               end else
@@ -1785,7 +1786,7 @@ let do_binop loc binop exp_1 typ_1 exp_2 typ_2 : typ * exp =
         result_typ
     | _ ->
       Kernel.fatal ~current:true "%a operator on a non-integer type"
-        Cil_printer.pp_binop binop
+        Printer.pp_binop binop
   in
   let are_ptrs_to_compatible_types typ_1 typ_2 =
     (* This is only called if typ_1 and typ_2 are pointer types. *)
@@ -1870,7 +1871,7 @@ let do_binop loc binop exp_1 typ_1 exp_2 typ_2 : typ * exp =
     if not (are_ptrs_to_compatible_types typ_1 typ_2) then
       Kernel.abort ~current:true
         "Subtraction of pointers to incompatible types: `%a' and `%a'"
-        Cil_printer.pp_typ typ_1 Cil_printer.pp_typ typ_2;
+        Printer.pp_typ typ_1 Printer.pp_typ typ_2;
     (* Following C11:footnote 106 :
        "Another way to approach pointer arithmetic is first to convert the
        pointer(s) to character pointer(s): In this scheme the integer expression
@@ -1889,7 +1890,7 @@ let do_binop loc binop exp_1 typ_1 exp_2 typ_2 : typ * exp =
     if isPointedTypeSizeZero typ_1 then
       Kernel.abort ~current:true
         "Subtraction of pointers to an object of size zero (type of the object \
-         originally pointed to is `%a')" Cil_printer.pp_typ typ_1;
+         originally pointed to is `%a')" Printer.pp_typ typ_1;
     let common_typ = typ_1 in
     (* Following C11:6.5.6p9 :
        "When two pointers are subtracted (...) the size of the result is
@@ -1921,12 +1922,12 @@ let do_binop loc binop exp_1 typ_1 exp_2 typ_2 : typ * exp =
       || Cil.isArithmeticType typ_1 && Cil.isPointerType typ_2 ->
     Kernel.abort ~current:true
       "comparison between pointer and non-pointer (`%a' and `%a')"
-      Cil_printer.pp_typ typ_1 Cil_printer.pp_typ typ_2
+      Printer.pp_typ typ_1 Printer.pp_typ typ_2
 
   | _ ->
     Kernel.abort ~current:true
       "invalid operands to binary expression (`%a' and `%a')"
-      Cil_printer.pp_typ typ_1 Cil_printer.pp_typ typ_2
+      Printer.pp_typ typ_1 Printer.pp_typ typ_2
 
 let check_arg_parmN function_varinfo parmN =
   (* Check that [parmN] indeed corresponds to the last variable in the
@@ -1979,10 +1980,10 @@ let check_arg_parmN function_varinfo parmN =
             function_varinfo.vname
             last_formal_name
             last_formal_varinfo.vname
-            Cil_printer.pp_storage last_formal_varinfo.vstorage
+            Printer.pp_storage last_formal_varinfo.vstorage
             Printer.pp_typ last_formal_varinfo.vtype
             parmN_varinfo.vname
-            Cil_printer.pp_storage parmN_varinfo.vstorage
+            Printer.pp_storage parmN_varinfo.vstorage
             Printer.pp_typ parmN_varinfo.vtype;
 
           parmN_varinfo.vname = last_formal_name,
@@ -1994,9 +1995,9 @@ let check_arg_parmN function_varinfo parmN =
       begin
         if not is_the_last_variable_name then
           Kernel.warning ~current:true
-            "The second argument in call to %s should be \
+            "The second argument in call to %a should be \
              the last formal argument"
-            function_varinfo.vname
+            Printer.pp_varinfo function_varinfo
       end;
       (* Check if the parmN argument does not have the 'register'
          storage class. *)
@@ -2005,9 +2006,9 @@ let check_arg_parmN function_varinfo parmN =
            mentions this case explicitly, so we check it. *)
         if has_register_storage_class then
           Kernel.warning ~current:true
-            "The second argument in call to %s should not be \
+            "The second argument in call to %a should not be \
              declared with the 'register' storage class"
-            function_varinfo.vname
+            Printer.pp_varinfo function_varinfo
       end;
       (* Check if the ^ argument is not of
          a function pointer type or an array type.*)
@@ -2015,14 +2016,14 @@ let check_arg_parmN function_varinfo parmN =
         match Cil.unrollType last_formal_typ with
         | TFun _ ->
           Kernel.warning ~current:true
-            "The second argument in call to %s should not be of a function type"
-            function_varinfo.vname
+            "The second argument in call to %a should not be of a function type"
+            Printer.pp_varinfo function_varinfo
         | TArray _ ->
           (* This cannot actually happen! But the standard mentions this case
              explicitly, so we check it. *)
           Kernel.warning ~current:true
-            "The second argument in call to %s should not be of an array type"
-            function_varinfo.vname
+            "The second argument in call to %a should not be of an array type"
+            Printer.pp_varinfo function_varinfo
         | _ -> ()
       end;
       (* Check if the [parmN] argument type is compatible with the type that
@@ -2034,13 +2035,13 @@ let check_arg_parmN function_varinfo parmN =
           let are_compatible = compatibleTypesp typ promoted_typ in
           if not are_compatible then
             Kernel.warning ~current:true
-              "The type of the second argument in call to %s \
+              "The type of the second argument in call to %a \
                (which is %a) should be compatible with the \
                type that results after application of the \
                default argument promotions (which is %a)"
-              function_varinfo.vname
-              Cil_printer.pp_typ typ
-              Cil_printer.pp_typ promoted_typ
+              Printer.pp_varinfo function_varinfo
+              Printer.pp_typ typ
+              Printer.pp_typ promoted_typ
       end
     | _, _ ->
       (* The two sources of information about the function's arguments (i.e.
@@ -2516,7 +2517,7 @@ let rec do_spec_list ghost
             | None ->
               Kernel.abort ~current:true
                 "expression '%a' is not an integer constant"
-                Cil_printer.pp_exp enumitem_value
+                Printer.pp_exp enumitem_value
             | Some i ->
               let ikind = update_enum i in
               if Cil.(theMachine.lowerConstants)
@@ -2904,7 +2905,7 @@ and do_attr (ghost : bool) (cabs_attribute : Cabs.attribute) : attribute list =
       | _ ->
         Kernel.abort ~current:true
           "invalid form of attribute: '%a'"
-          Cil_printer.pp_attrparam attrparam;
+          Printer.pp_attrparam attrparam;
     in
 
     let foldenum = false in
@@ -3043,7 +3044,7 @@ and do_type (ghost : bool) (is_fun_arg : bool)
         (* TODO: Shouldn't it be an abort? *)
         Kernel.error ~once:true ~current:true
           "declaration of array of function type `%a'"
-          Cil_printer.pp_typ base_type
+          Printer.pp_typ base_type
       else
       if not (Cil.isCompleteType ~allowZeroSizeArrays:true base_type) then
         if is_fun_arg then begin
@@ -3053,11 +3054,11 @@ and do_type (ghost : bool) (is_fun_arg : bool)
                 declarator (...) shall not have incomplete type." *)
             Kernel.warning ~once:true ~current:true
               "function parameter should not have incomplete type `%a'"
-              Cil_printer.pp_typ base_type
+              Printer.pp_typ base_type
         end else
           Kernel.error ~once:true ~current:true
             "declaration of array of incomplete type `%a'"
-            Cil_printer.pp_typ base_type
+            Printer.pp_typ base_type
       else if Cil.isNestedStructWithFlexibleArrayMemberType base_type then
         (* Following C11:6.7.2.1p3 :
            "(...) the last member of a structure (...) may have incomplete array
@@ -3067,7 +3068,7 @@ and do_type (ghost : bool) (is_fun_arg : bool)
         Kernel.error ~once:true ~current:true
           "declaration of array of structure type with \
            flexible array member '%a`"
-          Cil_printer.pp_typ base_type
+          Printer.pp_typ base_type
       else
       if not allowZeroSizeArrays
       && not (Cil.isCompleteType ~allowZeroSizeArrays:false base_type)
@@ -3080,12 +3081,12 @@ and do_type (ghost : bool) (is_fun_arg : bool)
           Kernel.warning ~once:true ~current:true
             "declaration of array of 'zero-length arrays' (`%a');@ \
              zero-length arrays are a compiler extension"
-            Cil_printer.pp_typ base_type
+            Printer.pp_typ base_type
         else
           Kernel.error ~once:true ~current:true
             "declaration of array of 'zero-length arrays' (`%a');@ \
              zero-length arrays are not allowed in C99"
-            Cil_printer.pp_typ base_type;
+            Printer.pp_typ base_type;
       let length_exp_option =
         match length_cabs_exp.expr_node with
         | Cabs.NOTHING -> None
@@ -3099,8 +3100,8 @@ and do_type (ghost : bool) (is_fun_arg : bool)
           if not (Cil.isIntegralType (Cil.typeOf length_exp)) then
             Kernel.abort ~current:true
               "size of array `%a' has non-integer type `%a'"
-              Cil_printer.pp_exp length_exp
-              Cil_printer.pp_typ (Cil.typeOf length_exp);
+              Printer.pp_exp length_exp
+              Printer.pp_typ (Cil.typeOf length_exp);
           if not allowVarSizeArrays then begin
             (* Assert that [length_exp] is a constant. *)
             let constant_length_exp = Cil.constFold true length_exp in
@@ -3116,11 +3117,11 @@ and do_type (ghost : bool) (is_fun_arg : bool)
               Kernel.warning ~once:true ~current:true
                 "Unable to do constant-folding on array length %a. \
                  Some CIL operations on this array may fail."
-                Cil_printer.pp_exp constant_length_exp
+                Printer.pp_exp constant_length_exp
             | _ ->
               Kernel.error ~once:true ~current:true
                 "Length of array is not a constant: %a"
-                Cil_printer.pp_exp constant_length_exp
+                Printer.pp_exp constant_length_exp
           end;
           Some length_exp
       in
@@ -3204,7 +3205,7 @@ and do_type (ghost : bool) (is_fun_arg : bool)
             with Cil.NotAnAttrParam _ ->
               Kernel.warning ~once:true ~current:true
                 "Cannot represent the length '%a'of array as an attribute"
-                Cil_printer.pp_exp attributes_exps;
+                Printer.pp_exp attributes_exps;
               static_attribute (* Leave unchanged. *)
         in
         TPtr(base_type, attributes)
@@ -3317,7 +3318,7 @@ and do_only_type ghost
   in
   if name_attributes <> [] then
     Kernel.error ~once:true ~current:true "Name attributes in only_type: %a"
-      Cil_printer.pp_attributes name_attributes;
+      Printer.pp_attributes name_attributes;
   result_type
 
 
@@ -3395,33 +3396,33 @@ and make_comp_type ghost (is_struct: bool)
           Kernel.error ~current:true
             "field %s is declared with incomplete array type %a (flexible \
              array member is not allowed in otherwise empty structure)"
-            n Cil_printer.pp_typ ftype
+            n Printer.pp_typ ftype
         (* ERROR! Flexible array member in the middle of a structure. *)
         | TArray(_, None, _, _), true, false, _ ->
           Kernel.error ~current:true
             "field %s is declared with incomplete array type %a (flexible \
              array member is only allowed at the end of the structure)"
-            n Cil_printer.pp_typ ftype
+            n Printer.pp_typ ftype
         (* ERROR! Flexible array member in a union. *)
         | TArray(_, None, _, _), false, _, _ ->
           Kernel.error ~current:true
             "field %s is declared with incomplete array type %a (flexible \
              array member is not allowed in a union)"
-            n Cil_printer.pp_typ ftype
+            n Printer.pp_typ ftype
         (* OK! Field has complete type. *)
         | _ when Cil.isCompleteType ~allowZeroSizeArrays ftype -> ()
         (* ERROR! Field has incomplete type and it is not a flexible array
            member. *)
         | _ -> Kernel.error ~current:true
                  "field %s is declared with incomplete type %a"
-                 n Cil_printer.pp_typ ftype
+                 n Printer.pp_typ ftype
       end; (* Now we know that either the field's type is complete or it is a
               correct flexible array member. *)
       (* Is the field type a function type? *)
       if Cil.isFunctionType ftype then
         Kernel.error ~current:true
           "field %s is declared with function type %a"
-          n Cil_printer.pp_typ ftype;
+          n Printer.pp_typ ftype;
       (* Is the structure's field type a structure type with a flexible array
          member? *)
       if is_struct && Cil.isNestedStructWithFlexibleArrayMemberType ftype then
@@ -3429,7 +3430,7 @@ and make_comp_type ghost (is_struct: bool)
           "field %s is declared with structure type with a flexible array \
            member (or a union type containing, possibly recursively, such a \
            stucture type) %a"
-          n Cil_printer.pp_typ ftype;
+          n Printer.pp_typ ftype;
       (* Bit-field *)
       let width, ftype =
         match width_option with
@@ -3469,7 +3470,7 @@ and make_comp_type ghost (is_struct: bool)
                     "bit-field width (%a) exceeds the the width of an object \
                      of the type %a (%d)"
                     (Integer.pretty ~hexa:false) bitfield_width
-                    Cil_printer.pp_typ ftype ftype_width;
+                    Printer.pp_typ ftype ftype_width;
                 (* Zero-width case: if the width is zero, the declaration should
                    have no declarator. In practice it boils down to checking if
                    the declaration has an identifier. The only possibility of a
@@ -3636,7 +3637,7 @@ and get_int_const_exp ghost (expression : Cabs.expression) : exp =
   in
   if not (Chunk.is_empty chunk) then
     Kernel.error ~once:true ~current:true "Constant expression %a has effects"
-      Cil_printer.pp_exp exp;
+      Printer.pp_exp exp;
   match exp.enode with
   (* First, filter those [Const] expressions that are integers. *)
   | Const (CInt64 _ ) | Const (CEnum _) -> exp
@@ -3646,7 +3647,7 @@ and get_int_const_exp ghost (expression : Cabs.expression) : exp =
   (* Other [Const] expressions are not ok. *)
   | Const _ ->
     Kernel.fatal ~current:true "Expected integer constant and got %a"
-      Cil_printer.pp_exp exp
+      Printer.pp_exp exp
   (* Now, anything else that [do_expression true] returned is ok (provided that
      it did not yield side effects); this includes, in particular, the various
      [sizeof] and [alignof] expression kinds. *)
@@ -3689,7 +3690,7 @@ and do_expression local_env
     | _, (TArray _ | TFun _) ->
       Kernel.fatal ~current:true
         "Array or function expression is not lval: %a@\n"
-        Cil_printer.pp_exp exp
+        Printer.pp_exp exp
     | _ -> exp, typ
   in
   (* Before we return we call finish_exp *)
@@ -3817,8 +3818,8 @@ and do_expression local_env
             Kernel.abort ~current:true
               "Expecting exactly one pointer type in array access %a[%a] (%a \
                and %a)"
-              Cil_printer.pp_exp exp_1 Cil_printer.pp_exp exp_2
-              Cil_printer.pp_typ typ_1 Cil_printer.pp_typ typ_2
+              Printer.pp_exp exp_1 Printer.pp_exp exp_2
+              Printer.pp_typ typ_1 Printer.pp_typ typ_2
         in
         (* We have to distinguish the construction based on
            the type of [exp_1]. *)
@@ -3860,7 +3861,7 @@ and do_expression local_env
         | _ ->
           Kernel.abort ~current:true
             "Expecting a pointer type in * operator's operand. Got `%a'."
-            Cil_printer.pp_typ typ
+            Printer.pp_typ typ
       in
       let result_lval = Cil.mkMem ~addr:exp ~off:NoOffset in
       let reads =
@@ -3938,7 +3939,7 @@ and do_expression local_env
         | _ -> Kernel.abort ~current:true
                  "request for member '%s' in type '%a' which is neither a \
                   structure nor a union"
-                 field_name Cil_printer.pp_typ pointed_typ
+                 field_name Printer.pp_typ pointed_typ
       in
       let lval = Cil.mkMem ~addr:exp ~off:field_offset in
       let field_type = Cil.typeOfLval lval in
@@ -4106,12 +4107,12 @@ and do_expression local_env
       if Cil.isFunctionType typ' then
         Kernel.error ~current:true
           "invalid sizeof operand: type %a is a function type"
-          Cil_printer.pp_typ typ;
+          Printer.pp_typ typ;
       (* Is the operand an incomplete type? *)
       if not (Cil.isCompleteType ~allowZeroSizeArrays:true typ') then
         Kernel.error ~current: true
           "invalid sizeof operand: type %a is incomplete"
-          Cil_printer.pp_typ typ;
+          Printer.pp_typ typ;
       let chunk = Chunk.unspecified_chunk Chunk.empty in
       let result_exp = Cil.new_exp ~loc (SizeOf(typ)) in
       let result_typ = Cil.(theMachine.typeOfSizeOf) in
@@ -4349,7 +4350,7 @@ and do_expression local_env
         finish_exp reads chunk result_exp typ
       else
         Kernel.abort ~current:true
-          "invalid argument type `%a' to unary minus" Cil_printer.pp_typ typ
+          "invalid argument type `%a' to unary minus" Printer.pp_typ typ
 
     | Cabs.UNARY (Cabs.BNOT, exp) ->
       let (reads, chunk, exp, typ) =
@@ -4364,7 +4365,7 @@ and do_expression local_env
         finish_exp reads chunk result_exp result_typ
       else
         Kernel.abort ~current:true
-          "invalid argument type `%a' to bit-complement" Cil_printer.pp_typ typ
+          "invalid argument type `%a' to bit-complement" Printer.pp_typ typ
 
     | Cabs.UNARY (Cabs.PLUS, exp) ->
       let (reads, chunk, exp, typ) =
@@ -4387,7 +4388,7 @@ and do_expression local_env
         finish_exp reads chunk exp typ
       else
         Kernel.abort ~current:true
-          "invalid argument type `%a' to unary plus" Cil_printer.pp_typ typ
+          "invalid argument type `%a' to unary plus" Printer.pp_typ typ
 
     | Cabs.UNARY (Cabs.ADDROF, exp) -> begin
         match exp.expr_node with
@@ -4563,7 +4564,7 @@ and do_expression local_env
           if not (Cil.isPointerType typ) then
             Kernel.abort ~current:true
               "Expecting a pointer type in * operator's operand. Got `%a'."
-              Cil_printer.pp_typ typ;
+              Printer.pp_typ typ;
           finish_exp reads chunk exp typ
 
         (* Regular lvalues. *)
@@ -4633,7 +4634,7 @@ and do_expression local_env
 
             | _ ->
               Kernel.fatal ~current:true "Expected lval for ADDROF. Got %a"
-                Cil_printer.pp_exp exp
+                Printer.pp_exp exp
           end
 
         | NOTHING | LABELADDR _ | EXPR_SIZEOF _
@@ -5251,12 +5252,12 @@ and do_expression local_env
             | x ->
               Kernel.fatal ~current:true
                 "Unexpected type of the called function %a: %a"
-                Cil_printer.pp_exp f' Cil_printer.pp_typ x
+                Printer.pp_exp f' Printer.pp_typ x
           end
         | x ->
           Kernel.fatal ~current:true
             "Unexpected type of the called function %a: %a"
-            Cil_printer.pp_exp f' Cil_printer.pp_typ x
+            Printer.pp_exp f' Printer.pp_typ x
       in
       let argTypesList = Cil.argsToList argTypes in
       (* Drop certain qualifiers from the result type *)
@@ -5308,7 +5309,7 @@ and do_expression local_env
         | _, [] ->
           if not isSpecialBuiltin then
             Kernel.error ~once:true ~current:true
-              "Too few arguments in call to %a." Cil_printer.pp_exp f' ;
+              "Too few arguments in call to %a." Printer.pp_exp f' ;
           (init_chunk, [])
 
         | ((_, at, _) :: atypes, a :: args) ->
@@ -5325,7 +5326,7 @@ and do_expression local_env
           if not isvar && argTypes != None && not isSpecialBuiltin then
             (* Do not give a warning for functions without a prototype. *)
             Kernel.error ~once:true ~current:true
-              "Too many arguments in call to %a" Cil_printer.pp_exp f';
+              "Too many arguments in call to %a" Printer.pp_exp f';
           let rec loop = function
               [] -> (init_chunk, [])
             | a :: args ->
@@ -5425,8 +5426,8 @@ and do_expression local_env
                  | Some arg_nr -> Printf.sprintf " %d" arg_nr
                in
                Kernel.warning ~current:true
-                 "Invalid call to %s: the argument%s is not a va_list\n"
-                 fv.vname arg_nr_string
+                 "Invalid call to %a: the argument%s is not a va_list\n"
+                 Printer.pp_varinfo fv arg_nr_string
            in
            match fv.vname with
            | "__builtin_stdarg_start" | "__builtin_va_start" ->
@@ -5439,9 +5440,10 @@ and do_expression local_env
                    begin
                      if not (isCurrentFunctionVariadic ()) then
                        Kernel.warning ~current:true
-                         "Invalid call to %s: the calling function %s is \
-                          not variadic\n"
-                         fv.vname !current_fun_fundec.svar.vname
+                         "Invalid call to %a: the calling function %a is \
+                          not variadic"
+                         Printer.pp_varinfo fv
+                         Printer.pp_varinfo !current_fun_fundec.svar
                    end;
                    (* Check if the last non-variadic argument is correct. *)
                    check_arg_parmN fv parmN;
@@ -5449,7 +5451,8 @@ and do_expression local_env
                    pargs := [ va_list ]
                  end
                | _ ->
-                 Kernel.warning ~current:true "Invalid call to %s\n" fv.vname;
+                 Kernel.warning ~current:true "Invalid call to %a\n"
+                   Printer.pp_varinfo fv;
              end
            | "__builtin_va_arg" ->
              begin
@@ -5476,7 +5479,8 @@ and do_expression local_env
                    pis__builtin_va_arg := true;
                  end
                | _ ->
-                 Kernel.warning ~current:true "Invalid call to %s\n" fv.vname;
+                 Kernel.warning ~current:true "Invalid call to %a"
+                   Printer.pp_varinfo fv;
              end
            | "__builtin_va_copy" ->
              begin
@@ -5489,7 +5493,8 @@ and do_expression local_env
                    pargs := [ va_list_dest; va_list_src ]
                  end
                | _ ->
-                 Kernel.warning ~current:true "Invalid call to %s\n" fv.vname;
+                 Kernel.warning ~current:true "Invalid call to %a"
+                   Printer.pp_varinfo fv;
              end
            | "__builtin_va_end" ->
              begin
@@ -5501,7 +5506,8 @@ and do_expression local_env
                    pargs := [ va_list ]
                  end
                | _ ->
-                 Kernel.warning ~current:true "Invalid call to %s\n" fv.vname;
+                 Kernel.warning ~current:true "Invalid call to %a"
+                   Printer.pp_varinfo fv;
              end
            | "__builtin_varargs_start" ->
              (* We have to turn uses of __builtin_varargs_start into uses of
@@ -5513,8 +5519,8 @@ and do_expression local_env
                  try lookup_global_var "__builtin_stdarg_start"
                  with Not_found ->
                    Kernel.abort ~current:true
-                     "Cannot find __builtin_stdarg_start to replace %s"
-                     fv.vname
+                     "Cannot find __builtin_stdarg_start to replace %a"
+                     Printer.pp_varinfo fv
                in
                pf := Cil.new_exp ~loc (Lval (Cil.var v))
              end
@@ -5530,13 +5536,15 @@ and do_expression local_env
                    in
                    if not isOk then
                      Kernel.warning ~current:true
-                       "The argument in call to %s should be \
-                        the last formal argument\n" fv.vname;
+                       "The argument in call to %a should be \
+                        the last formal argument"
+                       Printer.pp_varinfo fv;
 
                    pargs := [ ]
                  end
                | _ ->
-                 Kernel.warning ~current:true "Invalid call to %s\n" fv.vname;
+                 Kernel.warning ~current:true "Invalid call to %a"
+                   Printer.pp_varinfo fv;
              end
            | "__builtin_va_arg_pack" ->
              begin
@@ -5652,7 +5660,7 @@ and do_expression local_env
                begin
                  piscall := false;
                  Kernel.abort ~current:true
-                   "Call to %a in constant." Cil_printer.pp_varinfo fv;
+                   "Call to %a in constant." Printer.pp_varinfo fv;
                end
          end
        | _ -> ());
@@ -6326,22 +6334,22 @@ and do_initializer local_env (host_varinfo : varinfo)
   in
   if not has_complete_type then
     Kernel.abort ~current:true
-      "variable `%s' has initializer but incomplete type %a"
-      host_varinfo.vname
-      Cil_printer.pp_typ host_varinfo.vtype;
+      "variable `%a' has initializer but incomplete type %a"
+      Printer.pp_varinfo host_varinfo
+      Printer.pp_typ host_varinfo.vtype;
 
   let is_variable_sized_array =
     Datatype.Int.Hashtbl.mem variable_size_arrays host_varinfo.vid
   in
   if is_variable_sized_array then
     Kernel.abort ~current:true
-      "variable `%s' has initializer but is a variable length array type"
-      host_varinfo.vname;
+      "variable `%a' has initializer but is a variable length array type"
+      Printer.pp_varinfo host_varinfo;
 
   (* 2. Prepare the preinitializer. *)
   Kernel.debug ~dkey
     "@\n-- Preparing a preinitializer for %s : %a@\n"
-    host_varinfo.vname Cil_printer.pp_typ host_varinfo.vtype;
+    host_varinfo.vname Printer.pp_typ host_varinfo.vtype;
   let preinit, remaining_initializers =
     let so = Subobj.of_varinfo host_varinfo in
     do_init local_env host_varinfo.vglob Extlib.nop Preinit.none so
@@ -6367,8 +6375,8 @@ and do_initializer local_env (host_varinfo : varinfo)
        subobject initialization." *)
     let accumulate_f side_effects_acc (reads, chunk, exp, typ) =
       Kernel.debug "accumulate_f: reads = %a, exp = %a, side effects %s = %a"
-        (Pretty_utils.pp_list Cil_printer.pp_lval) reads
-        Cil_printer.pp_exp exp
+        (Pretty_utils.pp_list Printer.pp_lval) reads
+        Printer.pp_exp exp
         (if Chunk.is_empty chunk then "(EMPTY)" else "")
         Chunk.d_chunk chunk;
       (* First always add the information about reads that came from the
@@ -6462,8 +6470,8 @@ and do_initializer local_env (host_varinfo : varinfo)
   Kernel.debug ~dkey
     "-- Finished the initializer for %s@\n  init=%a@\n  typ=%a@\n  acc=%a@\n"
     host_varinfo.vname
-    Cil_printer.pp_init init
-    Cil_printer.pp_typ host_varinfo.vtype
+    Printer.pp_init init
+    Printer.pp_typ host_varinfo.vtype
     Chunk.d_chunk side_effects_chunk;
 
   let side_effects_chunk' =
@@ -6588,7 +6596,7 @@ and do_init
           (* Error: array's base type is a scalar other than char. *)
           Kernel.abort ~current:true
             "Initializing an array with base type `%a' with string literal"
-            Cil_printer.pp_typ array_base_type
+            Printer.pp_typ array_base_type
         | _ -> false (* OK, this is probably an array of strings.
                         Handle it with the other arrays below.*)
       ) ->
@@ -6708,7 +6716,7 @@ and do_init
           (* Error: array's base type is a scalar other than wchar_t. *)
           Kernel.abort ~current:true
             "Initializing an array with base type `%a' with wide string literal"
-            Cil_printer.pp_typ array_base_type
+            Printer.pp_typ array_base_type
         | _ -> false (* OK, this is probably an array of wide strings.
                         Handle it with the other arrays below.*)
       end ->
@@ -7021,7 +7029,7 @@ and do_init
         | Cabs.COMPOUND_INIT ((Cabs.NEXT_INIT, init_exp') :: _) ->
           Kernel.warning ~current:true
             "excess elements in scalar initializer (of type %a)"
-            Cil_printer.pp_typ typ;
+            Printer.pp_typ typ;
           find_single_init_exp init_exp'
         (* Incorrect cases (abort). *)
         | Cabs.COMPOUND_INIT [] ->
@@ -7029,7 +7037,7 @@ and do_init
         | Cabs.COMPOUND_INIT _ ->
           Kernel.abort ~current:true
             "designator in initializer for scalar type `%a'"
-            Cil_printer.pp_typ typ
+            Printer.pp_typ typ
         (* Internal error case (fatal). *)
         | Cabs.NO_INIT ->
           Kernel.fatal ~current:true
@@ -7093,7 +7101,7 @@ and do_init
             | _ as subobj_typ ->
               Kernel.fatal ~current:true
                 "Field designator `.%s' in a non-composite type (%a)"
-                field_name Cil_printer.pp_typ subobj_typ
+                field_name Printer.pp_typ subobj_typ
           end
 
         | Cabs.ATINDEX_INIT (index_exp, remaining_designator) -> begin
@@ -7114,7 +7122,7 @@ and do_init
                 | _ ->
                   Kernel.abort ~current:true
                     "Array index designator expression `%a' is not a constant"
-                    Cil_printer.pp_exp index_exp
+                    Printer.pp_exp index_exp
               in
               if index < 0 then
                 Kernel.abort ~current:true
@@ -7131,7 +7139,7 @@ and do_init
             | _ as subobj_typ ->
               Kernel.abort ~current:true
                 "Array index designator for a non-array type (%a)"
-                Cil_printer.pp_typ subobj_typ
+                Printer.pp_typ subobj_typ
           end
 
         | Cabs.ATINDEXRANGE_INIT _ ->
@@ -7194,7 +7202,7 @@ and do_init
 
   | typ, (_designator, _init_exp) :: _ ->
     Kernel.abort ~current:true
-      "do_init: cases for t=%a" Cil_printer.pp_typ typ
+      "do_init: cases for t=%a" Printer.pp_typ typ
 
 
 (* Create and add to the file (if not already added) a global. Return the
@@ -7228,7 +7236,8 @@ and create_global ghost logic_spec specs
     match Cil.isFunctionType varinfo.vtype with
     | true when init_exp != Cabs.NO_INIT ->
       Kernel.error ~once:true ~current:true
-        "Function declaration with initializer (%s)\n" varinfo.vname
+        "Function declaration with initializer (%a)"
+        Printer.pp_varinfo varinfo
     | true -> ()
     | false when Extlib.has_some logic_spec ->
       let warning_or_error, msg_to_append =
@@ -7237,8 +7246,8 @@ and create_global ghost logic_spec specs
         else Kernel.error, ""
       in
       warning_or_error ~current:true ~once:true
-        "Global variable %s is not a function. It cannot have a contract%s."
-        varinfo.vname msg_to_append
+        "Global variable %a is not a function. It cannot have a contract%s."
+        Printer.pp_varinfo varinfo msg_to_append
     | false -> ()
   end;
   let varinfo, already_in_env =
@@ -7267,8 +7276,8 @@ and create_global ghost logic_spec specs
     if init_option != None then
       (* Function redefinition is taken care of elsewhere. *)
       Kernel.error ~once:true ~current:true
-        "Global %s was already defined at %a"
-        varinfo.vname Cil_printer.pp_location old_loc;
+        "Global %a was already defined at %a"
+        Printer.pp_varinfo varinfo Printer.pp_location old_loc;
     Kernel.debug ~dkey:category_global ~level:2
       " global %s was already defined" varinfo.vname;
     (* Do not declare it again, but update the spec if any. *)
@@ -7283,8 +7292,9 @@ and create_global ghost logic_spec specs
             (fun formal_from_varinfo formal_from_FormalsDecl ->
                if formal_from_varinfo != formal_from_FormalsDecl then
                  Kernel.fatal
-                   "Function %s: formals are not shared between AST and \
-                    FormalDecls table" varinfo.vname)
+                   "Function %a: formals are not shared between AST and \
+                    FormalDecls table"
+                   Printer.pp_varinfo varinfo)
             formals_from_varinfo formals_from_FormalsDecl;
           try
             let known_behaviors : string list =
@@ -7298,7 +7308,8 @@ and create_global ghost logic_spec specs
             Globals.update_funspec_in_theFile varinfo funspec
           with LogicTypeError ((source, _), msg) ->
             Kernel.warning ~source
-              "%s. Ignoring specification of function %s" msg varinfo.vname
+              "%s. Ignoring specification of function %a" msg
+              Printer.pp_varinfo varinfo
       end;
     varinfo
   with Not_found ->
@@ -7350,8 +7361,8 @@ and create_global ghost logic_spec specs
                   Ltyping.funspec [] varinfo None varinfo.vtype spec
                 with LogicTypeError ((source, _), msg) ->
                   Kernel.warning ~source
-                    "%s. Ignoring specification of function %s"
-                    msg varinfo.vname;
+                    "%s. Ignoring specification of function %a"
+                    msg Printer.pp_varinfo varinfo;
                   Cil.empty_funspec ()
             in
             Globals.cabsPushGlobal
@@ -7381,8 +7392,8 @@ and create_global ghost logic_spec specs
                       Ltyping.funspec behaviors varinfo None varinfo.vtype spec
                     with LogicTypeError ((source, _), msg) ->
                       Kernel.warning ~source
-                        "%s. Ignoring specification of function %s"
-                        msg varinfo.vname;
+                        "%s. Ignoring specification of function %a"
+                        msg Printer.pp_varinfo varinfo;
                       Cil.empty_funspec ()
                   in
                   Cil.CurrentLoc.set varinfo.vdecl;
@@ -7489,7 +7500,7 @@ and createLocal ghost ((_, sto, _, _) as specs)
     let se1 =
       if isvarsize then begin (* Variable-sized array *)
         Kernel.warning ~current:true
-          "Variable-sized local variable %s" vi.vname;
+          "Variable-sized local variable %a" Printer.pp_varinfo vi;
         (* Make a local variable to keep the length *)
         let savelen =
           make_varinfo_cabs
@@ -7584,7 +7595,7 @@ and createLocal ghost ((_, sto, _, _) as specs)
           let tmp =
             make_new_tmp_var
               (Pretty_utils.sfprintf
-                 "alloca(%a)" Cil_printer.pp_exp alloca_size)
+                 "alloca(%a)" Printer.pp_exp alloca_size)
               false rt
           in
           (Chunk.local_var_chunk setlen tmp)
@@ -7690,13 +7701,13 @@ and doDecl local_env (isglobal: bool) : Cabs.definition -> Chunk.t =
            if not (Cil.isFunctionType vtype) || local_env.is_ghost then begin
              Kernel.warning ~current:true
                "%a: CIL only supports attribute((alias)) for C functions."
-               Cil_printer.pp_location (Cil.CurrentLoc.get ());
+               Printer.pp_location (Cil.CurrentLoc.get ());
              ignore (create_global ghost logic_spec spec_res name)
            end else
              doAliasFun vtype n othername (s, (n,ndt,a,l)) loc
          | _ ->
            Kernel.error ~once:true ~current:true "Bad alias attribute at %a"
-             Cil_printer.pp_location (Cil.CurrentLoc.get()));
+             Printer.pp_location (Cil.CurrentLoc.get()));
         acc
       end else
         acc @@ (createLocal ghost spec_res name, ghost)
@@ -7764,7 +7775,7 @@ and doDecl local_env (isglobal: bool) : Cabs.definition -> Chunk.t =
       let funloc = fst loc1, snd loc2 in
       let endloc = loc2 in
       Kernel.debug ~dkey:category_global ~level:2
-        "Definition of %s at %a\n" n Cil_printer.pp_location idloc;
+        "Definition of %s at %a\n" n Printer.pp_location idloc;
       Cil.CurrentLoc.set idloc;
       CallTempVars.clear ();
 
@@ -7847,8 +7858,8 @@ and doDecl local_env (isglobal: bool) : Cabs.definition -> Chunk.t =
         begin
           if Cil.isVariadicListType returnType then
             Kernel.fatal ~current:true
-              "Function returns a va_list object."
-              !current_fun_fundec.svar.vname;
+              "Function %a returns a va_list object."
+              Printer.pp_varinfo !current_fun_fundec.svar;
         end;
 
         (* Create the formals and add them to the environment. *)
@@ -7945,8 +7956,8 @@ and doDecl local_env (isglobal: bool) : Cabs.definition -> Chunk.t =
                  !current_fun_fundec.svar.vtype spec
            with LogicTypeError ((source,_),msg) ->
              Kernel.warning ~source
-               "%s. Ignoring logic specification of function %s"
-               msg !current_fun_fundec.svar.vname)
+               "%s. Ignoring logic specification of function %a"
+               msg Printer.pp_varinfo !current_fun_fundec.svar)
         | None -> ()
       end;
       (* Merge pre-existing spec if needed. *)
@@ -8040,9 +8051,9 @@ and doDecl local_env (isglobal: bool) : Cabs.definition -> Chunk.t =
         | f :: formals, l :: locals ->
           if f != l then
             Kernel.abort ~current:true
-              "formal %s is not in locals (found instead %s)"
-              f.vname
-              l.vname;
+              "formal %a is not in locals (found instead %a)"
+              Printer.pp_varinfo f
+              Printer.pp_varinfo l;
           dropFormals formals locals
         | _ -> Kernel.abort ~current:true "Too few locals"
       in
@@ -8109,16 +8120,16 @@ and doDecl local_env (isglobal: bool) : Cabs.definition -> Chunk.t =
               [], res
             else begin
               Kernel.warning ~current:true
-                "Body of function %s falls-through. \
+                "Body of function %a falls-through. \
                  Adding a return statement"
-                !current_fun_fundec.svar.vname;
+                Printer.pp_varinfo !current_fun_fundec.svar;
               [assert_false ()], res
             end
           | _ ->
             Kernel.warning ~current:true
-              "Body of function %s falls-through and \
+              "Body of function %a falls-through and \
                cannot find an appropriate return value"
-              !current_fun_fundec.svar.vname;
+              Printer.pp_varinfo !current_fun_fundec.svar;
             [assert_false ()], None
         in
         if not (Cil.hasAttribute "noreturn" !current_fun_fundec.svar.vattr)
@@ -8214,14 +8225,14 @@ and do_typedef ghost ((specs, nl): Cabs.name_group) =
         Kernel.feedback ~current:true
           "correct redefinition of typedef name %s as type %a, it was \
            previously defined to denote the same type (at %a)"
-          n Cil_printer.pp_typ newTyp'
-          Cil_printer.pp_location previousTypedefLoc
+          n Printer.pp_typ newTyp'
+          Printer.pp_location previousTypedefLoc
       else
         Kernel.abort ~current:true
           "redefinition of typedef name %s as type %a, when previously defined \
            as type %a (at %a)"
-          n Cil_printer.pp_typ newTyp' Cil_printer.pp_typ previousTyp'
-          Cil_printer.pp_location previousTypedefLoc
+          n Printer.pp_typ newTyp' Printer.pp_typ previousTyp'
+          Printer.pp_location previousTypedefLoc
     | None ->
       (* This typedef name was not defined yet: proceed as normal. *)
       let n', _  = newAlphaName true "type" n in
@@ -8522,7 +8533,7 @@ and do_statement local_env (stmt : Cabs.statement) : Chunk.t =
     if not (Cil.isVoidType !current_return_type) then
       Kernel.error ~current:true
         "Return statement without a value in function returning %a\n"
-        Cil_printer.pp_typ !current_return_type;
+        Printer.pp_typ !current_return_type;
     Chunk.Make.return_chunk ~ghost None loc
 
   | Cabs.RETURN (exp, loc) ->

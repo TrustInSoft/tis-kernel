@@ -98,11 +98,11 @@ val get_current_machdep: unit -> t option
 (** Some predefined {!Cil_types.mach} which specifies machine-dependent
     data about C programs. *)
 
-val x86_16: Cil_types.mach
-val gcc_x86_16: Cil_types.mach
-val x86_32: Cil_types.mach
-val gcc_x86_32: Cil_types.mach
-val x86_64: Cil_types.mach
-val gcc_x86_64: Cil_types.mach
-val ppc_32: Cil_types.mach
-val apple_ppc_32: Cil_types.mach
+val x86_16: t
+val gcc_x86_16: t
+val x86_32: t
+val gcc_x86_32: t
+val x86_64: t
+val gcc_x86_64: t
+val ppc_32: t
+val apple_ppc_32: t

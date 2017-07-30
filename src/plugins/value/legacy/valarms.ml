@@ -66,42 +66,50 @@ let pp_syntactic_context fmt = function
       Printer.pp_lval lval_2
 
 (* Printer that shows additional information about temporaries *)
-let local_printer: Printer.extensible_printer = object (self)
-  inherit Printer.extensible_printer () as super
+module Local_printer(M: Printer.PrinterClass): Printer.PrinterClass =
+struct
+  class printer = object (self)
+    inherit M.printer as super
+    (* Temporary variables for which we want to print more information *)
+    val mutable temporaries = Cil_datatype.Varinfo.Set.empty
+    method! code_annotation fmt ca =
+      temporaries <- Cil_datatype.Varinfo.Set.empty;
+      match ca.annot_content with
+      | AAssert(_, p) ->
+        (* ignore the ACSL name *)
+        Format.fprintf fmt "@[<v>@[assert@ %a;@]" self#predicate p.content;
+        (* print temporary variables information *)
+        if not (Cil_datatype.Varinfo.Set.is_empty temporaries) then begin
+          Format.fprintf fmt "@ @[(%t)@]" self#pp_temporaries
+        end;
+        Format.fprintf fmt "@]";
+      | _ -> assert false
 
-  (* Temporary variables for which we want to print more information *)
-  val mutable temporaries = Cil_datatype.Varinfo.Set.empty
+    method private pp_temporaries fmt =
+      let pp_var fmt vi =
+        Format.fprintf fmt "%a from@ @[%s@]"
+          self#varname vi.vname
+          (Extlib.the vi.vdescr)
+      in
+      Pretty_utils.pp_iter Cil_datatype.Varinfo.Set.iter
+        ~pre:"" ~suf:"" ~sep:",@ " pp_var fmt temporaries
 
-  method! code_annotation fmt ca =
-    temporaries <- Cil_datatype.Varinfo.Set.empty;
-    match ca.annot_content with
-    | AAssert(_, p) ->
-      (* ignore the ACSL name *)
-      Format.fprintf fmt "@[<v>@[assert@ %a;@]" self#predicate p.content;
-      (* print temporary variables information *)
-      if not (Cil_datatype.Varinfo.Set.is_empty temporaries) then begin
-        Format.fprintf fmt "@ @[(%t)@]" self#pp_temporaries
+    method! logic_var fmt lvi =
+      begin match lvi.lv_origin with
+        | None | Some { vdescr = None; _ }-> ()
+        | Some ({ vdescr = Some _; _ } as vi) ->
+          temporaries <- Cil_datatype.Varinfo.Set.add vi temporaries
       end;
-      Format.fprintf fmt "@]";
-    | _ -> assert false
-
-  method private pp_temporaries fmt =
-    let pp_var fmt vi =
-      Format.fprintf fmt "%s from@ @[%s@]" vi.vname (Extlib.the vi.vdescr)
-    in
-    Pretty_utils.pp_iter Cil_datatype.Varinfo.Set.iter
-      ~pre:"" ~suf:"" ~sep:",@ " pp_var fmt temporaries
-
-  method! logic_var fmt lvi =
-    begin match lvi.lv_origin with
-      | None | Some { vdescr = None; _ }-> ()
-      | Some ({ vdescr = Some _; _ } as vi) ->
-        temporaries <- Cil_datatype.Varinfo.Set.add vi temporaries
-    end;
-    super#logic_var fmt lvi
+      super#logic_var fmt lvi
+  end
 end
 
-let pr_annot = local_printer#code_annotation
+let pr_annot fmt a =
+  let oldPrinter = Printer.current_printer () in
+  Printer.update_printer (module Local_printer);
+  Printer.pp_code_annotation fmt a;
+  Printer.set_printer oldPrinter
+
 let emitter = Value_util.emitter
 
 let current_stmt_tbl =

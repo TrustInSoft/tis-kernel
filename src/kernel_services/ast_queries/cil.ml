@@ -145,7 +145,7 @@ let default_machdep = Machdeps.x86_32
 
 let createMachine () = (* Contain dummy values *)
   { useLogicalOperators = false;
-    theMachine = default_machdep;
+    theMachine = default_machdep.Machdeps.mach;
     lowerConstants = false(*true*);
     insertImplicitCasts = true;
     stringLiteralType = charPtrType;

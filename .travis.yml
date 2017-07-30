@@ -1,0 +1,22 @@
+sudo: required
+dist: trusty
+language: cpp
+cache: apt
+os:
+- linux
+compiler:
+- clang
+install:
+- sudo add-apt-repository --yes ppa:avsm/ppa
+- sudo apt-get update -qq
+- sudo apt-get install -qq -y opam build-essential m4 pkg-config libgmp-dev
+- opam init --yes --root="$HOME/tis-kernel-opam" --comp="4.03.0"
+- eval $(opam config env --root="$HOME/tis-kernel-opam")
+- opam install zarith easy-format biniou yojson.1.2.3 ocamlfind ocamlgraph -y
+- opam list
+script:
+- autoconf -f
+- ./configure "--prefix=$HOME/tis-interpreter" --disable-from_analysis --disable-gui --disable-impact --disable-inout --disable-metrics --disable-occurrence --disable-pdg --disable-postdominators --enable-rtegen --disable-scope --disable-slicing --disable-sparecode --enable-users --disable-aorai --disable-obfuscator --disable-report --disable-security_slicing --disable-wp --disable-wp-coq --disable-wp-why3 --disable-print_api --with-all-static
+- make depend
+- make
+- make install

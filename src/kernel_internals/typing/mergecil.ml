@@ -153,7 +153,7 @@ module PP = struct
       (fun fmt enumitem ->
          Format.fprintf fmt "%s=%a"
            enumitem.eiorig_name
-           Cil_printer.pp_exp enumitem.eival)
+           Printer.pp_exp enumitem.eival)
 
   let pp_table ~iter ~pp_name ~pp_binding fmt (table : 'table) =
     Format.fprintf fmt "/--<[ %a table ]>--@." pp_name table;
@@ -177,7 +177,7 @@ module PP = struct
 
   let pp_varinfo_set_table ~name fmt table =
     let pp_binding fmt (varinfo, _) =
-      Format.fprintf fmt "%a" Cil_printer.pp_varinfo varinfo
+      Format.fprintf fmt "%a" Printer.pp_varinfo varinfo
     in
     pp_table
       ~iter:Varinfo.Hashtbl.iter
@@ -317,7 +317,7 @@ end = struct
     (* Add a single global to the merged file. *)
     let push_indexed_global _file_index _in_file_index global =
       Kernel.debug ~dkey "Pushing a global:@.@[%a@]"
-        Cil_printer.pp_global global;
+        Printer.pp_global global;
       Cil.pushGlobal ~types ~variables global
     in
 
@@ -390,13 +390,13 @@ let rec pp_merge_failure_reason fmt =
   | Int_types_different (old_typ, new_typ) ->
     Format.fprintf fmt
       "different integer types %a and %a"
-      Cil_printer.pp_typ old_typ
-      Cil_printer.pp_typ new_typ
+      Printer.pp_typ old_typ
+      Printer.pp_typ new_typ
   | Float_types_different (old_typ, new_typ) ->
     Format.fprintf fmt
       "different floating point types %a and %a"
-      Cil_printer.pp_typ old_typ
-      Cil_printer.pp_typ new_typ
+      Printer.pp_typ old_typ
+      Printer.pp_typ new_typ
   | Array_sizes_different (_old_typ, _new_typ) ->
     Format.fprintf fmt "different array sizes"
   | Fun_variadic_different (_old_typ, _new_typ) ->
@@ -406,8 +406,8 @@ let rec pp_merge_failure_reason fmt =
   | Type_constr_different (old_typ, new_typ) ->
     Format.fprintf fmt
       "different type constructors: %a vs. %a"
-      Cil_printer.pp_typ old_typ
-      Cil_printer.pp_typ new_typ
+      Printer.pp_typ old_typ
+      Printer.pp_typ new_typ
   | Comp_struct_and_union (_old_compinfo, _new_compinfo) ->
     Format.fprintf fmt "different struct/union types"
   | Comp_fields_number_different (old_compinfo, new_compinfo) ->
@@ -425,12 +425,12 @@ let rec pp_merge_failure_reason fmt =
   | Comp_not_isomorphic (old_compinfo, new_compinfo, reason) ->
     let fields_old : string =
       Pretty_utils.sfprintf "%a"
-        Cil_printer.pp_global
+        Printer.pp_global
         (GCompTag(old_compinfo, Location.unknown))
     in
     let fields_new : string =
       Pretty_utils.sfprintf "%a"
-        Cil_printer.pp_global
+        Printer.pp_global
         (GCompTag(new_compinfo, Location.unknown))
     in
     let fullname_old = Cil.compFullName old_compinfo in
@@ -607,7 +607,7 @@ end = struct
       | Defined defined ->
         Format.fprintf fmt "%a(%a)"
           InFileIndex.pretty defined.in_file_index
-          Cil_printer.pp_location defined.location
+          Printer.pp_location defined.location
       | Undefined -> ()
 
     (** Debug printing. *)
@@ -615,7 +615,7 @@ end = struct
       | Defined defined ->
         Format.fprintf fmt "%a at %a"
           InFileIndex.pretty defined.in_file_index
-          Cil_printer.pp_location defined.location
+          Printer.pp_location defined.location
       | Undefined -> Format.fprintf fmt "undefined"
 
   end
@@ -1595,7 +1595,7 @@ struct
   let should_merge_synonym _ = true
 
   let pretty fmt enuminfo =
-    Cil_printer.pp_global fmt (GEnumTag (enuminfo, Location.unknown))
+    Printer.pp_global fmt (GEnumTag (enuminfo, Location.unknown))
 end
 
 module EnumMerging = Merging(EnumMergeableType)
@@ -1623,7 +1623,7 @@ struct
   let should_merge_synonym _ = true
 
   let pretty fmt x =
-    Pretty_utils.pp_list ~sep:",@ " Cil_printer.pp_identified_term fmt x
+    Pretty_utils.pp_list ~sep:",@ " Printer.pp_identified_term fmt x
 end
 
 module VolatileMerging = Merging(VolatileMergeableType)
@@ -1670,7 +1670,7 @@ struct
   let should_merge_synonym _ = true
 
   let pretty fmt (s, t) =
-    Format.fprintf fmt "model@ %a@ { %s }" Cil_printer.pp_typ t s
+    Format.fprintf fmt "model@ %a@ { %s }" Printer.pp_typ t s
 end
 
 module ModelMerging = Merging(ModelMergeableType)
@@ -2666,7 +2666,7 @@ let match_volatile_clause
     | false ->
       Kernel.error ~current:true
         "invalid multiple volatile clauses for locations %a"
-        (Pretty_utils.pp_list ~sep:",@ " Cil_printer.pp_identified_term) new_id
+        (Pretty_utils.pp_list ~sep:",@ " Printer.pp_identified_term) new_id
   end
 
 (* NOTE: Only used in [merge]. *)
@@ -2700,9 +2700,9 @@ let match_model_info
         "Model field %s of type %a is declared with different logic type: \
          %a and %a"
         new_model_info.mi_name
-        Cil_printer.pp_typ        new_model_info.mi_base_type
-        Cil_printer.pp_logic_type new_model_info.mi_field_type
-        Cil_printer.pp_logic_type old_model_info.mi_field_type
+        Printer.pp_typ        new_model_info.mi_base_type
+        Printer.pp_logic_type new_model_info.mi_field_type
+        Printer.pp_logic_type old_model_info.mi_field_type
   end
 
 (* NOTE: Only used in [merge]. *)
@@ -2853,8 +2853,8 @@ let warn_discarding_inline_body varinfo loc =
   if Kernel.InliningMode.get () = "warn" then
     Kernel.warning ~current:true
       "Discarding inline definition's body for function `%a' at %a."
-      Cil_printer.pp_varinfo varinfo
-      Cil_printer.pp_location loc
+      Printer.pp_varinfo varinfo
+      Printer.pp_location loc
 
 (** A function is treated like static if either:
     - the function is actually static
@@ -2930,13 +2930,13 @@ let treat_varinfo_type_pass_1
         new_varinfo_file_index new_varinfo.vtype;
     with Merge_failure reason ->
       Kernel.abort
-        "@[<hov>Incompatible declaration for %s:@ %a@\n\
-         First declaration was at  %a@\n\
+        "@[<hov>Incompatible declaration for %a:@ %a@\n\
+         First declaration was at %a@\n\
          Current declaration is at %a"
-        new_varinfo.vname
+        Printer.pp_varinfo new_varinfo
         pp_merge_failure_reason reason
-        Cil_printer.pp_location old_varinfo_location
-        Cil_printer.pp_location new_varinfo_location
+        Printer.pp_location old_varinfo_location
+        Printer.pp_location new_varinfo_location
   in
 
   (* We do not want to turn non-"const" globals into "const" one. That can
@@ -2975,12 +2975,12 @@ let treat_varinfo_storage_pass_1
   (* None of the above cases applies. *)
   | old_varinfo_storage, new_varinfo_storage ->
     Kernel.warning ~current:true
-      "Inconsistent storage specification for %s. \
+      "Inconsistent storage specification for %a. \
        Now is %a and previous was %a at %a"
-      new_varinfo.vname
-      Cil_printer.pp_storage new_varinfo_storage
-      Cil_printer.pp_storage old_varinfo_storage
-      Cil_printer.pp_location old_varinfo_location;
+      Printer.pp_varinfo new_varinfo
+      Printer.pp_storage new_varinfo_storage
+      Printer.pp_storage old_varinfo_storage
+      Printer.pp_location old_varinfo_location;
     rep_varinfo.vstorage <- new_varinfo_storage
 
 let treat_varinfo_attrs_pass_1
@@ -3074,7 +3074,7 @@ let treat_one_global_pass_1 file_index in_file_index global =
      ---------------------------------------------------------------------"
     FileIndex.pretty file_index
     InFileIndex.pretty in_file_index
-    Cil_printer.pp_global global;
+    Printer.pp_global global;
 
   (* Clean the referenced flag. *)
   make_not_referenced global;
@@ -3196,7 +3196,7 @@ let make_function_printout :
     (* Temporarily turn off printing of line numbers. *)
     Cil_printer.state.line_directive_style <- None;
     (* Do the printout. *)
-    let printout = Pretty_utils.sfprintf "%a" Cil_printer.pp_global global in
+    let printout = Pretty_utils.sfprintf "%a" Printer.pp_global global in
     (* Restore printing settings. *)
     Cil_printer.state.line_directive_style <- saved_line_directive_style;
     (* Done! *)
@@ -3305,11 +3305,11 @@ end = struct
       | non_empty_funspecs_list ->
         Format.fprintf fmt "%a"
           (Pretty_utils.pp_list ~pre:"(" ~suf:")" ~sep:", "
-             Cil_printer.pp_funspec) non_empty_funspecs_list
+             Printer.pp_funspec) non_empty_funspecs_list
     in
     let pp_binding fmt (varinfo, funspecs) =
       Format.fprintf fmt "%a -> %a"
-        Cil_printer.pp_varinfo varinfo
+        Printer.pp_varinfo varinfo
         pp_funspecs_list funspecs
     in
     pp_table
@@ -3322,8 +3322,8 @@ end = struct
   let add_to_funspec_to_merge varinfo funspec =
     Kernel.debug ~dkey
       "adding new funspec for variable %a: %a!"
-      Cil_printer.pp_varinfo varinfo
-      Cil_printer.pp_funspec funspec;
+      Printer.pp_varinfo varinfo
+      Printer.pp_funspec funspec;
     let funspecs =
       try Varinfo.Hashtbl.find table varinfo
       with Not_found -> []
@@ -3349,7 +3349,7 @@ end = struct
     pp_list_as_args_list
       (fun fmt varinfo ->
          Format.fprintf fmt "`%a' (id = %d)"
-           Cil_printer.pp_varinfo varinfo varinfo.vid)
+           Printer.pp_varinfo varinfo varinfo.vid)
 
   let add_formals_renaming rep_varinfo new_fundec =
     let new_varinfo = new_fundec.svar in
@@ -3371,7 +3371,7 @@ end = struct
         in
         Kernel.debug ~dkey
           "adding formals renaming for variable %a: %a -> %a!"
-          Cil_printer.pp_varinfo varinfo
+          Printer.pp_varinfo varinfo
           pp_varinfos_args_list replaced_args_varinfos
           pp_varinfos_args_list replacing_args_varinfos;
         if (Varinfo.Hashtbl.mem table varinfo) then
@@ -3383,7 +3383,7 @@ end = struct
            May occur at least when trying to merge incompatible declarations. *)
         Kernel.debug ~dkey
           "adding formals renaming for variable %a ABORTED!"
-          Cil_printer.pp_varinfo varinfo
+          Printer.pp_varinfo varinfo
 
   let dkey = Kernel.register_category ("mergecil:" ^ "merge_funspec")
 
@@ -3411,12 +3411,12 @@ end = struct
               Kernel.debug ~dkey
                 "Renaming spec of function %a@.original spec is %a"
                 Varinfo.pretty varinfo_to_discard
-                Cil_printer.pp_funspec funspec;
+                Printer.pp_funspec funspec;
               let funspec' = visitCilFunspec alpha_visitor funspec in
               Kernel.debug ~dkey "renamed spec is %a"
                 (* BUG? Shouldn't print [funspec']? *)
                 (* TODO: That's the same thing... *)
-                Cil_printer.pp_funspec funspec;
+                Printer.pp_funspec funspec;
               funspec'
             with Not_found -> assert false
           end
@@ -3427,7 +3427,7 @@ end = struct
         | Some alpha_visitor ->
           let funspec = visitCilFunspec alpha_visitor funspec in
           Kernel.debug ~dkey "renamed spec with definition's formals is %a"
-            Cil_printer.pp_funspec funspec;
+            Printer.pp_funspec funspec;
           funspec
       in
       add_to_funspec_to_merge varinfo_to_keep funspec
@@ -3493,7 +3493,7 @@ class renameToRepresentativeClass file_index =
   let rename_logic_info =
     let pp_profiles fmt logic_info =
       Pretty_utils.pp_list ~sep:",@ "
-        Cil_printer.pp_logic_type fmt
+        Printer.pp_logic_type fmt
         (List.map (fun logic_var -> logic_var.lv_type) logic_info.l_profile)
     in
     fun logic_info ->
@@ -3647,8 +3647,8 @@ class renameToRepresentativeClass file_index =
           Kernel.debug ~dkey
             "Renaming use of variable %a from file %a \
              to variable %a from file %a"
-            Cil_printer.pp_varinfo varinfo FileIndex.pretty file_index
-            Cil_printer.pp_varinfo varinfo' FileIndex.pretty file_index';
+            Printer.pp_varinfo varinfo FileIndex.pretty file_index
+            Printer.pp_varinfo varinfo' FileIndex.pretty file_index';
           varinfo'.vreferenced <- true;
           ChangeTo varinfo'
 
@@ -3827,8 +3827,8 @@ class renameInlineOrStaticVisitorClass file_index get_original_var_name = object
         Kernel.debug ~dkey
           "Renaming use of variable %a from file %a \
            to variable %a from file %a"
-          Cil_printer.pp_varinfo varinfo FileIndex.pretty file_index
-          Cil_printer.pp_varinfo varinfo' FileIndex.pretty file_index';
+          Printer.pp_varinfo varinfo FileIndex.pretty file_index
+          Printer.pp_varinfo varinfo' FileIndex.pretty file_index';
         varinfo'.vreferenced <- true;
         ChangeTo varinfo'
 
@@ -4399,7 +4399,7 @@ end = struct
       let key = varinfo.vname in
       Kernel.debug ~dkey
         "marking variable `%a' as declared!"
-        Cil_printer.pp_varinfo varinfo;
+        Printer.pp_varinfo varinfo;
       Hashtbl.add table key ()
 
     let mem varinfo =
@@ -4420,8 +4420,8 @@ end = struct
 
     let pp_var_definition fmt (name, (varinfo, init_option, loc)) =
       Format.fprintf fmt "variable `%s' definition at %a: @[%a@]"
-        name Cil_printer.pp_location loc
-        Cil_printer.pp_global (GVar(varinfo, {init = init_option}, loc))
+        name Printer.pp_location loc
+        Printer.pp_global (GVar(varinfo, {init = init_option}, loc))
 
     let pp_binding = pp_var_definition
 
@@ -4460,8 +4460,8 @@ end = struct
 
     let pp_fun_definition fmt (name, (fundec, loc, checksum)) =
       Format.fprintf fmt "function `%s' def at %a (checksum = %d):@.| @[%a@]"
-        name Cil_printer.pp_location loc checksum
-        Cil_printer.pp_global (GFun(fundec, loc))
+        name Printer.pp_location loc checksum
+        Printer.pp_global (GFun(fundec, loc))
 
     let pp_binding = pp_fun_definition
 
@@ -4548,7 +4548,7 @@ let process_staticlike_varinfo new_varinfo new_loc =
   Kernel.debug ~dkey ~current:true
     "renamed static-like variable `%s'(%d) to `%s'(%d) (at %a)"
     original_varinfo_name original_varinfo_id new_varinfo_name new_varinfo.vid
-    Cil_printer.pp_location new_loc
+    Printer.pp_location new_loc
 
 let process_nonstaticlike_varinfo new_file_index new_varinfo =
   let dkey = dkey_process_varinfo in
@@ -4568,13 +4568,13 @@ let process_nonstaticlike_varinfo new_file_index new_varinfo =
   (* This is the representative. *)
   | None ->
     Kernel.debug ~dkey ~current:true "%a this is representative"
-      Cil_printer.pp_varinfo new_varinfo;
+      Printer.pp_varinfo new_varinfo;
     (* We are done. *)
     None
   (* The representative is in the same file.*)
   | Some (rep_varinfo, rep_file_index) when rep_file_index = new_file_index ->
     Kernel.debug ~dkey ~current:true "%a representative in the same file"
-      Cil_printer.pp_varinfo new_varinfo;
+      Printer.pp_varinfo new_varinfo;
     (* Sanity check: if the representative is in the same file, the
        representative varinfo is the same varinfo that the current one. *)
     assert (new_varinfo == rep_varinfo);
@@ -4584,7 +4584,7 @@ let process_nonstaticlike_varinfo new_file_index new_varinfo =
     None
   | Some (rep_varinfo, rep_file_index) -> (* Reuse the representative. *)
     Kernel.debug ~dkey ~current:true "%a representative in a different file"
-      Cil_printer.pp_varinfo new_varinfo;
+      Printer.pp_varinfo new_varinfo;
     (* Sanity check: if the representative is NOT in the same file, the
        representative varinfo is different than the current one. *)
     assert (rep_file_index != new_file_index);
@@ -4602,7 +4602,7 @@ let process_nonstaticlike_varinfo new_file_index new_varinfo =
     if Extlib.xor rep_varinfo.vghost new_varinfo.vghost then
       Kernel.abort
         "Cannot merge: Global %a has both ghost and non-ghost status"
-        Cil_printer.pp_varinfo rep_varinfo;
+        Printer.pp_varinfo rep_varinfo;
     (* If the varinfo has a logic binding, add one to the representative
        if needed. *)
     begin
@@ -4619,7 +4619,7 @@ let process_varinfo file_index new_varinfo new_loc =
   if new_varinfo.vreferenced
   then begin (* The variable was already processed, we are done. *)
     Kernel.debug ~dkey ~current:true "%a already referenced"
-      Cil_printer.pp_varinfo new_varinfo;
+      Printer.pp_varinfo new_varinfo;
     None
   end else
     (* Rename it if it is static, find the representative if it is not. *)
@@ -4631,7 +4631,7 @@ let process_varinfo file_index new_varinfo new_loc =
         (* If the variable is static-like and not an aggressive merging
            candidate: rename it. *)
         Kernel.debug ~dkey ~current:true "%a rename static-like"
-          Cil_printer.pp_varinfo new_varinfo;
+          Printer.pp_varinfo new_varinfo;
         process_staticlike_varinfo new_varinfo new_loc
       end;
       None
@@ -4690,7 +4690,7 @@ let treat_one_global_pass_2 file_index in_file_index global =
      ---------------------------------------------------------------------"
     FileIndex.pretty file_index
     InFileIndex.pretty in_file_index
-    Cil_printer.pp_global global;
+    Printer.pp_global global;
 
   (* Debug printing. *)
   Kernel.debug ~dkey "%t" Pass2Env.OriginalVarNames.pretty;
@@ -4761,10 +4761,10 @@ let treat_one_global_pass_2 file_index in_file_index global =
       (* Previously defined, both have initializers. DO NOT EMIT! *)
       | Some (_, _, prev_loc) ->
         Kernel.error ~current:true
-          "global var %s at %a has different initializer than %a"
-          rep_varinfo.vname
-          Cil_printer.pp_location new_loc
-          Cil_printer.pp_location prev_loc;
+          "global var %a at %a has different initializer than %a"
+          Printer.pp_varinfo rep_varinfo
+          Printer.pp_location new_loc
+          Printer.pp_location prev_loc;
         []
     end
 
@@ -4788,8 +4788,8 @@ let treat_one_global_pass_2 file_index in_file_index global =
 
           Kernel.debug ~dkey ~current:true
             "Merging GFunDecl (%a at %a): we have a representative"
-            Cil_printer.pp_varinfo new_varinfo
-            Cil_printer.pp_location new_loc;
+            Printer.pp_varinfo new_varinfo
+            Printer.pp_location new_loc;
 
           (* Go in there and rename everything as needed. *)
           ignore (rename_to_representative_inside_global global);
@@ -4830,8 +4830,8 @@ let treat_one_global_pass_2 file_index in_file_index global =
 
           Kernel.debug ~dkey ~current:true
             "Merging GFunDecl (%a at %a): there is no representative"
-            Cil_printer.pp_varinfo new_varinfo
-            Cil_printer.pp_location new_loc;
+            Printer.pp_varinfo new_varinfo
+            Printer.pp_location new_loc;
 
           (* Go in there and rename everything as needed. *)
           let globals' = rename_to_representative_inside_global global in
@@ -4844,8 +4844,8 @@ let treat_one_global_pass_2 file_index in_file_index global =
           | true ->
             Kernel.debug ~dkey ~current:true
               "Merging GFunDecl (%a at %a): was already declared!"
-              Cil_printer.pp_varinfo new_varinfo
-              Cil_printer.pp_location new_loc;
+              Printer.pp_varinfo new_varinfo
+              Printer.pp_location new_loc;
 
             MergeFunspec.merge_funspec new_varinfo new_varinfo new_funspec;
             []
@@ -4854,8 +4854,8 @@ let treat_one_global_pass_2 file_index in_file_index global =
           | false ->
             Kernel.debug ~dkey ~current:true
               "Merging GFunDecl (%a at %a): was not declared yet!"
-              Cil_printer.pp_varinfo new_varinfo
-              Cil_printer.pp_location new_loc;
+              Printer.pp_varinfo new_varinfo
+              Printer.pp_location new_loc;
 
             (* Remember that it was declared. *)
             Pass2Env.VarsDeclared.add new_varinfo;
@@ -4884,8 +4884,8 @@ let treat_one_global_pass_2 file_index in_file_index global =
 
         Kernel.debug ~dkey ~current:true
           "Merging GFun (%a at %a): static"
-          Cil_printer.pp_varinfo new_fundec.svar
-          Cil_printer.pp_location new_loc;
+          Printer.pp_varinfo new_fundec.svar
+          Printer.pp_location new_loc;
 
         (* SANITY CHECK*)
         assert (processed_varinfo = None);
@@ -4912,8 +4912,8 @@ let treat_one_global_pass_2 file_index in_file_index global =
         Kernel.debug ~dkey ~current:true
           "Merging GFun (%a at %a): \
            already defined, dropping the body"
-          Cil_printer.pp_varinfo new_fundec.svar
-          Cil_printer.pp_location new_loc;
+          Printer.pp_varinfo new_fundec.svar
+          Printer.pp_location new_loc;
 
         (* SANITY CHECK *)
         (* Two definitions of the same function in the same file are invalid
@@ -4952,8 +4952,8 @@ let treat_one_global_pass_2 file_index in_file_index global =
         Kernel.debug ~dkey ~current:true
           "Merging GFun (%a at %a): \
            already defined"
-          Cil_printer.pp_varinfo new_fundec.svar
-          Cil_printer.pp_location new_loc;
+          Printer.pp_varinfo new_fundec.svar
+          Printer.pp_location new_loc;
 
         (* SANITY CHECK *)
         (* Two definitions of the same function in the same file are invalid
@@ -4971,23 +4971,23 @@ let treat_one_global_pass_2 file_index in_file_index global =
           match new_checksum = old_checksum with
           | true ->
             Kernel.warning ~current:true
-              "dropping duplicate def'n of func %s at %a \
+              "dropping duplicate def'n of func %a at %a \
                in favor of that at %a"
-              new_fundec.svar.vname
-              Cil_printer.pp_location new_loc
-              Cil_printer.pp_location old_loc
+              Printer.pp_varinfo new_fundec.svar
+              Printer.pp_location new_loc
+              Printer.pp_location old_loc
           | false ->
             (* the checksums differ, so print a warning but keep the
                older one to avoid a link error later.  I think this is
                a reasonable approximation of what ld does. *)
             Kernel.warning ~current:true
-              "def'n of func %s at %a (sum %d) conflicts with the one \
+              "def'n of func %a at %a (sum %d) conflicts with the one \
                at %a (sum %d); keeping the one at %a."
-              new_fundec.svar.vname
-              Cil_printer.pp_location new_loc
+              Printer.pp_varinfo new_fundec.svar
+              Printer.pp_location new_loc
               new_checksum
-              Cil_printer.pp_location old_loc
-              old_checksum Cil_printer.pp_location old_loc
+              Printer.pp_location old_loc
+              old_checksum Printer.pp_location old_loc
         end;
         []
 
@@ -5002,8 +5002,8 @@ let treat_one_global_pass_2 file_index in_file_index global =
         Kernel.debug ~dkey ~current:true
           "Merging GFun (%a at %a): \
            not defined yet, already declared (v1), dropping the body"
-          Cil_printer.pp_varinfo new_fundec.svar
-          Cil_printer.pp_location new_loc;
+          Printer.pp_varinfo new_fundec.svar
+          Printer.pp_location new_loc;
 
         (* SANITY CHECK *)
         assert (new_varinfo != rep_varinfo);
@@ -5043,8 +5043,8 @@ let treat_one_global_pass_2 file_index in_file_index global =
         Kernel.debug ~dkey ~current:true
           "Merging GFun (%a at %a): \
            not defined yet, already declared (v1)"
-          Cil_printer.pp_varinfo new_fundec.svar
-          Cil_printer.pp_location new_loc;
+          Printer.pp_varinfo new_fundec.svar
+          Printer.pp_location new_loc;
 
         (* SANITY CHECK *)
         assert (new_varinfo != rep_varinfo);
@@ -5085,8 +5085,8 @@ let treat_one_global_pass_2 file_index in_file_index global =
         Kernel.debug ~dkey ~current:true
           "Merging GFun (%a at %a): \
            not defined yet, already declared (v2), dropping the body"
-          Cil_printer.pp_varinfo new_fundec.svar
-          Cil_printer.pp_location new_loc;
+          Printer.pp_varinfo new_fundec.svar
+          Printer.pp_location new_loc;
 
         (* SANITY CHECK *)
         let rep_varinfo = new_varinfo in
@@ -5126,8 +5126,8 @@ let treat_one_global_pass_2 file_index in_file_index global =
         Kernel.debug ~dkey ~current:true
           "Merging GFun (%a at %a): \
            not defined yet, already declared (v2)"
-          Cil_printer.pp_varinfo new_fundec.svar
-          Cil_printer.pp_location new_loc;
+          Printer.pp_varinfo new_fundec.svar
+          Printer.pp_location new_loc;
 
         (* SANITY CHECK *)
         let rep_varinfo = new_varinfo in
@@ -5166,8 +5166,8 @@ let treat_one_global_pass_2 file_index in_file_index global =
         Kernel.debug ~dkey ~current:true
           "Merging GFun (%a at %a): \
            not defined yet, not declared yet, dropping the body"
-          Cil_printer.pp_varinfo new_fundec.svar
-          Cil_printer.pp_location new_loc;
+          Printer.pp_varinfo new_fundec.svar
+          Printer.pp_location new_loc;
 
         (* 1. rename everything to representative inside the new function
               definition,
@@ -5206,8 +5206,8 @@ let treat_one_global_pass_2 file_index in_file_index global =
         Kernel.debug ~dkey ~current:true
           "Merging GFun (%a at %a): \
            not defined yet, not declared yet"
-          Cil_printer.pp_varinfo new_fundec.svar
-          Cil_printer.pp_location new_loc;
+          Printer.pp_varinfo new_fundec.svar
+          Printer.pp_location new_loc;
 
         (* 1. rename everything to representative inside the new function
               definition,
@@ -5380,7 +5380,7 @@ let global_merge_funspec : global -> unit =
   let decl_or_def_merge_funspec varinfo funspec loc =
     match MergeFunspec.get_funspecs_to_merge varinfo with
     | Some funspecs_to_merge ->
-      Kernel.debug ~dkey "-> Merging with %a" Cil_printer.pp_funspec funspec;
+      Kernel.debug ~dkey "-> Merging with %a" Printer.pp_funspec funspec;
       (* CHECK: What can this comment mean? *)
       (* The registered funspecs might also need renaming up to
          definition's formals instead of declaration's ones. *)
@@ -5388,36 +5388,36 @@ let global_merge_funspec : global -> unit =
         (fun funspec_to_merge ->
            Kernel.debug ~dkey
              "-> Found spec to merge %a"
-             Cil_printer.pp_funspec funspec_to_merge;
+             Printer.pp_funspec funspec_to_merge;
            rename_formals_in_funspec varinfo funspec_to_merge;
            Kernel.debug ~dkey
              "-> After renaming:@\n%a"
-             Cil_printer.pp_funspec funspec_to_merge)
+             Printer.pp_funspec funspec_to_merge)
         funspecs_to_merge;
-      Kernel.debug ~dkey "-> Renaming %a" Cil_printer.pp_funspec funspec;
+      Kernel.debug ~dkey "-> Renaming %a" Printer.pp_funspec funspec;
       Cil.CurrentLoc.set loc;
       rename_formals_in_funspec varinfo funspec;
-      Kernel.debug ~dkey "-> Renamed to %a" Cil_printer.pp_funspec funspec;
+      Kernel.debug ~dkey "-> Renamed to %a" Printer.pp_funspec funspec;
       Cil.CurrentLoc.set loc;
       merge_funspecs varinfo funspec funspecs_to_merge;
-      Kernel.debug ~dkey "-> Merged into %a" Cil_printer.pp_funspec funspec;
+      Kernel.debug ~dkey "-> Merged into %a" Printer.pp_funspec funspec;
     | None ->
       Kernel.debug ~dkey "-> No funspecs_to_merge";
       rename_formals_in_funspec varinfo funspec;
-      Kernel.debug ~dkey "-> Renamed to %a" Cil_printer.pp_funspec funspec;
+      Kernel.debug ~dkey "-> Renamed to %a" Printer.pp_funspec funspec;
   in
 
   function
   | GFun ({ sspec = funspec; svar = varinfo; _ }, loc) ->
     Kernel.debug ~dkey
       "Merging global function definition %a"
-      Cil_printer.pp_varinfo varinfo;
+      Printer.pp_varinfo varinfo;
     decl_or_def_merge_funspec varinfo funspec loc
 
   | GFunDecl (funspec, varinfo, loc) ->
     Kernel.debug ~dkey
       "Merging global function declaration %a"
-      Cil_printer.pp_varinfo varinfo;
+      Printer.pp_varinfo varinfo;
     decl_or_def_merge_funspec varinfo funspec loc
 
   | _ -> ()
@@ -5480,13 +5480,13 @@ let move_spec : global list -> global list =
   let pp_missing fmt to_declare =
     let pp_one_binding fmt logic_vars =
       let pp_logic_var fmt logic_var =
-        Format.fprintf fmt "%a;@ " Cil_printer.pp_logic_var logic_var
+        Format.fprintf fmt "%a;@ " Printer.pp_logic_var logic_var
       in
       Logic_var.Set.iter (pp_logic_var fmt) logic_vars
     in
     let pp_entry fmt varinfo (_, logic_vars) =
       Format.fprintf fmt "@[%a:@[%a@]@]@\n"
-        Cil_printer.pp_varinfo varinfo
+        Printer.pp_varinfo varinfo
         pp_one_binding logic_vars
     in
     Varinfo.Map.iter (pp_entry fmt) to_declare
@@ -5709,7 +5709,7 @@ let dkey_aggressive_merging =
   Kernel.register_category "mergecil:dkey_aggressive_merging"
 
 let pp_varinfo_with_vid fmt varinfo =
-  Format.fprintf fmt "%a(%d)" Cil_printer.pp_varinfo varinfo varinfo.vid
+  Format.fprintf fmt "%a(%d)" Printer.pp_varinfo varinfo varinfo.vid
 
 (* Instead of using just an option type, this is more readable. *)
 type aggressive_mergability =
@@ -5805,7 +5805,7 @@ let aggressive_merging_pass merged_file =
         (* Debug printing. *)
         Kernel.debug ~dkey ~current:true
           "@\nVARINFO = %a(%d)@\nprintout=@\n@[%a@]@\ncandidates_called=%a"
-          Cil_printer.pp_varinfo varinfo varinfo.vid
+          Printer.pp_varinfo varinfo varinfo.vid
           (Pretty_utils.pp_opt Format.pp_print_string) printout
           (Pretty_utils.pp_list pp_varinfo_with_vid) candidates_called;
         (* Memoize the result. *)
@@ -5970,8 +5970,8 @@ let aggressive_merging_pass merged_file =
          | true -> (* This is the representative. *)
            Kernel.debug ~dkey ~current:true
              "REPLACING %a(%d)@\n%a"
-             Cil_printer.pp_varinfo new_varinfo new_varinfo.vid
-             Cil_printer.pp_global global;
+             Printer.pp_varinfo new_varinfo new_varinfo.vid
+             Printer.pp_global global;
            (* Treat it like a normal static-like function. *)
            process_staticlike_varinfo new_varinfo new_loc;
            let globals' =
@@ -5979,8 +5979,8 @@ let aggressive_merging_pass merged_file =
            in
            Kernel.debug ~dkey ~current:true
              "REPLACED %a(%d)@\n%a"
-             Cil_printer.pp_varinfo new_varinfo new_varinfo.vid
-             (Pretty_utils.pp_list Cil_printer.pp_global) globals';
+             Printer.pp_varinfo new_varinfo new_varinfo.vid
+             (Pretty_utils.pp_list Printer.pp_global) globals';
            globals'
          | false -> (* This is not the representative. *)
            (* Remove it. *)

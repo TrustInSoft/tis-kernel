@@ -319,8 +319,8 @@ let copy_annotations kf assoc labelled_stmt_tbl (break_continue_must_change, stm
                | Invalid_argument _ ->
                  Kernel.abort
                    "Loop unrolling: cannot find new representative for \
-                    local var %s"
-                   vi.vname
+                    local var %a"
+                   Printer.pp_varinfo vi
           end
       method! vlogic_label (label:logic_label) =
         match label with

@@ -178,8 +178,7 @@ let () =
          !machdeps_all_project)
 
 let internal_register_machdep ~short_name ~macro mach =
-  let t = register_machdep ~all_projects:true ~macro ~short_name mach in
-  t.mach
+  register_machdep ~all_projects:true ~macro ~short_name mach
 
 let get_registered_machdeps () =
   Machdeps.fold (fun _ (t, _) acc -> t :: acc) []
@@ -247,7 +246,7 @@ let gcc_x86_16 =
   internal_register_machdep
     ~short_name:"gcc_x86_16"
     ~macro:macro_x86_16
-    { x86_16 with compiler = "gcc" }
+    { x86_16.mach with compiler = "gcc" }
 
 let x86_32 =
   internal_register_machdep
@@ -259,7 +258,7 @@ let gcc_x86_32 =
   internal_register_machdep
     ~short_name:"gcc_x86_32"
     ~macro:macro_x86_32
-    { x86_32 with compiler = "gcc" }
+    { x86_32.mach with compiler = "gcc" }
 
 let x86_64 =
   internal_register_machdep
@@ -305,7 +304,7 @@ let gcc_x86_64 =
   internal_register_machdep
     ~short_name:"gcc_x86_64"
     ~macro:macro_x86_64
-    { x86_64 with
+    { x86_64.mach with
       compiler = "gcc";
       has_int128 = true;
       sizeof_int128 = 16;
@@ -355,7 +354,7 @@ let apple_ppc_32 =
   internal_register_machdep
     ~short_name:"apple_ppc_32"
     ~macro:"__FC_MACHDEP_APPLE_PPC_32"
-    { ppc_32 with
+    { ppc_32.mach with
       version = "4.0.1 (Apple Computer, Inc. build 5367)";
       compiler = "standard";
       char_is_unsigned = false; }
