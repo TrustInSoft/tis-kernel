@@ -1525,8 +1525,7 @@ class cil_printer () = object (self)
       | GPragma (Attr(an, args), l) ->
         (* sm: suppress printing pragmas that gcc does not understand *)
         (* assume anything starting with "ccured" is ours *)
-        (* also don't print the 'combiner' pragma *)
-        (* nor 'cilnoremove' *)
+        (* also print neither the 'combiner' pragma nor 'cilnoremove' *)
         let suppress =
           not state.print_cil_input
           && not (Cil.msvcMode ())
@@ -1906,6 +1905,8 @@ class cil_printer () = object (self)
           true
         | s, _
           when s = Cil.bitfield_attribute_name && not state.print_cil_as_is ->
+          false
+        | "cilnoremove", _ -> (* intentionally not printed *)
           false
         | _ -> (* This is the default case *)
           (* Add underscores to the name *)

@@ -113,7 +113,8 @@ module SplitReturn: Parameter_sig.String
 module SplitReturnFunction:
   Parameter_sig.Map with type key = Cil_types.kernel_function
                      and type value = Split_strategy.t
-module SplitGlobalStrategy: State_builder.Ref with type data = Split_strategy.t
+module SplitGlobalStrategy: State_builder.Ref
+  with type data = Split_strategy.t
 
 module ValShowProgress: Parameter_sig.Bool
 module ValShowAllocations: Parameter_sig.Bool

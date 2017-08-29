@@ -764,6 +764,7 @@ let removeUnmarked isRoot file =
       || isRoot global
     | GCompTag (c,_) | GCompTagDecl (c,_) ->
       c.creferenced ||
+      Cil.hasAttribute "cilnoremove" c.cattr ||
       Cil.hasAttribute "FC_BUILTIN" c.cattr || isRoot global
     | GEnumTag (e, _) | GEnumTagDecl (e,_) ->
       e.ereferenced ||

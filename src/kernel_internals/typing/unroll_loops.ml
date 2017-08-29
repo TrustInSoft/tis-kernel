@@ -150,7 +150,7 @@ class simplify_const_lval = object (self)
     match t.term_node with
     | TLval tlv -> begin
         (* simplify recursively tlv before attempting evaluation *)
-        let tlv = Visitor.(visitFramacTermLval (self:>frama_c_visitor) tlv) in
+        let tlv = Visitor.visitFramacTermLval (self :> frama_c_visitor) tlv in
         match eval_term_lval tlv with
         | None -> Cil.SkipChildren
         | Some itvs ->

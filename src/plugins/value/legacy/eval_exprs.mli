@@ -32,7 +32,6 @@
 (**************************************************************************)
 
 open Cil_types
-open Locations
 
 (* Evaluation of expressions and l-values. *)
 
@@ -41,10 +40,10 @@ val eval_expr :
 
 val eval_expr_with_deps_state :
   with_alarms:CilE.warn_mode ->
-  Zone.t option ->
+  Locations.Zone.t option ->
   Cvalue.Model.t ->
   exp ->
-  Cvalue.Model.t * Zone.t option * Location_Bytes.t
+  Cvalue.Model.t * Locations.Zone.t option * Locations.Location_Bytes.t
 
 val eval_lval_one_loc : with_alarms:CilE.warn_mode ->
   Locations.Zone.t option ->
@@ -55,9 +54,9 @@ val eval_lval_one_loc : with_alarms:CilE.warn_mode ->
 
 val eval_lval :
   with_alarms:CilE.warn_mode ->
-  Zone.t option ->
+  Locations.Zone.t option ->
   Cvalue.Model.t ->
-  lval -> Cvalue.Model.t * Zone.t option * Cvalue.V.t * typ
+  lval -> Cvalue.Model.t * Locations.Zone.t option * Cvalue.V.t * typ
 
 
 (* -------------------------------------------------------------------------- *)
@@ -66,7 +65,7 @@ val eval_lval :
 
 val lval_to_loc :
   with_alarms:CilE.warn_mode ->
-  Cvalue.Model.t -> lval -> location
+  Cvalue.Model.t -> lval -> Locations.location
 
 val lval_to_precise_loc :
   with_alarms:CilE.warn_mode ->
@@ -75,7 +74,7 @@ val lval_to_precise_loc :
 
 val lval_to_loc_state :
   with_alarms:CilE.warn_mode ->
-  Cvalue.Model.t -> lval -> Cvalue.Model.t * location * typ
+  Cvalue.Model.t -> lval -> Cvalue.Model.t * Locations.location * typ
 
 val lval_to_precise_loc_state :
   with_alarms:CilE.warn_mode ->
@@ -84,19 +83,19 @@ val lval_to_precise_loc_state :
 
 val lval_to_loc_deps_state :
   with_alarms:CilE.warn_mode ->
-  deps:Zone.t option ->
+  deps:Locations.Zone.t option ->
   Cvalue.Model.t ->
   reduce_valid_index:Kernel.SafeArrays.t ->
   lval ->
-  Cvalue.Model.t * Zone.t option * location * typ
+  Cvalue.Model.t * Locations.Zone.t option * Locations.location * typ
 
 val lval_to_precise_loc_deps_state :
   with_alarms:CilE.warn_mode ->
-  deps:Zone.t option ->
+  deps:Locations.Zone.t option ->
   Cvalue.Model.t ->
   reduce_valid_index:Kernel.SafeArrays.t ->
   lval ->
-  Cvalue.Model.t * Zone.t option * Precise_locs.precise_location * typ
+  Cvalue.Model.t * Locations.Zone.t option * Precise_locs.precise_location * typ
 
 
 (* -------------------------------------------------------------------------- *)
@@ -126,7 +125,7 @@ exception Cannot_find_lv
 val find_lv : Cvalue.Model.t -> exp -> lval
 
 val get_influential_vars :
-  Cvalue.Model.t -> exp -> location list
+  Cvalue.Model.t -> exp -> Locations.location list
 
 
 (* -------------------------------------------------------------------------- *)
@@ -152,14 +151,16 @@ val warn_reduce_by_accessed_loc:
 
 val resolv_func_vinfo :
   with_alarms:CilE.warn_mode ->
-  Zone.t option ->
+  Locations.Zone.t option ->
   Cvalue.Model.t ->
-  exp -> Kernel_function.Hptset.t * Zone.t option
+  exp -> Kernel_function.Hptset.t * Locations.Zone.t option
 
 val offsetmap_of_lv:
   with_alarms:CilE.warn_mode ->
   Cvalue.Model.t -> lval ->
-  Precise_locs.precise_location * Cvalue.Model.t * Cvalue.V_Offsetmap.t_top_bottom
+  Precise_locs.precise_location
+  * Cvalue.Model.t
+  * Cvalue.V_Offsetmap.t_top_bottom
 (** May raise [Int_Base.Error_Top] *)
 
 (*

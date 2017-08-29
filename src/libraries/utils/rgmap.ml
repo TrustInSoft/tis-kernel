@@ -34,20 +34,28 @@
 type 'a entry = int * int * 'a
 
 (* Entries are stored in slices of increasing width.
-   In a given slice, all entries have the same width, hence a total order is available for each slice.
+   In a given slice, all entries have the same width, hence a total
+   order is available for each slice.
 
-   Lookup for any entry applying to some range inside a given slice only needs to check for
-   subset _vs_ disjoint ranges. This can be implemented by a comparison order over ranges making
-   included ranges equal: if two ranges are not included one in the other, they can be ordered.
+   Lookup for any entry applying to some range inside a given slice
+   only needs to check for subset _vs_ disjoint ranges. This can be
+   implemented by a comparison order over ranges making included
+   ranges equal: if two ranges are not included one in the other, they
+   can be ordered.
 
-   Finding entries covering a range in the entire map can then be performed by looking for the first
-   applying entry in increasing width.
+   Finding entries covering a range in the entire map can then be
+   performed by looking for the first applying entry in increasing
+   width.
 
-   The global complexity for lookup is around [log(n)^2], whereas insertion is only [log(n)].
-   To evaluate complexity, take for instance the full binary tree of integers in range [0..n],
-   with [n=2^N]. Consider one entry for each node of the tree, ranging all the integers it contains.
-   There are [N] slices, with slice [i] having [2^(N-i)] entries of width [2^i].
-   Lookup in each slice has logarithmic time, ie. [n-i]. Hence, global lookup has complexity [N^2].
+   The global complexity for lookup is around [log(n)^2], whereas
+   insertion is only [log(n)].
+   To evaluate complexity, take for instance the full binary tree of
+   integers in range [0..n], with [n=2^N]. Consider one entry for each
+   node of the tree, ranging all the integers it contains.
+   There are [N] slices, with slice [i] having [2^(N-i)] entries of
+   width [2^i].
+   Lookup in each slice has logarithmic time, ie. [n-i]. Hence, global
+   lookup has complexity [N^2].
 *)
 
 module Wmap = Map.Make

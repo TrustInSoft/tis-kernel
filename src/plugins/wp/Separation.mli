@@ -35,9 +35,9 @@ open Cil_types
 
 (** Elementary regions *)
 type region =
-  | Var of varinfo (** the variable, [&x] *)
-  | Ptr of varinfo (** the cell pointed by [p] *)
-  | Arr of varinfo (** the array around [p] *)
+  | RVar of varinfo (** the variable, [&x] *)
+  | RPtr of varinfo (** the cell pointed by [p] *)
+  | RArr of varinfo (** the array around [p] *)
 
 (** Prints region in ACSL format *)
 val pp_region : Format.formatter -> region -> unit

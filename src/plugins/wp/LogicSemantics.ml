@@ -41,7 +41,6 @@ open LogicBuiltins
 open Clabels
 open Ctypes
 open Lang
-open Lang.F
 open Definitions
 open Memory
 
@@ -158,28 +157,29 @@ struct
     | TNoOffset -> v
     | TModel _ -> Wp_parameters.not_yet_implemented "Model field"
     | TField(f,offset) ->
-      let v_f = L.map (fun r -> e_getfield r (Cfield f)) v in
+      let v_f = L.map (fun r -> Lang.F.e_getfield r (Cfield f)) v in
       access_offset env v_f offset
     | TIndex(k,offset) ->
       let rk = C.logic env k in
-      let v_k = L.apply e_get v rk in
+      let v_k = L.apply Lang.F.e_get v rk in
       access_offset env v_k offset
 
   (* -------------------------------------------------------------------------- *)
   (* --- Updating an Offset (sub field-index in a compound)                 --- *)
   (* -------------------------------------------------------------------------- *)
 
-  let rec update_offset env (r:term) offset (v:term) = match offset with
+  let rec update_offset env (r:Lang.F.term) offset (v:Lang.F.term) =
+    match offset with
     | TNoOffset -> v
     | TModel _ -> Wp_parameters.not_yet_implemented "Model field"
     | TField(f,offset) ->
-      let r_f = e_getfield r (Cfield f) in
+      let r_f = Lang.F.e_getfield r (Cfield f) in
       let r_fv = update_offset env r_f offset v in
-      e_setfield r (Cfield f) r_fv
+      Lang.F.e_setfield r (Cfield f) r_fv
     | TIndex(k,offset) ->
       let k = val_of_term env k in
-      let r_kv = update_offset env (e_get r k) offset v in
-      e_set r k r_kv
+      let r_kv = update_offset env (Lang.F.e_get r k) offset v in
+      Lang.F.e_set r k r_kv
 
   (* -------------------------------------------------------------------------- *)
   (* --- Shifting Location of an Offset (pointer shift)                     --- *)
@@ -227,14 +227,14 @@ struct
     match lhost with
     | TResult _ ->
       let r = C.result () in
-      access_offset env (Vexp (e_var r)) loffset
+      access_offset env (Vexp (Lang.F.e_var r)) loffset
     | TMem e ->
       let te = Logic_typing.ctype_of_pointed e.term_type in
       let te , lp = logic_offset env te (C.logic env e) loffset in
       L.load (C.sigma env) (Ctypes.object_of te) lp
     | TVar{lv_name="\\exit_status"} ->
       assert (loffset = TNoOffset) ; (* int ! *)
-      Vexp (e_var (C.status ()))
+      Vexp (Lang.F.e_var (C.status ()))
     | TVar lv ->
       begin
         match logic_var env lv with
@@ -270,7 +270,7 @@ struct
   let term_unop = function
     | Neg -> L.map_opp
     | BNot -> L.map Cint.l_not
-    | LNot -> L.map e_not
+    | LNot -> L.map Lang.F.e_not
 
   (* -------------------------------------------------------------------------- *)
   (* --- Equality                                                           --- *)
@@ -332,18 +332,18 @@ struct
       let va = val_of_term env a in
       let vb = val_of_term env b in
       if use_equal polarity
-      then p_equal va vb
+      then Lang.F.p_equal va vb
       else Cvalues.equal_comp c va vb
 
     | EQ_array m ->
       let va = val_of_term env a in
       let vb = val_of_term env b in
       if use_equal polarity
-      then p_equal va vb
+      then Lang.F.p_equal va vb
       else Cvalues.equal_array m va vb
 
     | EQ_plain ->
-      p_equal (val_of_term env a) (val_of_term env b)
+      Lang.F.p_equal (val_of_term env a) (val_of_term env b)
 
     | EQ_incomparable ->
       (* incomparrable terms *)
@@ -351,10 +351,10 @@ struct
         "@[Incomparable terms (comparison is False):@ type %a with@ type %a@]"
         Printer.pp_logic_type a.term_type
         Printer.pp_logic_type b.term_type ;
-      p_false
+      Lang.F.p_false
 
   let term_diff polarity env a b =
-    p_not (term_equal (Cvalues.negate polarity) env a b)
+    Lang.F.p_not (term_equal (Cvalues.negate polarity) env a b)
 
   let compare_term env vrel lrel a b =
     if Logic_typing.is_pointer_type a.term_type then
@@ -367,13 +367,13 @@ struct
   (* -------------------------------------------------------------------------- *)
 
   let exp_equal env a b =
-    Vexp(e_prop (term_equal `NoPolarity env a b))
+    Vexp(Lang.F.e_prop (term_equal `NoPolarity env a b))
 
   let exp_diff env a b =
-    Vexp(e_prop (term_diff `NoPolarity env a b))
+    Vexp(Lang.F.e_prop (term_diff `NoPolarity env a b))
 
   let exp_compare env vrel lrel a b =
-    Vexp(e_prop (compare_term env vrel lrel a b))
+    Vexp(Lang.F.e_prop (compare_term env vrel lrel a b))
 
   (* -------------------------------------------------------------------------- *)
   (* --- Binary Operators                                                   --- *)
@@ -404,9 +404,9 @@ struct
     match binop with
     | PlusA -> arith env L.apply_add (L.apply F.e_add) a b
     | MinusA -> arith env L.apply_sub (L.apply F.e_sub) a b
-    | Mult -> arith env (L.apply e_mul) (L.apply F.e_mul) a b
-    | Div -> arith env (L.apply e_div) (L.apply F.e_div) a b
-    | Mod -> L.apply e_mod (C.logic env a) (C.logic env b)
+    | Mult -> arith env (L.apply Lang.F.e_mul) (L.apply F.e_mul) a b
+    | Div -> arith env (L.apply Lang.F.e_div) (L.apply F.e_div) a b
+    | Mod -> L.apply Lang.F.e_mod (C.logic env a) (C.logic env b)
     | PlusPI | IndexPI ->
       let va = C.logic env a in
       let vb = C.logic env b in
@@ -427,12 +427,14 @@ struct
     | BAnd -> L.apply Cint.l_and (C.logic env a) (C.logic env b)
     | BXor -> L.apply Cint.l_xor (C.logic env a) (C.logic env b)
     | BOr -> L.apply Cint.l_or (C.logic env a) (C.logic env b)
-    | LAnd -> Vexp(e_and (List.map (val_of_term env) (fold_assoc LAnd [] [a;b])))
-    | LOr  -> Vexp(e_or  (List.map (val_of_term env) (fold_assoc LOr  [] [a;b])))
-    | Lt -> exp_compare env p_lt M.loc_lt a b
-    | Gt -> exp_compare env p_lt M.loc_lt b a
-    | Le -> exp_compare env p_leq M.loc_leq a b
-    | Ge -> exp_compare env p_leq M.loc_leq b a
+    | LAnd ->
+      Vexp(Lang.F.e_and (List.map (val_of_term env) (fold_assoc LAnd [] [a;b])))
+    | LOr  ->
+      Vexp(Lang.F.e_or  (List.map (val_of_term env) (fold_assoc LOr  [] [a;b])))
+    | Lt -> exp_compare env Lang.F.p_lt M.loc_lt a b
+    | Gt -> exp_compare env Lang.F.p_lt M.loc_lt b a
+    | Le -> exp_compare env Lang.F.p_leq M.loc_leq a b
+    | Ge -> exp_compare env Lang.F.p_leq M.loc_leq b a
     | Eq -> exp_equal env a b
     | Ne -> exp_diff env a b
 
@@ -512,9 +514,9 @@ struct
         let h =
           if Wp_parameters.SimplifyForall.get ()
           then F.p_true
-          else Cvalues.has_ltype v.lv_type (e_var x)
+          else Cvalues.has_ltype v.lv_type (Lang.F.e_var x)
         in
-        let e = C.env_let env v (Vexp (e_var x)) in
+        let e = C.env_let env v (Vexp (Lang.F.e_var x)) in
         acc (x::xs) e (h::hs) vs in
     acc [] env [] qs
 
@@ -546,28 +548,28 @@ struct
           Vexp( C.call_fun env f ls es )
         | LFUN phi ->
           let vs = List.map (val_of_term env) ts in
-          Vexp( e_fun phi vs )
+          Vexp( Lang.F.e_fun phi vs )
       end
 
     | Tlambda _ ->
       Warning.error "Lambda-functions not yet implemented"
 
-    | TDataCons({ctor_name="\\true"},_) -> Vexp(e_true)
-    | TDataCons({ctor_name="\\false"},_) -> Vexp(e_false)
+    | TDataCons({ctor_name="\\true"},_) -> Vexp(Lang.F.e_true)
+    | TDataCons({ctor_name="\\false"},_) -> Vexp(Lang.F.e_false)
 
     | TDataCons(c,ts) ->
       let es = List.map (val_of_term env) ts in
       begin
         match LogicBuiltins.ctor c with
-        | ACSLDEF -> Vexp( e_fun (CTOR c) es )
-        | LFUN phi -> Vexp( e_fun phi es )
+        | ACSLDEF -> Vexp( Lang.F.e_fun (CTOR c) es )
+        | LFUN phi -> Vexp( Lang.F.e_fun phi es )
       end
 
     | Tif( cond , a , b ) ->
       let c = val_of_term env cond in
       let a = val_of_term env a in
       let b = val_of_term env b in
-      Vexp (e_if c a b)
+      Vexp (Lang.F.e_if c a b)
 
     | Tat( t , label ) ->
       let clabel = Clabels.c_label label in
@@ -605,11 +607,11 @@ struct
       begin
         let xs,env,domain = bind_quantifiers env qs in
         let condition = match cond with
-          | None -> p_conj domain
+          | None -> Lang.F.p_conj domain
           | Some p ->
             let cc = C.pred `NoPolarity env in
             let p = Lang.without_assume cc p in
-            p_conj (p :: domain)
+            Lang.F.p_conj (p :: domain)
         in match C.logic env t with
         | Vexp e -> Vset[Vset.Descr(xs,e,condition)]
         | Vloc l -> Lset[Sdescr(xs,l,condition)]
@@ -655,10 +657,10 @@ struct
 
   let relation polarity env rel a b =
     match rel with
-    | Rlt -> compare_term env p_lt M.loc_lt a b
-    | Rgt -> compare_term env p_lt M.loc_lt b a
-    | Rle -> compare_term env p_leq M.loc_leq a b
-    | Rge -> compare_term env p_leq M.loc_leq b a
+    | Rlt -> compare_term env Lang.F.p_lt M.loc_lt a b
+    | Rgt -> compare_term env Lang.F.p_lt M.loc_lt b a
+    | Rle -> compare_term env Lang.F.p_leq M.loc_leq a b
+    | Rge -> compare_term env Lang.F.p_leq M.loc_leq b a
     | Req -> term_equal polarity env a b
     | Rneq -> term_diff polarity env a b
 
@@ -674,20 +676,23 @@ struct
 
   let predicate polarity env p =
     match p.content with
-    | Pfalse -> p_false
-    | Ptrue -> p_true
+    | Pfalse -> Lang.F.p_false
+    | Ptrue -> Lang.F.p_true
     | Pseparated ts -> separated_terms env ts
     | Prel(rel,a,b) -> relation polarity env rel a b
-    | Pand(a,b) -> p_and (C.pred polarity env a) (C.pred polarity env b)
-    | Por(a,b)  -> p_or (C.pred polarity env a) (C.pred polarity env b)
-    | Pxor(a,b) -> p_not (p_equiv (C.pred `NoPolarity env a) (C.pred `NoPolarity env b))
+    | Pand(a,b) -> Lang.F.p_and (C.pred polarity env a) (C.pred polarity env b)
+    | Por(a,b)  -> Lang.F.p_or (C.pred polarity env a) (C.pred polarity env b)
+    | Pxor(a,b) ->
+      Lang.F.p_not
+        (Lang.F.p_equiv (C.pred `NoPolarity env a) (C.pred `NoPolarity env b))
     | Pimplies(a,b) ->
       let negated = Cvalues.negate polarity in
-      p_imply (C.pred negated env a) (C.pred polarity env b)
-    | Piff(a,b) -> p_equiv (C.pred `NoPolarity  env a) (C.pred `NoPolarity  env b)
-    | Pnot a -> p_not (C.pred (Cvalues.negate polarity) env a)
+      Lang.F.p_imply (C.pred negated env a) (C.pred polarity env b)
+    | Piff(a,b) ->
+      Lang.F.p_equiv (C.pred `NoPolarity  env a) (C.pred `NoPolarity  env b)
+    | Pnot a -> Lang.F.p_not (C.pred (Cvalues.negate polarity) env a)
     | Pif(t,a,b) ->
-      p_if (p_bool (val_of_term env t))
+      Lang.F.p_if (Lang.F.p_bool (val_of_term env t))
         (C.pred polarity env a)
         (C.pred polarity env b)
     | Papp({l_var_info = {lv_name = "\\subset"}},_,ts) ->
@@ -714,7 +719,7 @@ struct
               Warning.error "Unexpected labels for purely logic '%a'"
                 Logic_info.pretty f ;
             let vs = List.map (val_of_term env) ts in
-            p_call phi vs
+            Lang.F.p_call phi vs
       end
 
     | Plet( { l_var_info=v ; l_body=LBterm a } , p ) ->
@@ -732,12 +737,12 @@ struct
     | Pforall(qs,p) ->
       let xs,env,hs = bind_quantifiers env qs in
       let p = Lang.without_assume (C.pred polarity env) p in
-      p_forall xs (p_hyps hs p)
+      Lang.F.p_forall xs (Lang.F.p_hyps hs p)
 
     | Pexists(qs,p) ->
       let xs,env,hs = bind_quantifiers env qs in
       let p = Lang.without_assume (C.pred polarity env) p in
-      p_exists xs (p_conj (p :: hs))
+      Lang.F.p_exists xs (Lang.F.p_conj (p :: hs))
 
     | Pat(p,label) ->
       let clabel = Clabels.c_label label in
@@ -784,10 +789,10 @@ struct
         in
         List.map
           (function
-            | Sloc l -> Sdescr(xs,l,p_conj conditions)
+            | Sloc l -> Sdescr(xs,l,Lang.F.p_conj conditions)
             | (Sarray _ | Srange _ | Sdescr _) as sloc ->
               let ys,l,extend = L.rdescr sloc in
-              Sdescr(xs@ys,l,p_conj (extend :: conditions))
+              Sdescr(xs@ys,l,Lang.F.p_conj (extend :: conditions))
           ) (C.region env t)
       end
 
@@ -822,7 +827,7 @@ struct
 
   let term_handler t =
     let x = Lang.freshvar ~basename:"w" (Lang.tau_of_ltype t.term_type) in
-    Cvalues.plain t.term_type (e_var x)
+    Cvalues.plain t.term_type (Lang.F.e_var x)
 
   let term_protected env t =
     Warning.handle
@@ -836,12 +841,12 @@ struct
     | `Positive ->
       Warning.handle
         ~effect:"Target turned to False"
-        ~severe:true ~handler:(fun _ -> p_false)
+        ~severe:true ~handler:(fun _ -> Lang.F.p_false)
         (predicate `Positive env) p
     | `Negative ->
       Warning.handle
         ~effect:"Ignored Hypothesis"
-        ~severe:false ~handler:(fun _ -> p_true)
+        ~severe:false ~handler:(fun _ -> Lang.F.p_true)
         (predicate `Negative env) p
     | `NoPolarity ->
       predicate `NoPolarity env p
@@ -908,25 +913,25 @@ struct
     | Sarray(l,_,_) -> M.occurs x l
     | Srange(l,_,a,b) -> M.occurs x l || occurs_opt x a || occurs_opt x b
     | Sdescr(xs,l,p) ->
-      if List.exists (Var.equal x) xs then false
+      if List.exists (Lang.F.Var.equal x) xs then false
       else (M.occurs x l || F.occursp x p)
 
   let occurs x = List.exists (occurs_sloc x)
 
-  let vars_opt = function None -> Vars.empty | Some t -> F.vars t
+  let vars_opt = function None -> Lang.F.Vars.empty | Some t -> F.vars t
 
   let vars_sloc = function
     | Sloc l
     | Sarray(l,_,_) ->
       M.vars l
     | Srange(l,_,a,b) ->
-      Vars.union (M.vars l) (Vars.union (vars_opt a) (vars_opt b))
+      Lang.F.Vars.union (M.vars l) (Lang.F.Vars.union (vars_opt a) (vars_opt b))
     | Sdescr(xs,l,p) ->
       List.fold_left
-        (fun xs x -> Vars.remove x xs)
-        (Vars.union (M.vars l) (F.varsp p)) xs
+        (fun xs x -> Lang.F.Vars.remove x xs)
+        (Lang.F.Vars.union (M.vars l) (F.varsp p)) xs
 
   let vars sloc = List.fold_left
-      (fun xs s -> Vars.union xs (vars_sloc s)) Vars.empty sloc
+      (fun xs s -> Lang.F.Vars.union xs (vars_sloc s)) Lang.F.Vars.empty sloc
 
 end

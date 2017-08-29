@@ -161,12 +161,10 @@ let register_arity2 name fk f =
 ;;
 
 let () =
-  let open Fval in
-  register_arity2 "atan2" Float64 atan2;
-  register_arity2 "pow" Float64 pow;
-  register_arity2 "fmod" Float64 fmod;
-
-  register_arity2 "powf" Float32 powf;
+  register_arity2 "atan2" Float64 Fval.atan2;
+  register_arity2 "pow" Float64 Fval.pow;
+  register_arity2 "fmod" Float64 Fval.fmod;
+  register_arity2 "powf" Float32 Fval.powf;
 ;;
 
 
@@ -242,26 +240,24 @@ let wrap_not_bottom f rounding_mode v =
   alarms, `Value r
 
 let () =
-  let open Fval in
-  register_arity1 "cos" Float64 (wrap_cos_sin cos);
-  register_arity1 "cos_precise" Float64 (wrap_cos_sin cos_precise);
-  register_arity1 "sin" Float64 (wrap_cos_sin sin);
-  register_arity1 "sin_precise" Float64 (wrap_cos_sin sin_precise);
-  register_arity1 "log" Float64 log;
-  register_arity1 "log10" Float64 log10;
-  register_arity1 "exp" Float64 (wrap_not_bottom exp);
-  register_arity1 "sqrt" Float64 sqrt;
-  register_arity1 "floor" Float64 (wrap_not_bottom floor);
-  register_arity1 "ceil" Float64 (wrap_not_bottom ceil);
-  register_arity1 "trunc" Float64 (wrap_not_bottom trunc);
-  register_arity1 "round" Float64 (wrap_not_bottom fround);
-
-  register_arity1 "logf" Float32 logf;
-  register_arity1 "log10f" Float32 log10f;
-  register_arity1 "expf" Float32 (wrap_not_bottom expf);
-  register_arity1 "sqrtf" Float32 sqrtf;
-  register_arity1 "floorf" Float32 (wrap_not_bottom floorf);
-  register_arity1 "ceilf" Float32 (wrap_not_bottom ceilf);
-  register_arity1 "truncf" Float32 (wrap_not_bottom truncf);
-  register_arity1 "roundf" Float32 (wrap_not_bottom froundf);
+  register_arity1 "cos" Float64 (wrap_cos_sin Fval.cos);
+  register_arity1 "cos_precise" Float64 (wrap_cos_sin Fval.cos_precise);
+  register_arity1 "sin" Float64 (wrap_cos_sin Fval.sin);
+  register_arity1 "sin_precise" Float64 (wrap_cos_sin Fval.sin_precise);
+  register_arity1 "log" Float64 Fval.log;
+  register_arity1 "log10" Float64 Fval.log10;
+  register_arity1 "exp" Float64 (wrap_not_bottom Fval.exp);
+  register_arity1 "sqrt" Float64 Fval.sqrt;
+  register_arity1 "floor" Float64 (wrap_not_bottom Fval.floor);
+  register_arity1 "ceil" Float64 (wrap_not_bottom Fval.ceil);
+  register_arity1 "trunc" Float64 (wrap_not_bottom Fval.trunc);
+  register_arity1 "round" Float64 (wrap_not_bottom Fval.fround);
+  register_arity1 "logf" Float32 Fval.logf;
+  register_arity1 "log10f" Float32 Fval.log10f;
+  register_arity1 "expf" Float32 (wrap_not_bottom Fval.expf);
+  register_arity1 "sqrtf" Float32 Fval.sqrtf;
+  register_arity1 "floorf" Float32 (wrap_not_bottom Fval.floorf);
+  register_arity1 "ceilf" Float32 (wrap_not_bottom Fval.ceilf);
+  register_arity1 "truncf" Float32 (wrap_not_bottom Fval.truncf);
+  register_arity1 "roundf" Float32 (wrap_not_bottom Fval.froundf);
 ;;

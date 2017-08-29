@@ -60,8 +60,6 @@ class type ['a] selector =
 (* ---  Labels                                                            --- *)
 (* -------------------------------------------------------------------------- *)
 
-open Wutil
-
 type align = [`Left | `Right | `Center]
 type style = [`Label | `Descr | `Title]
 
@@ -73,8 +71,10 @@ class label ?(style=`Label) ?text ?(align=`Left) () =
     inherit Wutil.coerce w
     initializer match style with
       | `Label -> ()
-      | `Descr -> w#set_line_wrap true ; set_small_font w
-      | `Title -> set_bold_font w
+      | `Descr ->
+        w#set_line_wrap true;
+        Wutil.set_small_font w
+      | `Title -> Wutil.set_bold_font w
     method set_text = w#set_text
   end
 
@@ -101,7 +101,8 @@ let default_icon =
        "#..........#";
        "#..........#";
        "############"|]
-  in once (fun () -> GdkPixbuf.from_xpm_data xpm)
+  in
+  Wutil.once (fun () -> GdkPixbuf.from_xpm_data xpm)
 
 let pixbufs = Hashtbl.create 63
 let shared_icon (f:string) =
@@ -129,11 +130,11 @@ class button_skel ?icon ?tooltip (button:GButton.button_skel) =
     initializer
       begin
         self#set_icon icon ;
-        set_tooltip button tooltip ;
+        Wutil.set_tooltip button tooltip ;
         button#misc#set_can_focus false ;
         button#set_focus_on_click false ;
       end
-    inherit coerce button
+    inherit Wutil.coerce button
     method set_label = button#set_label
     method set_relief e = button#set_relief (if e then `NORMAL else `NONE)
     method set_icon = function
@@ -150,7 +151,7 @@ class button_skel ?icon ?tooltip (button:GButton.button_skel) =
 class button ?label ?icon ?tooltip () =
   let button = GButton.button ?label ~show:true () in
   object(self)
-    inherit [unit] signal as s
+    inherit [unit] Wutil.signal as s
     inherit! button_skel ?icon ?tooltip (button :> GButton.button_skel) as b
     method! set_enabled e = s#set_enabled e ; b#set_enabled e
     method default = button#grab_default
@@ -165,13 +166,13 @@ class button ?label ?icon ?tooltip () =
 class checkbox ~label ?tooltip () =
   let button = GButton.check_button ~label ~show:true () in
   object
-    inherit [bool] selector false as s
-    inherit! coerce button as b
+    inherit [bool] Wutil.selector false as s
+    inherit! Wutil.coerce button as b
     method! set_enabled e = s#set_enabled e ; b#set_enabled e
     method! set a = s#set a ; button#set_active a
     initializer
       begin
-        set_tooltip button tooltip ;
+        Wutil.set_tooltip button tooltip ;
         ignore
           (button#connect#clicked ~callback:(fun () -> s#set button#active));
       end
@@ -181,15 +182,15 @@ class checkbox ~label ?tooltip () =
 class radio ~label ?tooltip () =
   let button = GButton.radio_button ~label ~show:true () in
   object
-    inherit [bool] selector false as s
-    inherit! coerce button
+    inherit [bool] Wutil.selector false as s
+    inherit! Wutil.coerce button
     method! set e = s#set e ; if e then button#set_active true
     method group = function
       | None -> Some button#group
       | (Some g) as sg -> button#set_group g ; sg
     initializer
       begin
-        set_tooltip button tooltip ;
+        Wutil.set_tooltip button tooltip ;
         ignore
           (button#connect#clicked ~callback:(fun () -> s#set button#active));
       end
@@ -198,7 +199,7 @@ class radio ~label ?tooltip () =
 class toggle ?label ?icon ?tooltip () =
   let button = GButton.button ?label ~show:true ~relief:`NONE () in
   object
-    inherit [bool] selector false as s
+    inherit [bool] Wutil.selector false as s
     inherit! button_skel ?icon ?tooltip (button :> GButton.button_skel) as b
     method! set_enabled e = s#set_enabled e ; b#set_enabled e
     method! set a = s#set a ; button#set_relief (if a then `NORMAL else `NONE)
@@ -212,13 +213,13 @@ class switch ?tooltip () =
   let evt = GBin.event_box () in
   let img = GMisc.image ~pixbuf:pix_on ~packing:evt#add () in
   object(self)
-    inherit [bool] selector false as s
-    inherit! coerce evt as b
+    inherit [bool] Wutil.selector false as s
+    inherit! Wutil.coerce evt as b
     method! set_enabled e = s#set_enabled e ; b#set_enabled e
     method! set a = s#set a ; img#set_pixbuf (if a then pix_on else pix_off)
     initializer
       begin
-        set_tooltip evt tooltip ;
+        Wutil.set_tooltip evt tooltip ;
         ignore (evt#event#connect#button_release
                   ~callback:(fun _evt -> self#set (not s#get); false)) ;
       end
@@ -246,8 +247,8 @@ class vbox (widgets : widget list) =
 
 class ['a] group (default : 'a) =
   object(self)
-    inherit ['a] selector default
-    val mutable cases : (bool selector * 'a) list = []
+    inherit ['a] Wutil.selector default
+    val mutable cases : (bool Wutil.selector * 'a) list = []
     val mutable group = None
     initializer self#connect
         (fun v -> List.iter
@@ -283,13 +284,13 @@ class ['a] group (default : 'a) =
 class spinner ?min ?max ?(step=1) ~value ?tooltip () =
   let b = GEdit.spin_button ~digits:0 () in
   object
-    inherit [int] selector value as s
-    inherit! coerce b
+    inherit [int] Wutil.selector value as s
+    inherit! Wutil.coerce b
     method! set_enabled e = s#set_enabled e ; b#misc#set_sensitive e
     method! set a = s#set a ; b#set_value (float value)
     initializer
       begin
-        set_tooltip b tooltip ;
+        Wutil.set_tooltip b tooltip ;
         let fmap = function None -> None | Some x -> Some (float x) in
         b#adjustment#set_bounds
           ?lower:(fmap min) ?upper:(fmap max)
@@ -306,11 +307,13 @@ class spinner ?min ?max ?(step=1) ~value ?tooltip () =
 
 class ['a] menu ~default ~render ?(items=[]) () =
   let strings = List.map render items in
-  let (cmb,(model,_)) as combo = GEdit.combo_box_text ~strings ~wrap_width:1 () in
+  let (cmb,(model,_)) as combo =
+    GEdit.combo_box_text ~strings ~wrap_width:1 ()
+  in
   object(self)
 
-    inherit coerce cmb as widget
-    inherit! ['a] selector default as select
+    inherit Wutil.coerce cmb as widget
+    inherit! ['a] Wutil.selector default as select
 
     val mutable items = Array.of_list items
 

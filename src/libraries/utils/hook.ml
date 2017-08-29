@@ -68,7 +68,7 @@ let add_once v queue =
 module Build(P:sig type t end) = struct
   type param = P.t
   type result = unit
-  let hooks = Queue.create ()
+  let hooks: (param -> result) Queue.t = Queue.create ()
   let extend f = Queue.add f hooks
   let extend_once f = add_once f hooks
 
@@ -88,7 +88,7 @@ end
 module Fold(P:sig type t end) = struct
   type param = P.t
   type result = P.t
-  let hooks = Queue.create ()
+  let hooks: (param -> result) Queue.t = Queue.create ()
   let extend f = Queue.add f hooks
   let extend_once f = add_once f hooks
   let apply arg = Queue.fold (fun arg f -> f arg) arg hooks

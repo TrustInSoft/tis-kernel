@@ -422,12 +422,18 @@ let interp_call
         (* Warn for arguments that contain uninitialized/escaping if:
            - kf is a non-special leaf function (TODO: should we keep this?)
            - the user asked for this *)
+        let name = Kernel_function.get_name f in
+        let is_builtin =
+          (name >= "Frama_C" && name < "Frama_D")
+          || Builtins.mem_builtin name
+          || Value_parameters.BuiltinsOverrides.mem f
+        in
         let warn_indeterminate =
-          not
-            (Kernel_function.is_definition f (* Should we keep this? *)
-             || let name = Kernel_function.get_name f in
-             (name >= "Frama_C" && name < "Frama_D")
-             || Builtins.mem_builtin name)
+          is_builtin
+          (* from spec: *)
+          || (not (Kernel_function.is_definition f))
+          || Kernel_function.Set.mem f (Value_parameters.UsePrototype.get ())
+          (* user ask: *)
           || Value_util.warn_indeterminate f
         in
         let aux_actual e (state, actuals) =

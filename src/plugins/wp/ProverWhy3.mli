@@ -31,24 +31,21 @@
 (*                                                                        *)
 (**************************************************************************)
 
-open Task
-open VCS
 
 (* -------------------------------------------------------------------------- *)
 (* --- Why3 Multi-Theorem Prover                                          --- *)
 (* -------------------------------------------------------------------------- *)
 
-type goal =
-  {
-    file : string;
-    theory : string;
-    goal : string;
-  }
+type goal = {
+  file : string;
+  theory : string;
+  goal : string;
+}
 
 val assemble_wpo: Wpo.t -> (string list (* includes *) * goal) option
 (** None if the po is trivial *)
 
-val prove : Wpo.t -> prover:string -> result task
+val prove : Wpo.t -> prover:string -> VCS.result Task.task
 (** The string must be a valid why3 prover identifier
     Return NoResult if it is already proved by Qed
 *)

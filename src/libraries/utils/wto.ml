@@ -87,11 +87,13 @@ let rec visit scc vertex acc =
         if w.loop then
           begin
             let rec unstack scc e vertex =
-              if e <> vertex then
-                ( scc.dfn.(e) <- 0 ;
-                  let e = Stack.pop scc.stack in
-                  unstack scc e vertex )
-            in unstack scc e vertex ;
+              if e <> vertex then begin
+                scc.dfn.(e) <- 0 ;
+                let e = Stack.pop scc.stack in
+                unstack scc e vertex
+              end
+            in
+            unstack scc e vertex ;
             acc := Component(component scc vertex, !acc)
           end
         else

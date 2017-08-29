@@ -75,6 +75,7 @@ let status_kind prop =
   | Invalid_but_dead _ | Valid_but_dead _ | Unknown_but_dead _ -> "Dead"
   | Inconsistent _ -> "Inconsistent"
 
+(* DM: I don't know who did this and why/how, but just: NO! *)
 let (|>) = Extlib.swap
 
 (* For properties that we want to skip *)
@@ -100,7 +101,7 @@ let to_string ip =
   let loc = Property.location ip in
   let default ?(pp = (Property.pretty |> ip)) kf kind =
     let loc =
-      if Cil_datatype.Location.(equal loc unknown) then
+      if Cil_datatype.Location.equal loc Cil_datatype.Location.unknown then
         Kernel_function.get_location kf
       else loc
     in

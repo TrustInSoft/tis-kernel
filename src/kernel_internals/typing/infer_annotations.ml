@@ -159,7 +159,7 @@ let assigns_from_prototype kf =
   | _ ->
     (* assigns result from basic args and content of pointer args *)
     let loc = vi.vdecl in
-    let result = Logic_const.(new_identified_term (tresult ~loc rtyp)) in
+    let result = Logic_const.new_identified_term (tresult ~loc rtyp) in
     (result, From inputs):: arguments
 
 let is_frama_c_builtin name =

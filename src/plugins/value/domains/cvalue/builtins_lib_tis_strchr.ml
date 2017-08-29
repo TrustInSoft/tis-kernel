@@ -25,7 +25,12 @@ type strchr_alarm_context = {
   strchr_alarm_invalid_string : unit -> unit
 }
 
-let abstract_strchr ~(emit_alarm : strchr_alarm_context) ~character_bits str initial_chr_to_locate state =
+let abstract_strchr
+    ~(emit_alarm : strchr_alarm_context)
+    ~character_bits
+    str
+    initial_chr_to_locate
+    state =
   (* Checks whether the call to strchr would cause undefined behavior:
      Calls emit_alarm (e.g. to emit \valid_string(...)) if anything at all
      is wrong.
@@ -249,7 +254,8 @@ let tis_strchr ~str_or_wcs state actuals =
     in
     if Cvalue.V.is_bottom value
     then
-      { Value_types.c_values = [ Value_types.StateOnly(None, Cvalue.Model.bottom) ];
+      { Value_types.c_values =
+          [ Value_types.StateOnly(None, Cvalue.Model.bottom) ];
         c_clobbered = Base.SetLattice.bottom;
         c_cacheable = Value_types.Cacheable;
         c_from = None; (* TODO?*)
@@ -267,8 +273,10 @@ let tis_strchr ~str_or_wcs state actuals =
     raise Db.Value.Aborted
 
 
-let () = Builtins.register_builtin "tis_strchr" (tis_strchr ~str_or_wcs:Character)
-let () = Builtins.register_builtin "tis_wcschr" (tis_strchr ~str_or_wcs:WideCharacter)
+let () =
+  Builtins.register_builtin "tis_strchr" (tis_strchr ~str_or_wcs:Character)
+let () =
+  Builtins.register_builtin "tis_wcschr" (tis_strchr ~str_or_wcs:WideCharacter)
 
 (* strcpy also placed in this file because it is used for strcat
    (also in this file) *)
@@ -323,67 +331,64 @@ let abstract_strcpy ~character_bits ~(emit_alarm : strcpy_alarm_context)
 
   (* 2. Use memcpy to copy the source string to the destination location. *)
 
-  let state =
-    let dst_bytes = Locations.loc_bits_to_loc_bytes dst in
-    (* Check if the destination is a singleton location or not. *)
-    let is_destination_precise =
-      (* TODO: assert not bottom ? *)
-      Location_Bits.cardinal_zero_or_one dst
-    in
-    (* Flag to indicate if there was any source string which was correctly
-       copied to the destination. *)
-    let any_successful_memcpy = ref false in
-    (* Copy each source to each destination when it is possible. *)
-    let new_state =
-      List.fold_left (fun state (src, src_length) ->
-          let src_bytes = Locations.loc_bits_to_loc_bytes src in
-          (* If the destination is precise, then the first successful update
-             should be strong, as we want to erase what was before at the
-             destination location. *)
-          let exact = is_destination_precise && (not !any_successful_memcpy) in
-          (* The actual number of characters to copy is one character bigger than
-             the length of the string: we take into account the 0 at the end of
-             the string. *)
-          Value_parameters.debug "original length: %a" Ival.pretty src_length;
-          let size = Ival.add_int src_length Ival.one in
-          Value_parameters.debug "updated  length: %a" Ival.pretty size;
-          (* Perform this source to the destination using memcpy. *)
-          let (state_after_memcpy : Cvalue.Model.t), _c_from, _sure_zone =
-            let abstract_memcpy = Builtins_lib_tis_memcpy.abstract_memcpy in
-            let emit_alarm = emit_alarm.strcpy_alarm_memcpy_alarm_context in
-            abstract_memcpy ~exact ~emit_alarm ~character_bits ~size
-              src_bytes dst_bytes state
-          in
-          (* Was this source copied correctly? *)
-          (* TODO: Is this the right way of checking? *)
-          (* PC: it is nonsense. the world is not made only of successful copies
-             and copies that returns unreachable states. *)
-          let was_memcpy_successful = Cvalue.Model.is_reachable state_after_memcpy
-          in
-          if was_memcpy_successful
-          then begin
-            (* The copy succeeded: set the flag. *)
-            any_successful_memcpy := true;
-            (* Continue with the state with this source string copied. *)
-            state_after_memcpy
-          end else begin
-            (* There was no way to correctly copy this source string. *)
-            (* Emit a warning. *)
-            emit_alarm.strcpy_alarm_invalid_copy src_bytes dst_bytes;
-            (* Skip it! *)
-            state
-          end
-        ) state valid_strings_with_length
-    in
-    (* If there was at least one case when the source string was correctly
-       copied, then the new state is correct. Otherwise the state becomes
-       bottom. *)
-    if !any_successful_memcpy
-    then new_state
-    else Cvalue.Model.bottom
+  let dst_bytes = Locations.loc_bits_to_loc_bytes dst in
+  (* Check if the destination is a singleton location or not. *)
+  let is_destination_precise =
+    (* TODO: assert not bottom ? *)
+    Location_Bits.cardinal_zero_or_one dst
   in
-
-  state
+  (* Flag to indicate if there was any source string which was correctly
+     copied to the destination. *)
+  let any_successful_memcpy = ref false in
+  (* Copy each source to each destination when it is possible. *)
+  let new_state =
+    List.fold_left (fun state (src, src_length) ->
+        let src_bytes = Locations.loc_bits_to_loc_bytes src in
+        (* If the destination is precise, then the first successful update
+           should be strong, as we want to erase what was before at the
+           destination location. *)
+        let exact = is_destination_precise && (not !any_successful_memcpy) in
+        (* The actual number of characters to copy is one character bigger than
+           the length of the string: we take into account the 0 at the end of
+           the string. *)
+        Value_parameters.debug "original length: %a" Ival.pretty src_length;
+        let size = Ival.add_int src_length Ival.one in
+        Value_parameters.debug "updated  length: %a" Ival.pretty size;
+        (* Perform this source to the destination using memcpy. *)
+        let (state_after_memcpy : Cvalue.Model.t), _c_from, _sure_zone =
+          let abstract_memcpy = Builtins_lib_tis_memcpy.abstract_memcpy in
+          let emit_alarm = emit_alarm.strcpy_alarm_memcpy_alarm_context in
+          abstract_memcpy ~exact ~emit_alarm ~character_bits ~size
+            src_bytes dst_bytes state
+        in
+        (* Was this source copied correctly? *)
+        (* TODO: Is this the right way of checking? *)
+        (* PC: it is nonsense. the world is not made only of successful copies
+           and copies that returns unreachable states. *)
+        let was_memcpy_successful =
+          Cvalue.Model.is_reachable state_after_memcpy
+        in
+        if was_memcpy_successful
+        then begin
+          (* The copy succeeded: set the flag. *)
+          any_successful_memcpy := true;
+          (* Continue with the state with this source string copied. *)
+          state_after_memcpy
+        end else begin
+          (* There was no way to correctly copy this source string. *)
+          (* Emit a warning. *)
+          emit_alarm.strcpy_alarm_invalid_copy src_bytes dst_bytes;
+          (* Skip it! *)
+          state
+        end
+      ) state valid_strings_with_length
+  in
+  (* If there was at least one case when the source string was correctly
+     copied, then the new state is correct. Otherwise the state becomes
+     bottom. *)
+  if !any_successful_memcpy
+  then new_state
+  else Cvalue.Model.bottom
 
 (* Implements built-ins:
    - strcpy
@@ -448,7 +453,8 @@ let tis_strcpy ~str_or_wcs state actuals =
         c_sureouts = None;
       }
     else
-      { Value_types.c_values = [ Value_types.StateOnly(None, Cvalue.Model.bottom) ];
+      { Value_types.c_values =
+          [ Value_types.StateOnly(None, Cvalue.Model.bottom) ];
         c_clobbered = Base.SetLattice.bottom;
         c_cacheable = Value_types.Cacheable;
         c_from = None; (* TODO?*)
@@ -457,18 +463,25 @@ let tis_strcpy ~str_or_wcs state actuals =
   | _ ->
     raise Db.Value.Aborted
 
-let () = Builtins.register_builtin "tis_strcpy" (tis_strcpy ~str_or_wcs:Character)
-let () = Builtins.register_builtin "tis_wcscpy" (tis_strcpy ~str_or_wcs:WideCharacter)
+let () =
+  Builtins.register_builtin "tis_strcpy" (tis_strcpy ~str_or_wcs:Character)
+let () =
+  Builtins.register_builtin "tis_wcscpy" (tis_strcpy ~str_or_wcs:WideCharacter)
 
 type strcat_alarm_context = {
   strcat_alarm_strchr_alarm_context : strchr_alarm_context;
   strcat_alarm_strcpy_alarm_context : strcpy_alarm_context;
 }
 
-let abstract_strcat ~(character_bits : Integer.t) ~(emit_alarm : strcat_alarm_context)
-    (str1 : Location_Bits.t) (str2 : Location_Bits.t) (state : Cvalue.Model.t) =
+let abstract_strcat
+    ~(character_bits : Integer.t)
+    ~(emit_alarm : strcat_alarm_context)
+    (str1 : Location_Bits.t)
+    (str2 : Location_Bits.t)
+    (state : Cvalue.Model.t) =
 
-  (* Use strchr to get a pointer to the zero byte terminating the first string. *)
+  (* Use strchr to get a pointer to the zero byte terminating the
+     first string. *)
   let str1_zero_terminator_ptr =
     let zero_char = Ival.zero in
     let str = loc_bits_to_loc_bytes str1 in
@@ -483,8 +496,7 @@ let abstract_strcat ~(character_bits : Integer.t) ~(emit_alarm : strcat_alarm_co
     let dst = loc_bytes_to_loc_bits str1_zero_terminator_ptr in
     let src = str2 in
     let emit_alarm = emit_alarm.strcat_alarm_strcpy_alarm_context in
-    let state = abstract_strcpy ~character_bits ~emit_alarm dst src state in
-    state
+    abstract_strcpy ~character_bits ~emit_alarm dst src state
 
 (* Implements built-ins:
    - strcat
@@ -527,17 +539,19 @@ let tis_strcat ~str_or_wcs state actuals =
                 builtin_name builtin_name);
           strcpy_alarm_memcpy_alarm_context =
             Builtins_lib_tis_memcpy.memcpy_alarm_context_none;
-          strcpy_alarm_invalid_copy = (fun src_bytes dst_bytes ->
-              Value_parameters.warning ~current:true
-                "the string pointed by %a,@ passed as@ the second argument@ to \
-                 the %s function,@ could not be correctly appended to the string \
-                 %a,@ passed as the first argument;@ assert the string pointed \
-                 by the %s second argument@ can be correctly appended@ to the \
-                 string pointed by@ its first argument"
-                Cvalue.V.pretty src_bytes
-                builtin_name
-                Cvalue.V.pretty dst_bytes
-                builtin_name)
+          strcpy_alarm_invalid_copy =
+            (fun src_bytes dst_bytes ->
+               Value_parameters.warning ~current:true
+                 "the string pointed by %a,@ passed as@ the second argument@ \
+                  to the %s function,@ could not be correctly appended to \
+                  the string %a,@ passed as the first argument;@ assert \
+                  the string pointed by the %s second argument@ can be \
+                  correctly appended@ to the string pointed by@ its \
+                  first argument"
+                 Cvalue.V.pretty src_bytes
+                 builtin_name
+                 Cvalue.V.pretty dst_bytes
+                 builtin_name)
         }
       }
     in
@@ -550,14 +564,16 @@ let tis_strcat ~str_or_wcs state actuals =
     in
     if Cvalue.Model.is_reachable state
     then
-      { Value_types.c_values = [ Value_types.StateOnly(Some offsm_str1, state) ];
+      { Value_types.c_values =
+          [ Value_types.StateOnly(Some offsm_str1, state) ];
         c_clobbered = Location_Bytes.get_bases str1;
         c_cacheable = Value_types.Cacheable;
         c_from = None; (* TODO?*)
         c_sureouts = None;
       }
     else
-      { Value_types.c_values = [ Value_types.StateOnly(None, Cvalue.Model.bottom) ];
+      { Value_types.c_values =
+          [ Value_types.StateOnly(None, Cvalue.Model.bottom) ];
         c_clobbered = Base.SetLattice.bottom;
         c_cacheable = Value_types.Cacheable;
         c_from = None; (* TODO?*)
@@ -566,8 +582,10 @@ let tis_strcat ~str_or_wcs state actuals =
   | _ ->
     raise Db.Value.Aborted
 
-let () = Builtins.register_builtin "tis_strcat" (tis_strcat ~str_or_wcs:Character)
-let () = Builtins.register_builtin "tis_wcscat" (tis_strcat ~str_or_wcs:WideCharacter)
+let () =
+  Builtins.register_builtin "tis_strcat" (tis_strcat ~str_or_wcs:Character)
+let () =
+  Builtins.register_builtin "tis_wcscat" (tis_strcat ~str_or_wcs:WideCharacter)
 
 (*
   Local Variables:

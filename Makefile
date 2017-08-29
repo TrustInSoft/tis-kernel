@@ -162,7 +162,7 @@ INCLUDES=$(addprefix -I , $(TIS_KERNEL_SRC_DIRS)) -I $(PLUGIN_LIB_DIR) -I lib -I
 # Directories to include for ocamldep
 # Remove -I +.* and -I C:/absolute/win/path
 INCLUDES_FOR_OCAMLDEP=$(addprefix -I , $(TIS_KERNEL_SRC_DIRS)) \
-                      -I $(PLUGIN_LIB_DIR) -I lib
+                      -I $(PLUGIN_LIB_DIR) -I lib -I devel_tools
 
 # Ocamldep flags
 DEP_FLAGS= $(shell echo $(INCLUDES_FOR_OCAMLDEP) \
@@ -181,7 +181,7 @@ ifeq ($(DEVELOPMENT),yes)
 ifeq ($(WARN_ERROR_ALL),yes) # To be set on the command-line
 DEV_WARNINGS= -warn-error +a
 else
-DEV_WARNINGS= -w @a-4-44-45-50-58-6 # TODO: because of the journal feature; we keep the warning 6...
+DEV_WARNINGS= -w @a-4-45-50-6 # TODO: because of the journal feature; we keep the warning 6...
 endif #WARN_ERROR_ALL
 DEV_FLAGS=$(FLAGS) $(DEV_WARNINGS)
 else
@@ -1525,7 +1525,7 @@ PLUGIN_TESTS_LIST += $(TEST_DIRS_AS_PLUGIN)
 $(foreach d,$(TEST_DIRS_AS_PLUGIN),$(eval $(call COMPILE_TESTS_ML_FILES,$d,,)))
 
 # Tests directories without .ml but that must be tested anyway
-PLUGIN_TESTS_LIST += cil interpreter
+PLUGIN_TESTS_LIST += cil interpreter variadic
 
 ##############
 # Emacs tags #

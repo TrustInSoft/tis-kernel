@@ -139,7 +139,12 @@ let pp_pair
 
 let escape_underscores = Str.global_replace (Str.regexp_string "_") "__"
 
-let pp_flowlist ?(left=format_of_string "(") ?(sep=format_of_string ",") ?(right=format_of_string ")") f out =
+let pp_flowlist
+    ?(left=format_of_string "(")
+    ?(sep=format_of_string ",")
+    ?(right=format_of_string ")")
+    f
+    out =
   function
   | [] -> Format.fprintf out "%(%)%(%)" left right
   | x::xs ->
@@ -149,7 +154,11 @@ let pp_flowlist ?(left=format_of_string "(") ?(sep=format_of_string ",") ?(right
       Format.fprintf out "%(%)@]" right ;
     end
 
-let pp_blocklist ?(left=format_of_string "{") ?(right=format_of_string "}") f out =
+let pp_blocklist
+    ?(left=format_of_string "{")
+    ?(right=format_of_string "}")
+    f
+    out =
   function
   | [] -> Format.fprintf out "%(%)%(%)" left right
   | xs ->

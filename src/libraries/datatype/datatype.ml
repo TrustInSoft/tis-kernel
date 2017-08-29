@@ -784,6 +784,10 @@ module Pair_arg = struct
   let mk_mem_project mem1 mem2 f (x1, x2) = mem1 f x1 && mem2 f x2
 end
 
+(* warning is unsound in that case:
+   http://caml.inria.fr/mantis/view.php?id=7314#c16232 *)
+[@@@ warning "-60"]
+
 module rec Pair_name: sig val name: 'a Type.t -> 'b Type.t -> string end =
 struct
   let name ty1 ty2 =
@@ -805,6 +809,8 @@ struct
      evaluate the recursive modules *)
   include Polymorphic2(struct include Pair_arg include Pair_name end)
 end
+
+[@@@ warning "+60"]
 
 module Pair = Poly_pair.Make
 
@@ -1254,7 +1260,6 @@ module Poly_array =
         with Early_exit _ -> true
     end)
 
-module Caml_array = Array
 module Array = Poly_array.Make
 
 let array (type typ) (ty: typ Type.t) =
@@ -1934,7 +1939,6 @@ module Integer =
     end)
 let integer = Integer.ty
 
-module Big_int = Integer
 
 (* ****************************************************************************)
 (** {3 Triple} *)
@@ -1979,6 +1983,10 @@ module Triple_arg = struct
     mem1 f x1 && mem2 f x2 && mem3 f x3
 end
 
+(* warning is unsound in that case:
+   http://caml.inria.fr/mantis/view.php?id=7314#c16232 *)
+[@@@ warning "-60"]
+
 module rec Triple_name: sig
   val name: 'a Type.t -> 'b Type.t -> 'c Type.t -> string
 end =
@@ -2001,6 +2009,8 @@ end =
   (* Split the functor argument in 2 modules such that OCaml is able to safely
      evaluate the recursive modules *)
   Polymorphic3(struct include Triple_arg include Triple_name end)
+
+[@@@ warning "+60"]
 
 module Triple = Poly_triple.Make
 
@@ -2082,6 +2092,10 @@ module Quadruple_arg = struct
     mem1 f x1 && mem2 f x2 && mem3 f x3 && mem4 f x4
 end
 
+(* warning is unsound in that case:
+   http://caml.inria.fr/mantis/view.php?id=7314#c16232 *)
+[@@@ warning "-60"]
+
 module rec Quadruple_name: sig
   val name: 'a Type.t -> 'b Type.t -> 'c Type.t -> 'd Type.t -> string
 end =
@@ -2108,6 +2122,8 @@ struct
   include Polymorphic4
       (struct include Quadruple_arg include Quadruple_name end)
 end
+
+[@@@ warning "+60"]
 
 module Quadruple = Poly_quadruple.Make
 

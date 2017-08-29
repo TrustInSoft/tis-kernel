@@ -401,11 +401,11 @@ let cardinal_estimate v size =
   | Top (mn,mx,_,d) ->
     (* Note: we clip the interval to get a finite cardinal. *)
     let mn = match mn with
-      | None -> Integer.(neg (two_power (pred size)))
+      | None -> Integer.neg (Integer.two_power (Integer.pred size))
       | Some(mn) -> mn
     in
     let mx = match mx with
-      | None -> Integer.(pred (two_power size))
+      | None -> Integer.pred (Integer.two_power size)
       | Some(mx) -> mx
     in
     Int.(div (sub mx mn) d)
@@ -1285,16 +1285,17 @@ let partially_overlaps ~size t1 t2 =
 let overlap ival size offset offset_size =
   let offset_itg = Integer.of_int offset in
   let offset_size_itg = Integer.of_int offset_size in
-  let offset_max_bound = Integer.(add offset_itg (sub offset_size_itg one)) in
+  let offset_max_bound =
+    Integer.add offset_itg (Integer.sub offset_size_itg Integer.one)
+  in
   let overlap_itv elt_min elt_max =
-    let open Integer in
-    let elt_max_bound = add elt_max (sub size one) in
-    le elt_min offset_max_bound && le offset_itg elt_max_bound
+    let elt_max_bound = Integer.add elt_max (Integer.sub size Integer.one) in
+    Integer.le elt_min offset_max_bound && Integer.le offset_itg elt_max_bound
   in
   match ival with
   | Set s -> Array.exists (fun elt -> overlap_itv elt elt) s
   | Top (min, max, rem, modulo) ->
-    let psize = Integer.(sub size one) in
+    let psize = Integer.sub size Integer.one in
     let overlap =
       match min, max with
       | None, None -> true
@@ -2184,7 +2185,8 @@ let rec mul v1 v2 =
                 let modu1 = Int.pgcd m1 m2 in
                 let modu2 = Int.mul multipl1 multipl2 in
                 let modu = Int.ppcm modu1 modu2 in    *)
-        let modu = Int.(pgcd (pgcd (mul m1 m2) (mul r1 m2)) (mul r2 m1))
+        let modu =
+          Int.pgcd (Int.pgcd (Int.mul m1 m2) (Int.mul r1 m2)) (Int.mul r2 m1)
         in
         let r = Int.rem (Int.mul r1 r2) modu in
         (*      let t = Top (ext_proj min, ext_proj max, r, modu) in
@@ -2652,7 +2654,8 @@ let force_float kind i =
           | Set a ->
             let s = ref F_Set.empty in
             for i = 0 to Array.length a - 1 do
-              if Int.((le zero a.(i) && le a.(i) max_f) || le a.(i) min_f)
+              if (Int.le Int.zero a.(i) && Int.le a.(i) max_f) ||
+                 Int.le a.(i) min_f
               then s := F_Set.add (conv a.(i)) !s (* Not NaN *)
               else raise Unforceable
             done;

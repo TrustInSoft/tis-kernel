@@ -27,7 +27,7 @@ let tis_show_allocated state args =
                (fun base _ ->
                   match base with
                   | Base.Allocated (v,_) ->
-                    if (!first)
+                    if !first
                     then first := false
                     else Format.fprintf fmt ",@ ";
                     Format.fprintf fmt "%a" Printer.pp_varinfo v;

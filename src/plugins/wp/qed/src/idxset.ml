@@ -83,23 +83,23 @@ struct
   let mem x = Intmap.mem (E.id x)
   let find x = Intmap.find (E.id x)
   let cardinal = Intmap.size
-  let compare = Intmap.compare (fun _ _ -> 0)
-  let equal = Intmap.equal (fun _ _ -> true)
+  let compare: t -> t -> int = Intmap.compare (fun _ _ -> 0)
+  let equal: t -> t -> bool = Intmap.equal (fun _ _ -> true)
 
   let _keep _ x _ = x
   let _keepq _ x _ = Some x
   let _same _ _ _ = true
 
   (* good sharing *)
-  let union = Intmap.union _keep
+  let union: t -> t -> t = Intmap.union _keep
 
   (* good sharing *)
-  let inter = Intmap.interq _keepq
+  let inter: t -> t -> t = Intmap.interq _keepq
 
   (* good sharing *)
-  let diff = Intmap.diffq _keepq
-  let subset = Intmap.subset _same
-  let intersect = Intmap.intersectf _same
+  let diff: t -> t -> t = Intmap.diffq _keepq
+  let subset: t -> t -> bool = Intmap.subset _same
+  let intersect: t -> t -> bool = Intmap.intersectf _same
 
   (* increasing order on id *)
   let iter f = Intmap.iteri (fun _i x -> f x)
@@ -117,7 +117,7 @@ struct
   let exists f = Intmap.exists (fun _i x -> f x)
 
   (* increasing order on id *)
-  let elements = Intmap.mapl (fun _i x -> x)
+  let elements: t -> elt list = Intmap.mapl (fun _i x -> x)
 
   (* good sharing *)
   let mapf f= Intmap.mapq (fun _i x -> f x)

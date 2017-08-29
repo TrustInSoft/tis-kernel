@@ -37,7 +37,6 @@
 
 open Cil_types
 open Ctypes
-open Lang.F
 
 type 'a sequence = { pre : 'a ; post : 'a }
 
@@ -48,23 +47,23 @@ type acs =
   | RD (** Read-Only Access *)
 
 type 'a value =
-  | Val of term
+  | Val of Lang.F.term
   | Loc of 'a
 
 type 'a rloc =
   | Rloc of c_object * 'a
-  | Rrange of 'a * c_object * term option * term option
+  | Rrange of 'a * c_object * Lang.F.term option * Lang.F.term option
   (** a contiguous set of location *)
 
 type 'a sloc =
   | Sloc of 'a
   | Sarray of 'a * c_object * int (** full sized range (optimized assigns) *)
-  | Srange of 'a * c_object * term option * term option
-  | Sdescr of var list * 'a * pred
+  | Srange of 'a * c_object * Lang.F.term option * Lang.F.term option
+  | Sdescr of Lang.F.var list * 'a * Lang.F.pred
   (** a set of location *)
 
 type 'a logic =
-  | Vexp of term
+  | Vexp of Lang.F.term
   | Vloc of 'a
   | Vset of Vset.set
   | Lset of 'a sloc list
@@ -82,7 +81,7 @@ sig
   val hash : t -> int
   val compare : t -> t -> int
   val pretty : Format.formatter -> t -> unit
-  val tau_of_chunk : t -> tau
+  val tau_of_chunk : t -> Lang.F.tau
   val basename_of_chunk : t -> string
   val is_framed : t -> bool
   (** Whether the Chunk is local to a function.
@@ -106,13 +105,13 @@ sig
   val copy : t -> t
   val merge : t -> t -> t * Passive.t * Passive.t
   val join : t -> t -> Passive.t (** pairwise equal *)
-  val assigned : t -> t -> domain -> pred Bag.t (** equal chunks outside domain *)
+  val assigned : t -> t -> domain -> Lang.F.pred Bag.t (** equal chunks outside domain *)
 
   val mem : t -> chunk -> bool
-  val get : t -> chunk -> var
-  val value : t -> chunk -> term
-  val iter : (chunk -> var -> unit) -> t -> unit
-  val iter2 : (chunk -> var option -> var option -> unit) -> t -> t -> unit
+  val get : t -> chunk -> Lang.F.var
+  val value : t -> chunk -> Lang.F.term
+  val iter : (chunk -> Lang.F.var -> unit) -> t -> unit
+  val iter2 : (chunk -> Lang.F.var option -> Lang.F.var option -> unit) -> t -> t -> unit
   val havoc : t -> domain -> t
   val havoc_chunk : t -> chunk -> t
   val havoc_any : call:bool -> t -> t
@@ -152,10 +151,10 @@ sig
   val pretty : Format.formatter -> loc -> unit
   (** pretty printing of memory location *)
 
-  val vars : loc -> Vars.t
+  val vars : loc -> Lang.F.Vars.t
   (** Return the logic variables from which the given location depend on. *)
 
-  val occurs : var -> loc -> bool
+  val occurs : Lang.F.var -> loc -> bool
   (** Test if a location depend on a given logic variable *)
 
   val null : loc
@@ -169,10 +168,10 @@ sig
   val cvar : varinfo -> loc
   (** Return the location of a C variable *)
 
-  val pointer_loc : term -> loc
+  val pointer_loc : Lang.F.term -> loc
   (** ??? *)
 
-  val pointer_val : loc -> term
+  val pointer_val : loc -> Lang.F.term
   (** ??? *)
 
   val field : loc -> fieldinfo -> loc
@@ -180,7 +179,7 @@ sig
       memory location
   *)
 
-  val shift : loc -> c_object -> term -> loc
+  val shift : loc -> c_object -> Lang.F.term -> loc
   (** Return the memory location obtained by array access at an index
       represented by the given {!term}. The element of the array are of
       the given {!c_object} type. *)
@@ -189,7 +188,7 @@ sig
   (** Return the memory location of the base address of a given memory
       location *)
 
-  val block_length : sigma -> c_object -> loc -> term
+  val block_length : sigma -> c_object -> loc -> Lang.F.term
   (**  Returns the length (in bytes) of the allocated block containing
        the given location *)
 
@@ -198,11 +197,11 @@ sig
       For [cast ty loc] the cast is done from [ty.pre] to [ty.post]
   *)
 
-  val loc_of_int : c_object -> term -> loc
+  val loc_of_int : c_object -> Lang.F.term -> loc
   (** Cast a term representing a pointer to a c_object into a memory
       location *)
 
-  val int_of_loc : c_int -> loc -> term
+  val int_of_loc : c_int -> loc -> Lang.F.term
   (** Cast a memory location into an integer of the given type *)
 
   val domain : c_object -> loc -> Heap.set
@@ -215,14 +214,15 @@ sig
   (** Return the value of the object of the given type at the given
       location in the given memory state *)
 
-  val copied : sigma sequence -> c_object -> loc -> loc -> pred list
+  val copied : sigma sequence -> c_object -> loc -> loc -> Lang.F.pred list
   (** Return a set of formula that express a copy between two memory state.
       [copied sigma ty loc1 loc2] returns a set of formula that express that
       the content for an object [ty] is the same in [sigma.pre] at [loc1] and
       in [sigma.post] at [loc2]
   *)
 
-  val stored : sigma sequence -> c_object -> loc -> term -> pred list
+  val stored:
+    sigma sequence -> c_object -> loc -> Lang.F.term -> Lang.F.pred list
   (** Return a set of formula that express a modification between two
       memory state.
       [copied sigma ty loc t] returns a set of formula that express that
@@ -230,7 +230,7 @@ sig
       location [loc] which is represented by [t] in [sigma.post].
   *)
 
-  val assigned : sigma sequence -> c_object -> loc sloc -> pred list
+  val assigned : sigma sequence -> c_object -> loc sloc -> Lang.F.pred list
   (**
      Return a set of formula that express that two memory state are the same
      except at the given set of memory location. This function can
@@ -238,37 +238,37 @@ sig
      return [true] as if the all set of memory location was given)
   *)
 
-  val is_null : loc -> pred
+  val is_null : loc -> Lang.F.pred
   (** Return the formula that check if a given location is null *)
 
-  val loc_eq : loc -> loc -> pred
-  val loc_lt : loc -> loc -> pred
-  val loc_neq : loc -> loc -> pred
-  val loc_leq : loc -> loc -> pred
+  val loc_eq : loc -> loc -> Lang.F.pred
+  val loc_lt : loc -> loc -> Lang.F.pred
+  val loc_neq : loc -> loc -> Lang.F.pred
+  val loc_leq : loc -> loc -> Lang.F.pred
   (** Memory location comparisons *)
 
-  val loc_diff : c_object -> loc -> loc -> term
+  val loc_diff : c_object -> loc -> loc -> Lang.F.term
   (** Compute the length in bytes between two memory locations *)
 
-  val valid : sigma -> acs -> segment -> pred
+  val valid : sigma -> acs -> segment -> Lang.F.pred
   (** Return the formula that tests if a memory state is valid
       (according to {!acs}) in the given memory state at the given
       segment.
   *)
 
-  val scope : sigma -> Mcfg.scope -> varinfo list -> sigma * pred list
+  val scope : sigma -> Mcfg.scope -> varinfo list -> sigma * Lang.F.pred list
   (** Manage the scope of variables.  Returns the updated memory model
       and hypotheses modeling the new validity-scope of the variables. *)
 
-  val global : sigma -> term -> pred
+  val global : sigma -> Lang.F.term -> Lang.F.pred
   (** Given a pointer value [p], assumes this pointer [p] (when valid)
       is allocated outside the function frame under analysis. This means
       separated from the formals and locals of the function. *)
 
-  val included : segment -> segment -> pred
+  val included : segment -> segment -> Lang.F.pred
   (** Return the formula that tests if two segment are included *)
 
-  val separated : segment -> segment -> pred
+  val separated : segment -> segment -> Lang.F.pred
   (** Return the formula that tests if two segment are separated *)
 
 end

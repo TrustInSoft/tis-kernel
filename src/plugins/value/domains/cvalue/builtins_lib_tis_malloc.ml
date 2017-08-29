@@ -285,7 +285,9 @@ let add_uninitialized state base max_valid_bits =
 
 let wrap_fallible_malloc ret_base orig_state state_after_alloc =
   let ret = V.inject ret_base Ival.zero in
-  let success = Value_types.StateOnly(Eval_op.wrap_ptr ret, state_after_alloc) in
+  let success =
+    Value_types.StateOnly(Eval_op.wrap_ptr ret, state_after_alloc)
+  in
   if MallocReturnsNull.get ()
   then
     (* keep synchronized with headers! *)
@@ -293,7 +295,9 @@ let wrap_fallible_malloc ret_base orig_state state_after_alloc =
     let failure_state =
       Builtins_lib_tis_aux.optionally_set_errno enomem orig_state
     in
-    let failure =  Value_types.StateOnly(Eval_op.wrap_ptr Cvalue.V.singleton_zero, failure_state)
+    let failure =
+      Value_types.StateOnly
+        (Eval_op.wrap_ptr Cvalue.V.singleton_zero, failure_state)
     in
     [ success ; failure ]
   else [ success ]
@@ -336,8 +340,8 @@ let alloc_abstract allocation stack loc weak prefix sizev =
   end;
   let size_char = Bit_utils.sizeofchar () in
   (* Sizes are in bits *)
-  let min_alloc = Int.(pred (mul size_char tsize.min_bytes)) in
-  let max_alloc = Int.(pred (mul size_char tsize.max_bytes)) in
+  let min_alloc = Int.pred (Int.mul size_char tsize.min_bytes) in
+  let max_alloc = Int.pred (Int.mul size_char tsize.max_bytes) in
   (* NOTE: min_alloc/max_alloc may be -1 if the size is zero *)
   assert Int.(ge min_alloc Int.minus_one);
   assert Int.(ge max_alloc min_alloc);
@@ -409,10 +413,10 @@ let update_variable_validity ?(make_weak=false) base sizev =
   let size_char = Bit_utils.sizeofchar () in
   match base with
   | Base.Allocated (vi, (Base.Variable variable_v)) ->
-    if make_weak && (variable_v.Base.weak = false) then
+    if make_weak && not variable_v.Base.weak then
       mutate_name_to_weak vi;
-    let min_sure_bits = Int.(pred (mul size_char size_min)) in
-    let max_valid_bits = Int.(pred (mul size_char size_max)) in
+    let min_sure_bits = Int.pred (Int.mul size_char size_min) in
+    let max_valid_bits = Int.pred (Int.mul size_char size_max) in
     if not (Int.equal variable_v.Base.min_alloc min_sure_bits) ||
        not (Int.equal variable_v.Base.max_alloc max_valid_bits)
     then begin
@@ -454,23 +458,25 @@ let alloc_by_stack_aux
       MallocedByStack.replace stack (all_vars @ [b]);
       r
     | b :: q ->
-      try
-        ignore (Model.find_base b state);
-        if nb = max_level then begin (* variable already used *)
-          update_variable_validity ~make_weak:true b sizev
-        end
-        else aux (nb+1) q
-      with Not_found ->
-        (* Can reuse this (strong) variable if the size is identical. *)
-        if nb = max_level || equal_validity b sizev then
-          update_variable_validity
-            ~make_weak:(match initial_weakness with
-            | Strong -> false
-            | Weak -> true)
-            b
-            sizev
-        else
-          aux (nb+1) q
+      begin
+        try
+          ignore (Model.find_base b state);
+          if nb = max_level then begin (* variable already used *)
+            update_variable_validity ~make_weak:true b sizev
+          end
+          else aux (nb+1) q
+        with Not_found ->
+          (* Can reuse this (strong) variable if the size is identical. *)
+          if nb = max_level || equal_validity b sizev then
+            update_variable_validity
+              ~make_weak:(match initial_weakness with
+                  | Strong -> false
+                  | Weak -> true)
+              b
+              sizev
+          else
+            aux (nb+1) q
+      end
   in
   aux 0 all_vars
 
@@ -710,7 +716,14 @@ let realloc_multiple allocation loc state size bases null =
   if null then
     join
       res
-      (realloc_alloc_copy allocation loc Strong Base.Hptset.empty true size state)
+      (realloc_alloc_copy
+         allocation
+         loc
+         Strong
+         Base.Hptset.empty
+         true
+         size
+         state)
   else res
 
 (* Multiple indicates that existing bases are reallocateed into as many new
@@ -731,7 +744,8 @@ let realloc allocation ~multiple state args = match args with
       let strong = card_ok <= 1 && not weak in
       (* free old bases. *)
       let state = free_aux state ~strong bases in
-      { Value_types.c_values = [ Value_types.StateOnly(Eval_op.wrap_ptr ret, state) ] ;
+      { Value_types.c_values =
+          [ Value_types.StateOnly(Eval_op.wrap_ptr ret, state) ] ;
         c_clobbered = Builtins.clobbered_set_from_ret state ret;
         c_from = None;(*TODO?*)
         c_cacheable = Value_types.NoCacheCallers;
@@ -763,19 +777,21 @@ let check_if_base_is_leaked base_to_check state =
   | Model.Bottom -> false
   | Model.Top -> true
   | Model.Map m ->
-    try
-      Cvalue.Model.fold
-        (fun base offsetmap () ->
-           if not (Base.equal base_to_check base) then
-             Cvalue.V_Offsetmap.iter_on_values
-               (fun v ->
-                  if Locations.Location_Bytes.may_reach base_to_check
-                      (V_Or_Uninitialized.get_v v) then raise Not_leaked)
-               offsetmap)
-        m
-        ();
-      true
-    with Not_leaked -> false
+    begin
+      try
+        Cvalue.Model.fold
+          (fun base offsetmap () ->
+             if not (Base.equal base_to_check base) then
+               Cvalue.V_Offsetmap.iter_on_values
+                 (fun v ->
+                    if Locations.Location_Bytes.may_reach base_to_check
+                        (V_Or_Uninitialized.get_v v) then raise Not_leaked)
+                 offsetmap)
+          m
+          ();
+        true
+      with Not_leaked -> false
+    end
 
 (* Does not detect leaked cycles within allocated bases.
    The complexity is very far from being optimal. *)
@@ -874,15 +890,23 @@ let get_size : Db.Value.builtin_sig =
     | _ -> raise (Builtins.Invalid_nb_of_args 1)
 let () = Builtins.register_builtin "tis_block_size" get_size
 
+(* This option is parsed and used from Cmdline *)
+[@@@ warning "-60"]
+
 (* Variable that has been returned by a call to malloc at this callstack *)
-module MallocWeakSize=
+module MallocWeakSize =
   Value_parameters.Int
     (struct
       let option_name = "-val-tis-alloc-weak-size"
-      let default=10000
+      let default = 10000
       let arg_name = "s"
-      let help = "sets the size of the location returned by tis_alloc_weak_legacy to [p] for any given callstack"
+      let help =
+        "sets the size of the location returned by tis_alloc_weak_legacy \
+         to [p] for any given callstack"
     end)
+
+[@@@ warning "+60"]
+
 
 exception Invalid_realloc
 

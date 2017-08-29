@@ -33,14 +33,15 @@
 
 #ifndef __FC_SOCKET_H__
 #define __FC_SOCKET_H__
+#include "../features.h"
 #include "../__fc_machdep.h"
+__BEGIN_DECLS
 
 typedef __UINT_LEAST32_T socklen_t;
 #include "../__fc_define_sa_family_t.h"
 #include "../__fc_define_sockaddr.h"
 /* Not POSIX compliant but seems needed for some functions... */
 #include "../__fc_define_ssize_t.h"
-#include "../features.h"
 
 /*
  * RFC 2553: protocol-independent placeholder for socket addresses
@@ -190,13 +191,13 @@ struct msghdr {
 #ifndef __FC_INTERNAL_SOCKFDS_PROVIDED
 struct __fc_sockfds_type { int x; };
 #endif
-//@ ghost struct __fc_sockfds_type __fc_sockfds[__FC_MAX_OPEN_SOCKETS];
+//@ ghost extern struct __fc_sockfds_type __fc_sockfds[__FC_MAX_OPEN_SOCKETS];
 
 /* Represents the creation of new file descriptors for sockets. */
 //@ ghost extern int __fc_socket_counter __attribute__((__FRAMA_C_MODEL__));
 
 // __fc_sockfds represents the state of open socket descriptors.
-//@ ghost volatile int __fc_open_sock_fds;
+//@ ghost extern volatile int __fc_open_sock_fds;
 // TODO: Model the state of some functions more precisely.
 
 /*@
@@ -326,4 +327,6 @@ int sockatmark(int);
   @ ensures 0 <= socket_vector[1] < __FC_MAX_OPEN_SOCKETS;
   @*/
 int socketpair(int domain, int type, int protocol, int socket_vector[2]);
+__END_DECLS
+
 #endif

@@ -31,37 +31,34 @@
 (*                                                                        *)
 (**************************************************************************)
 
-open Format
 open Qed.Logic
 open Qed.Engine
-open Lang
-open Lang.F
 
 (* -------------------------------------------------------------------------- *)
 (* --- Variables Marker                                                   --- *)
 (* -------------------------------------------------------------------------- *)
 
 type pool = {
-  mutable vars : Vars.t ;
-  mutable mark : Tset.t ;
+  mutable vars : Lang.F.Vars.t ;
+  mutable mark : Lang.F.Tset.t ;
 }
 
-let pool () = { vars = Vars.empty ; mark = Tset.empty }
+let pool () = { vars = Lang.F.Vars.empty ; mark = Lang.F.Tset.empty }
 let xmark p = p.vars
 
 let rec walk p f e =
-  if not (Tset.mem e p.mark) &&
-     not (Vars.subset (F.vars e) p.vars)
+  if not (Lang.F.Tset.mem e p.mark) &&
+     not (Lang.F.Vars.subset (Lang.F.vars e) p.vars)
   then
     begin
-      p.mark <- Tset.add e p.mark ;
-      match F.repr e with
-      | Fvar x -> p.vars <- Vars.add x p.vars ; f x
-      | _ -> F.lc_iter (walk p f) e
+      p.mark <- Lang.F.Tset.add e p.mark ;
+      match Lang.F.repr e with
+      | Fvar x -> p.vars <- Lang.F.Vars.add x p.vars ; f x
+      | _ -> Lang.F.lc_iter (walk p f) e
     end
 
 let xmark_e = walk
-let xmark_p pool f p = walk pool f (F.e_prop p)
+let xmark_p pool f p = walk pool f (Lang.F.e_prop p)
 
 (* -------------------------------------------------------------------------- *)
 (* --- Lang Pretty Printer                                                --- *)
@@ -71,13 +68,13 @@ module E = Qed.Export.Make(Lang.F)
 module Env = E.Env
 
 type scope = Qed.Engine.scope
-type trigger = (var,Fun.t) Qed.Engine.ftrigger
+type trigger = (Lang.F.var, Lang.Fun.t) Qed.Engine.ftrigger
 
 class engine =
   object(self)
     inherit E.engine
     inherit Lang.idprinting
-    method infoprover w = w.altergo
+    method infoprover w = w.Lang.altergo
 
     (* --- Types --- *)
 
@@ -88,12 +85,12 @@ class engine =
     method t_atomic _ = true
     method pp_tvar fmt k =
       if 0 <= k && k < 26 then
-        fprintf fmt "'%c" (char_of_int (int_of_char 'a' + k))
+        Format.fprintf fmt "'%c" (char_of_int (int_of_char 'a' + k))
       else
-        fprintf fmt "'%d" (k-26)
-    method pp_array fmt t = fprintf fmt "%a[]" self#pp_subtau t
+        Format.fprintf fmt "'%d" (k-26)
+    method pp_array fmt t = Format.fprintf fmt "%a[]" self#pp_subtau t
     method pp_farray fmt t k =
-      fprintf fmt "@[<hov 2>%a[%a]@]" self#pp_subtau t self#pp_tau k
+      Format.fprintf fmt "@[<hov 2>%a[%a]@]" self#pp_subtau t self#pp_tau k
     method pp_datatype a fmt ts =
       Qed.Plib.pp_call_var ~f:(self#datatype a) self#pp_tau fmt ts
 
@@ -108,12 +105,12 @@ class engine =
 
     method callstyle = CallVar
     method is_atomic e =
-      match F.repr e with
+      match Lang.F.repr e with
       | Kint z -> Z.leq Z.zero z
       | Kreal _ -> true
       | Apply _ -> true
       | Aset _ | Aget _ | Fun _ -> true
-      | _ -> F.is_simple e
+      | _ -> Lang.F.is_simple e
 
     (* --- Operators --- *)
 
@@ -141,12 +138,11 @@ class engine =
     (* --- Ternary --- *)
 
     method pp_conditional fmt cond pthen pelse =
-      begin
-        fprintf fmt "@[<hov 0>if %a" self#pp_atom cond ;
-        fprintf fmt "@ then %a" self#pp_atom pthen ;
-        fprintf fmt "@ else %a" self#pp_atom pelse ;
-        fprintf fmt "@]" ;
-      end
+      Format.fprintf fmt "@[<hov 0>if %a" self#pp_atom cond ;
+      Format.fprintf fmt "@ then %a" self#pp_atom pthen ;
+      Format.fprintf fmt "@ else %a" self#pp_atom pelse ;
+      Format.fprintf fmt "@]"
+
 
     (* --- Arrays --- *)
 
@@ -163,34 +159,38 @@ class engine =
       Format.fprintf fmt "%a.%s" self#pp_atom a (self#field fd)
 
     method pp_def_fields fmt fvs =
-      let base,fvs = match F.record_with fvs with
+      let base,fvs = match Lang.F.record_with fvs with
         | None -> None,fvs | Some(r,fvs) -> Some r,fvs in
       begin
-        fprintf fmt "@[<hov 2>{" ;
+        Format.fprintf fmt "@[<hov 2>{" ;
         let open Qed.Plib in
         iteri
           (fun i (f,v) ->
              ( match i , base with
                | (Isingle | Ifirst) , Some r ->
-                 fprintf fmt "@ %a with" self#pp_flow r
+                 Format.fprintf fmt "@ %a with" self#pp_flow r
                | _ -> () ) ;
              ( match i with
                | Ifirst | Imiddle ->
-                 fprintf fmt "@ @[<hov 2>%s = %a ;@]"
+                 Format.fprintf fmt "@ @[<hov 2>%s = %a ;@]"
                    (self#field f) self#pp_flow v
                | Isingle | Ilast ->
-                 fprintf fmt "@ @[<hov 2>%s = %a@]"
+                 Format.fprintf fmt "@ @[<hov 2>%s = %a@]"
                    (self#field f) self#pp_flow v )
           ) fvs ;
-        fprintf fmt "@ }@]" ;
+        Format.fprintf fmt "@ }@]" ;
       end
 
     (* --- Higher Order --- *)
 
-    method pp_apply (_:cmode) (_:term) (_:formatter) (_:term list) =
+    method pp_apply
+        (_:cmode)
+        (_:Lang.F.term)
+        (_:Format.formatter)
+        (_:Lang.F.term list) =
       failwith "Qed: higher-order application"
 
-    method pp_lambda (_:formatter) (_: (string * tau) list) =
+    method pp_lambda (_:Format.formatter) (_: (string * Lang.tau) list) =
       failwith "Qed: lambda abstraction"
 
     (* --- Binders --- *)
@@ -198,22 +198,22 @@ class engine =
     method pp_forall tau fmt = function
       | [] -> ()
       | x::xs ->
-        fprintf fmt "@[<hov 2>forall %a" self#pp_var x ;
-        List.iter (fun x -> fprintf fmt ",@,%a" self#pp_var x) xs ;
-        fprintf fmt "@ : %a.@]" self#pp_tau tau ;
+        Format.fprintf fmt "@[<hov 2>forall %a" self#pp_var x ;
+        List.iter (fun x -> Format.fprintf fmt ",@,%a" self#pp_var x) xs ;
+        Format.fprintf fmt "@ : %a.@]" self#pp_tau tau ;
 
     method pp_exists tau fmt = function
       | [] -> ()
       | x::xs ->
-        fprintf fmt "@[<hov 2>exists %a" self#pp_var x ;
-        List.iter (fun x -> fprintf fmt ",@,%a" self#pp_var x) xs ;
-        fprintf fmt "@ : %a.@]" self#pp_tau tau ;
+        Format.fprintf fmt "@[<hov 2>exists %a" self#pp_var x ;
+        List.iter (fun x -> Format.fprintf fmt ",@,%a" self#pp_var x) xs ;
+        Format.fprintf fmt "@ : %a.@]" self#pp_tau tau ;
 
     method pp_let fmt _ x e =
-      fprintf fmt "@[<hov 4>let %s = %a in@]@ " x self#pp_flow e
+      Format.fprintf fmt "@[<hov 4>let %s = %a in@]@ " x self#pp_flow e
 
     (* --- Predicates --- *)
 
-    method pp_pred fmt p = self#pp_prop fmt (F.e_prop p)
+    method pp_pred fmt p = self#pp_prop fmt (Lang.F.e_prop p)
 
   end

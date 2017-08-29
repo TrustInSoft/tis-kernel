@@ -214,17 +214,17 @@ struct
       if (Cil.isPointerType x.vtype) || (Cil.isArrayType x.vtype) then
         begin
           match param x with
-          | ByValue   -> s_other (Separation.Arr x)
-          | ByRef     -> s_mutex (Separation.Ptr x)
-          | InHeap    -> s_other (Separation.Arr x)
-          | InContext -> s_mutex (Separation.Ptr x)
-          | InArray   -> s_mutex (Separation.Arr x)
+          | ByValue   -> s_other (Separation.RArr x)
+          | ByRef     -> s_mutex (Separation.RPtr x)
+          | InHeap    -> s_other (Separation.RArr x)
+          | InContext -> s_mutex (Separation.RPtr x)
+          | InArray   -> s_mutex (Separation.RArr x)
           | NotUsed   -> ()
         end;
     in
     V.iter_inputs ?kf ~init
       (fun vi ->
-         if vi.vglob then s_other (Separation.Var vi);
+         if vi.vglob then s_other (Separation.RVar vi);
          if vi.vformal then s_partition vi;
       ) ;
     let open Separation in

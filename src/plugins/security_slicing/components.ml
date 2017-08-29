@@ -775,33 +775,37 @@ let impact_analysis =
 
 (* type t = stmt *)
 
+(* DM: The [Components] module was partially commented, but the
+   remaining code seemed to be useless so I commented it too...
+   TODO: should this code be removed? *)
+
 (** Security component table: a security component is represented by the
     statement at which a security verification should occur.  It is associated
     with the list of its statements. *)
-module Components : sig
+(* module Components : sig *)
   (*val add: t -> stmt -> unit
     val find: t -> stmt list
     val self: State.t
     val fold_fold:
     ('b -> t -> 'a -> 'b) -> ('a -> Cil_types.stmt -> 'a) -> 'b -> 'a -> 'b
   *)
-end = struct
+(* end = struct *)
 
-  module S =
-    State_builder.Hashtbl
-      (Stmt.Hashtbl)
-      (Datatype.Ref(Datatype.List(Stmt)))
-      (struct
-        let name = "Components"
-        let size = 7
-        let dependencies = [ Ast.self; Db.Value.self ]
-      end)
-  let () = Ast.add_monotonic_state S.self
+(*   module S = *)
+(*     State_builder.Hashtbl *)
+(*       (Stmt.Hashtbl) *)
+(*       (Datatype.Ref(Datatype.List(Stmt))) *)
+(*       (struct *)
+(*         let name = "Components" *)
+(*         let size = 7 *)
+(*         let dependencies = [ Ast.self; Db.Value.self ] *)
+(*       end) *)
+(*   let () = Ast.add_monotonic_state S.self *)
 
-  let () =
-    Cmdline.run_after_extended_stage
-      (fun () ->
-         State_dependency_graph.add_codependencies ~onto:S.self [ !Db.Pdg.self ])
+(*   let () = *)
+(*     Cmdline.run_after_extended_stage *)
+(*       (fun () -> *)
+(*          State_dependency_graph.add_codependencies ~onto:S.self [ !Db.Pdg.self ]) *)
 (*
   let add c =
     let l = S.memo (fun _ -> ref []) c in
@@ -814,7 +818,7 @@ end = struct
   let fold_fold f g init_f init_g =
     S.fold (fun c l acc -> f acc c (List.fold_left g init_g !l)) init_f
 *)
-end
+(* end *)
 (*
 module Nodes =
   State_builder.SetRef

@@ -40,7 +40,6 @@ open LogicUsage
 open Cil_types
 open Ctypes
 open Clabels
-open Lang.F
 open Memory
 
 type polarity = [ `Positive | `Negative | `NoPolarity ]
@@ -76,10 +75,10 @@ sig
   val call_post  : sigma -> call -> sigma sequence -> frame
 
   val return : unit -> typ
-  val result : unit -> var
-  val status : unit -> var
+  val result : unit -> Lang.F.var
+  val status : unit -> Lang.F.var
 
-  val guards : frame -> pred list
+  val guards : frame -> Lang.F.pred list
 
   (** {3 Traductions} *)
 
@@ -91,23 +90,25 @@ sig
   val mem_at : env -> c_label -> sigma
   val call_env : sigma -> env
 
-  val term : env -> Cil_types.term -> term
-  val pred : polarity -> env -> Cil_types.predicate named -> pred
+  val term : env -> Cil_types.term -> Lang.F.term
+  val pred : polarity -> env -> Cil_types.predicate named -> Lang.F.pred
   val region : env -> Cil_types.term -> region
-  val assigns : env -> identified_term assigns -> (c_object * region) list option
-  val assigns_from : env -> identified_term from list -> (c_object * region) list
+  val assigns:
+    env -> identified_term assigns -> (c_object * region) list option
+  val assigns_from:
+    env -> identified_term from list -> (c_object * region) list
 
-  val val_of_term : env -> Cil_types.term -> term
+  val val_of_term : env -> Cil_types.term -> Lang.F.term
   val loc_of_term : env -> Cil_types.term -> loc
 
   val lemma : logic_lemma -> dlemma
 
   (** {3 Regions} *)
 
-  val vars : region -> Vars.t
-  val occurs : var -> region -> bool
-  val valid : sigma -> acs -> c_object -> region -> pred
-  val included : c_object -> region -> c_object -> region -> pred
-  val separated : (c_object * region) list -> pred
+  val vars : region -> Lang.F.Vars.t
+  val occurs : Lang.F.var -> region -> bool
+  val valid : sigma -> acs -> c_object -> region -> Lang.F.pred
+  val included : c_object -> region -> c_object -> region -> Lang.F.pred
+  val separated : (c_object * region) list -> Lang.F.pred
 
 end

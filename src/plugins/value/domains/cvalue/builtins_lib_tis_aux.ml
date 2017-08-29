@@ -53,8 +53,7 @@ let overlap_status_loc_bits ?(size_in_bytes = false)
         |None -> raise Overlap_status_uncertain
       in
       let v = Int.mul bit_units v in
-      let v = Int_Base.inject v in
-      v
+      Int_Base.inject v
     in
 
     let max1_bits = get_int_base max1  in
@@ -165,7 +164,10 @@ let location_of_cvalue ?(sizeof_loc=(Bit_utils.sizeofchar ())) cvalue =
     (Locations.loc_bytes_to_loc_bits cvalue)
     (Int_Base.inject sizeof_loc)
 
-let additional_ptr_validity_check_for_size_zero ~for_writing ~size (exp, cvalue, _) =
+let additional_ptr_validity_check_for_size_zero
+    ~for_writing
+    ~size
+    (exp, cvalue, _) =
   let location = location_of_cvalue cvalue in
   if Cvalue.V.contains_zero size &&
      not (Locations.is_valid ~for_writing location) then begin

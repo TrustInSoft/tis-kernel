@@ -36,8 +36,6 @@
 (* -------------------------------------------------------------------------- *)
 
 open Qed.Logic
-open Lang
-open Lang.F
 
 (* -------------------------------------------------------------------------- *)
 (* --- Latice                                                             --- *)
@@ -61,42 +59,59 @@ let cup_false = function
   | FALSE -> FALSE
   | _ -> TOP
 
-let set_top m p = Vars.fold (fun x m -> Vmap.add x TOP m) (F.varsp p) m
-let add eq x d m = Vmap.add x (try cup eq (Vmap.find x m) d with Not_found -> EQ d) m
-let add_true m x = Vmap.add x (try cup_true (Vmap.find x m) with Not_found -> TRUE) m
-let add_false m x = Vmap.add x (try cup_false (Vmap.find x m) with Not_found -> FALSE) m
-let add_var = add Var.equal
-let add_fun = add Fun.equal
+let set_top m p =
+  Lang.F.Vars.fold (fun x m -> Lang.F.Vmap.add x TOP m) (Lang.F.varsp p) m
+
+let add eq x d m =
+  Lang.F.Vmap.add
+    x
+    (try cup eq (Lang.F.Vmap.find x m) d with Not_found -> EQ d)
+    m
+
+let add_true m x =
+  Lang.F.Vmap.add
+    x
+    (try cup_true (Lang.F.Vmap.find x m) with Not_found -> TRUE)
+    m
+
+let add_false m x =
+  Lang.F.Vmap.add
+    x
+    (try cup_false (Lang.F.Vmap.find x m) with Not_found -> FALSE)
+    m
+
+let add_var = add Lang.F.Var.equal
+let add_fun = add Lang.Fun.equal
 
 (* -------------------------------------------------------------------------- *)
 (* --- Collector                                                          --- *)
 (* -------------------------------------------------------------------------- *)
 
 let rec add_pred m p =
-  match F.pred p with
+  match Lang.F.pred p with
   | And ps -> List.fold_left add_pred m ps
   | If(e,a,b) -> add_pred (add_pred (set_top m e) a) b
   | Eq(a,b) ->
     begin
-      match F.pred a , F.pred b with
+      match Lang.F.pred a , Lang.F.pred b with
       | Fvar x , Fvar y -> add_var x y (add_var y x m)
       | _ -> set_top m p
     end
   | Fvar x -> add_true m x
   | Not p ->
     begin
-      match F.pred p with
+      match Lang.F.pred p with
       | Fvar x -> add_false m x
       | _ -> set_top m p
     end
   | _ -> set_top m p
 
 let rec add_type m p =
-  match F.pred p with
+  match Lang.F.pred p with
   | And ps -> List.fold_left add_type m ps
   | Fun(f,[e]) ->
     begin
-      match F.pred e with
+      match Lang.F.pred e with
       | Fvar x -> add_fun x f m
       | _ -> set_top m p
     end
@@ -107,11 +122,11 @@ let rec add_type m p =
 (* -------------------------------------------------------------------------- *)
 
 type usage = {
-  mutable eq_var : var occur Vmap.t ;
-  mutable eq_fun : lfun occur Vmap.t ;
+  mutable eq_var : Lang.F.var occur Lang.F.Vmap.t ;
+  mutable eq_fun : Lang.lfun occur Lang.F.Vmap.t ;
 }
 
-let create () = { eq_var = Vmap.empty ; eq_fun = Vmap.empty }
+let create () = { eq_var = Lang.F.Vmap.empty ; eq_fun = Lang.F.Vmap.empty }
 let as_atom m p = m.eq_var <- set_top m.eq_var p
 let as_have m p = m.eq_var <- add_pred m.eq_var p
 let as_init m p = m.eq_fun <- add_type m.eq_fun p
@@ -121,23 +136,23 @@ let as_type m p = m.eq_fun <- add_type m.eq_fun p
 (* --- Extraction                                                         --- *)
 (* -------------------------------------------------------------------------- *)
 
-let get x m = try Some (Vmap.find x m) with Not_found -> None
+let get x m = try Some (Lang.F.Vmap.find x m) with Not_found -> None
 
 let is_true x m =
-  try match Vmap.find x m with TRUE -> true | _ -> false
+  try match Lang.F.Vmap.find x m with TRUE -> true | _ -> false
   with Not_found -> false
 
 let is_false x m =
-  try match Vmap.find x m with FALSE -> true | _ -> false
+  try match Lang.F.Vmap.find x m with FALSE -> true | _ -> false
   with Not_found -> false
 
 let is_var x m =
-  try match Vmap.find x m.eq_var with
+  try match Lang.F.Vmap.find x m.eq_var with
     | EQ y ->
       begin
         match get x m.eq_fun , get y m.eq_fun with
         | None , _ -> true  (* we eliminate x, which has no guard... *)
-        | Some (EQ f) , Some (EQ g) -> Fun.equal f g
+        | Some (EQ f) , Some (EQ g) -> Lang.Fun.equal f g
         | _ -> false
       end
     | _ -> false
@@ -147,34 +162,35 @@ let is_var x m =
 (* --- Filtering                                                          --- *)
 (* -------------------------------------------------------------------------- *)
 
-let pp_vars fmt xs = Vars.iter (fun x -> Format.fprintf fmt "@ %a" F.pp_var x) xs
+let pp_vars fmt xs =
+  Lang.F.Vars.iter (fun x -> Format.fprintf fmt "@ %a" Lang.F.pp_var x) xs
 
 let rec filter_pred m p =
-  match F.pred p with
-  | And ps -> F.p_all (filter_pred m) ps
-  | If(e,a,b) -> p_if e (filter_pred m a) (filter_pred m b)
+  match Lang.F.pred p with
+  | And ps -> Lang.F.p_all (filter_pred m) ps
+  | If(e,a,b) -> Lang.F.p_if e (filter_pred m a) (filter_pred m b)
   | Eq(a,b) ->
     begin
-      match F.pred a , F.pred b with
-      | Fvar x , Fvar y when is_var x m || is_var y m -> p_true
+      match Lang.F.pred a , Lang.F.pred b with
+      | Fvar x , Fvar y when is_var x m || is_var y m -> Lang.F.p_true
       | _ -> p
     end
-  | Fvar x when is_true x m.eq_var -> p_true
+  | Fvar x when is_true x m.eq_var -> Lang.F.p_true
   | Not q ->
     begin
-      match F.pred q with
-      | Fvar x when is_false x m.eq_var -> p_true
+      match Lang.F.pred q with
+      | Fvar x when is_false x m.eq_var -> Lang.F.p_true
       | _ -> p
     end
   | _ -> p
 
 let rec filter_type m p =
-  match F.pred p with
-  | And ps -> F.p_all (filter_type m) ps
+  match Lang.F.pred p with
+  | And ps -> Lang.F.p_all (filter_type m) ps
   | Fun(_,[e]) ->
     begin
-      match F.pred e with
-      | Fvar x when is_var x m -> p_true
+      match Lang.F.pred e with
+      | Fvar x when is_var x m -> Lang.F.p_true
       | _ -> p
     end
   | _ -> p

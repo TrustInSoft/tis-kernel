@@ -34,12 +34,14 @@
 (** Alarms and imprecision warnings emitted during the analysis. *)
 
 open Cil_types
-open Locations
 
 val possible_pointer: one_past:bool -> Locations.Location_Bytes.t -> bool
 
 val are_comparable :
-  Abstract_interp.Comp.t -> Location_Bytes.t -> Location_Bytes.t -> bool
+  Abstract_interp.Comp.t
+  -> Locations.Location_Bytes.t
+  -> Locations.Location_Bytes.t
+  -> bool
 
 val check_no_recursive_call: kernel_function -> bool
 
@@ -49,11 +51,11 @@ val check_no_recursive_call: kernel_function -> bool
     a modification of [lv] during the call to [kf] is emitted *)
 val warn_modified_result_loc:
   with_alarms:CilE.warn_mode ->
-  kernel_function -> location -> Cvalue.Model.t -> lval -> unit
+  kernel_function -> Locations.location -> Cvalue.Model.t -> lval -> unit
 
 val warn_imprecise_lval_read:
   with_alarms:CilE.warn_mode ->
-  lval -> location -> Location_Bytes.t -> unit
+  lval -> Locations.location -> Locations.Location_Bytes.t -> unit
 
 val warn_locals_escape:
   bool -> fundec -> Base.t -> Base.SetLattice.t -> unit
@@ -90,11 +92,13 @@ val offsetmap_contains_imprecision:
     some bits are guaranteed to be indeterminate, returns [`Bottom]; this
     indicates completely erroneous code. *)
 val warn_reduce_indeterminate_offsetmap:
-  with_alarms:CilE.warn_mode ->
-  typ -> Cvalue.V_Offsetmap.t ->
-  [`PreciseLoc of Precise_locs.precise_location | `Loc of location | `NoLoc] ->
-  Cvalue.Model.t ->
-  [`Bottom | `Res of Cvalue.V_Offsetmap.t * Cvalue.Model.t]
+  with_alarms:CilE.warn_mode
+  -> typ
+  -> Cvalue.V_Offsetmap.t
+  -> [ `PreciseLoc of Precise_locs.precise_location
+     | `Loc of Locations.location | `NoLoc]
+  -> Cvalue.Model.t
+  -> [ `Bottom | `Res of Cvalue.V_Offsetmap.t * Cvalue.Model.t ]
 
 val maybe_warn_div:
   with_alarms:CilE.warn_mode -> Cvalue.V.t -> Cil_types.typ -> Cvalue.V.t -> unit

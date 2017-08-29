@@ -51,10 +51,8 @@ type memcpy_alarm_context = {
   memcpy_alarm_set_syntactic_context_array_dst : unit -> unit
 }
 
-(* Alarm context used when necessary information about source and destination
-   is hard to get. *)
 let memcpy_alarm_context_none = {
-  memcpy_alarm_warn_mode = (CilE.warn_none_mode);
+  memcpy_alarm_warn_mode = CilE.warn_none_mode;
   memcpy_alarm_set_syntactic_context_array_src = (fun () -> ());
   memcpy_alarm_set_syntactic_context_array_dst = (fun () -> ())
 }
@@ -75,10 +73,14 @@ let deps_nth_arg n =
   with Failure _ ->
     Kernel.fatal "%d arguments expected" n
 
-let abstract_memcpy ?(exact=true) ~(character_bits : Integer.t) ~emit_alarm
-    ~(size: Ival.t) (* Number of characters to copy. *)
-    (src : Location_Bytes.t) (dst : Location_Bytes.t) (state : Model.t)
-  : Model.t * Function_Froms.froms * Zone.t =
+let abstract_memcpy
+    ?(exact=true)
+    ~character_bits
+    ~emit_alarm
+    ~size
+    src
+    dst
+    state =
 
   let plevel = Value_parameters.ArrayPrecisionLevel.get() in
   let with_alarms = emit_alarm.memcpy_alarm_warn_mode in
@@ -230,7 +232,9 @@ let abstract_memcpy ?(exact=true) ~(character_bits : Integer.t) ~emit_alarm
       in
       (* By using ranges modulo character_bits, we read and write
          byte-by-byte, which can preserve some precision *)
-      let range = Ival.inject_top (Some Int.zero) diff Int.zero character_bits in
+      let range =
+        Ival.inject_top (Some Int.zero) diff Int.zero character_bits
+      in
       let right = Location_Bits.shift range right in
       let size_char = Int_Base.inject character_bits in
       let loc_right = make_loc right size_char in
@@ -286,7 +290,10 @@ let tis_memcpy ~str_or_wcs ~check_overlap state actuals =
     | false, Character     -> "memmove"
     | false, WideCharacter -> "wmemmove"
   in
-  let compute ((exp_dst,dst,_) as a1) ((exp_src,src,_) as a2) (exp_size,size,_) =
+  let compute
+      ((exp_dst,dst,_) as a1)
+      ((exp_src,src,_) as a2)
+      (exp_size,size,_) =
     if Value_parameters.ValShowProgress.get () then
       Value_parameters.feedback ~current:true "Call to builtin tis_%s(%a)%t"
         builtin_name pretty_actuals actuals Value_util.pp_callstack;
@@ -377,7 +384,8 @@ let tis_memcpy ~str_or_wcs ~check_overlap state actuals =
       builtin_name pretty_actuals actuals;
     raise Db.Value.Aborted
   | Do_Bottom ->
-    { Value_types.c_values = [  Value_types.StateOnly(None, Cvalue.Model.bottom) ];
+    { Value_types.c_values =
+        [  Value_types.StateOnly(None, Cvalue.Model.bottom) ];
       c_clobbered = Base.SetLattice.bottom;
       c_cacheable = Value_types.Cacheable;
       c_from = None; (* TODO?*)

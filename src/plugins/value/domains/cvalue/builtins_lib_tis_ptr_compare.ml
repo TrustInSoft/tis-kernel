@@ -31,15 +31,17 @@ let tis_ptr_is_within state actuals =
             "Call to builtin tis_ptr_is_within(%a)%t"
             pretty_actuals actuals Value_util.pp_callstack;
         let ptr_base,ptr_offsets  = Cvalue.V.find_lonely_key ptr in
-        let start_addr_base,start_addr_offsets  = Cvalue.V.find_lonely_key start_addr in
-        let end_addr_base,end_addr_offsets  = Cvalue.V.find_lonely_key end_addr  in
-        if not (Base.equal start_addr_base end_addr_base)
-        then
+        let start_addr_base, start_addr_offsets =
+          Cvalue.V.find_lonely_key start_addr
+        in
+        let end_addr_base,end_addr_offsets =
+          Cvalue.V.find_lonely_key end_addr
+        in
+        if not (Base.equal start_addr_base end_addr_base) then
           raise Not_same_base;
 
         let result =
-          if (Base.equal ptr_base start_addr_base)
-          then (
+          if Base.equal ptr_base start_addr_base then begin
             let get_min_max ival = match Ival.min_and_max ival with
               | Some min, Some max -> min,max
               | _ -> raise Not_found
@@ -49,17 +51,17 @@ let tis_ptr_is_within state actuals =
             let _min_start,max_start =get_min_max start_addr_offsets in
             let min_end,_max_end = get_min_max end_addr_offsets in
 
-            if (Int.le max_start min_ptr && Int.lt max_ptr min_end)
-            then
+            if Int.le max_start min_ptr && Int.lt max_ptr min_end then
               Ival.one
             else
               Ival.zero
-          )
+          end
           else
             Ival.zero
         in
         { Value_types.c_values =
-            [ Value_types.StateOnly(Eval_op.wrap_int (Cvalue.V.inject_ival result), state) ];
+            [ Value_types.StateOnly
+                (Eval_op.wrap_int (Cvalue.V.inject_ival result), state) ];
           c_clobbered = Base.SetLattice.bottom;
           c_cacheable = Value_types.Cacheable;
           c_from = None; (* TODO?*)
@@ -70,7 +72,8 @@ let tis_ptr_is_within state actuals =
         Value_parameters.warning ~current:true
           "assert(single base adress for each pointer)";
 
-        { Value_types.c_values = [ Value_types.StateOnly(None, Cvalue.Model.bottom) ];
+        { Value_types.c_values =
+            [ Value_types.StateOnly(None, Cvalue.Model.bottom) ];
           c_clobbered = Base.SetLattice.bottom;
           c_cacheable = Value_types.Cacheable;
           c_from = None; (* TODO?*)
@@ -82,7 +85,8 @@ let tis_ptr_is_within state actuals =
           Cvalue.V.pretty start_addr
           Cvalue.V.pretty end_addr;
 
-        { Value_types.c_values = [ Value_types.StateOnly(None, Cvalue.Model.bottom) ];
+        { Value_types.c_values =
+            [ Value_types.StateOnly(None, Cvalue.Model.bottom) ];
           c_clobbered = Base.SetLattice.bottom;
           c_cacheable = Value_types.Cacheable;
           c_from = None; (* TODO?*)
@@ -119,9 +123,10 @@ let tis_ptr_is_less_than state actuals =
             Cvalue.V.pretty ptr1 Cvalue.V.pretty ptr2 problem
       end;
 
-      { Value_types.c_values = [ Value_types.StateOnly(Eval_op.wrap_int result, state) ];
-        c_clobbered          = Base.SetLattice.bottom;
-        c_cacheable          = Value_types.Cacheable;
+      { Value_types.c_values =
+          [ Value_types.StateOnly(Eval_op.wrap_int result, state) ];
+        c_clobbered = Base.SetLattice.bottom;
+        c_cacheable = Value_types.Cacheable;
         c_from = None; (* TODO?*)
         c_sureouts = None;
       }

@@ -38,7 +38,6 @@
 open Cil_types
 open Cil_datatype
 open Lang
-open Lang.F
 open Memory
 
 module Logic = Qed.Logic
@@ -121,44 +120,48 @@ module Heap = Qed.Collection.Make(Chunk)
 module Sigma = Sigma.Make(Chunk)(Heap)
 
 type loc =
-  | Null
-  | Var of varinfo
-  | Star of loc
-  | Array of loc * F.term
-  | Field of loc * fieldinfo
+  | LNull
+  | LVar of varinfo
+  | LStar of loc
+  | LArray of loc * F.term
+  | LField of loc * fieldinfo
 
 type sigma = Sigma.t
 type segment = loc rloc
 
 let rec pretty fmt = function
-  | Null -> Format.pp_print_string fmt "null"
-  | Var x -> Varinfo.pretty fmt x
-  | Star(Var x) -> Format.fprintf fmt "*%a" Varinfo.pretty x
-  | Star p -> Format.fprintf fmt "*(%a)" pretty p
-  | Array(p,k) -> Format.fprintf fmt "%a[%a]" pretty p Lang.F.pp_term k
-  | Field(Star p,f) -> Format.fprintf fmt "%a->%a" pretty p Fieldinfo.pretty f
-  | Field(p,f) -> Format.fprintf fmt "%a.%a" pretty p Fieldinfo.pretty f
+  | LNull -> Format.pp_print_string fmt "null"
+  | LVar x -> Varinfo.pretty fmt x
+  | LStar (LVar x) -> Format.fprintf fmt "*%a" Varinfo.pretty x
+  | LStar p -> Format.fprintf fmt "*(%a)" pretty p
+  | LArray (p,k) -> Format.fprintf fmt "%a[%a]" pretty p Lang.F.pp_term k
+  | LField (LStar p,f) -> Format.fprintf fmt "%a->%a" pretty p Fieldinfo.pretty f
+  | LField (p,f) -> Format.fprintf fmt "%a.%a" pretty p Fieldinfo.pretty f
 
 let rec vars = function
-  | Var _ | Null -> Vars.empty
-  | Star p | Field(p,_) -> vars p
-  | Array(p,k) -> Vars.union (vars p) (F.vars k)
+  | LVar _
+  | LNull -> Lang.F.Vars.empty
+  | LStar p
+  | LField (p, _) -> vars p
+  | LArray (p, k) -> Lang.F.Vars.union (vars p) (F.vars k)
 
 let rec occurs x = function
-  | Null | Var _ -> false
-  | Star p | Field(p,_) -> occurs x p
-  | Array(p,k) -> F.occurs x k || occurs x p
+  | LNull
+  | LVar _ -> false
+  | LStar p
+  | LField (p, _) -> occurs x p
+  | LArray (p, k) -> F.occurs x k || occurs x p
 
 let source = "Tree Model"
 
-let null = Null
+let null = LNull
 let literal ~eid:_ _ = Warning.error ~source "No Literal"
 let pointer_loc _t = Warning.error ~source "No Pointer Loc"
 let pointer_val _v = Warning.error ~source "No Pointer Val"
 
-let cvar x = Var x
-let field l f = Field(l,f)
-let shift l _obj k = Array(l,k)
+let cvar x = LVar x
+let field l f = LField (l, f)
+let shift l _obj k = LArray (l, k)
 
 let base_addr _l = Warning.error ~source "No Base Addr"
 let block_length _s _obj _l = Warning.error ~source "No Block Length"
@@ -168,11 +171,11 @@ let loc_of_int _ _ = Warning.error ~source "No Hardware Address"
 let int_of_loc _ _ = Warning.error ~source "No Hardware Address"
 
 let rec walk ps ks = function
-  | Null -> Warning.error ~source "No Null Walk"
-  | Var x -> (x,ps),ks
-  | Star l -> walk (S::ps) ks l
-  | Array(l,k) -> walk (I::ps) (k::ks) l
-  | Field(l,f) -> walk (F f::ps) ks l
+  | LNull -> Warning.error ~source "No Null Walk"
+  | LVar x -> (x, ps), ks
+  | LStar l -> walk (S :: ps) ks l
+  | LArray (l, k) -> walk (I :: ps) (k :: ks) l
+  | LField (l, f) -> walk (F f :: ps) ks l
 
 let access l = walk [] [] l
 
@@ -183,17 +186,18 @@ let domain _obj l =
 let value sigma l =
   let m,ks = access l in
   let x = Sigma.get sigma m in
-  List.fold_left F.e_get (e_var x) ks
+  List.fold_left F.e_get (Lang.F.e_var x) ks
 
 let rec update a ks v =
   match ks with
   | [] -> v
   | k::ks -> F.e_set a k (update (F.e_get a k) ks v)
 
-let set s m ks v = if ks = [] then v else update (e_var (Sigma.get s m)) ks v
+let set s m ks v =
+  if ks = [] then v else update (Lang.F.e_var (Sigma.get s m)) ks v
 
 let load sigma obj l =
-  if Ctypes.is_pointer obj then Loc (Star l) else Val(value sigma l)
+  if Ctypes.is_pointer obj then Loc (LStar l) else Val (value sigma l)
 
 let stored seq _obj l e =
   let m,ks = access l in
@@ -207,7 +211,7 @@ let assigned _s _obj _sloc = []
 
 let no_pointer () = Warning.error ~source "No Pointer"
 
-let is_null = function Null -> F.p_true | _ -> no_pointer ()
+let is_null = function LNull -> F.p_true | _ -> no_pointer ()
 let loc_eq _ _ = no_pointer ()
 let loc_lt _ _ = no_pointer ()
 let loc_leq _ _ = no_pointer ()
@@ -216,7 +220,7 @@ let loc_diff _ _ _ = no_pointer ()
 
 let valid _sigma _l = Warning.error ~source "No validity"
 let scope sigma _s _xs = sigma , []
-let global _sigma _p = p_true
+let global _sigma _p = Lang.F.p_true
 
 let included _s1 _s2 = no_pointer ()
 let separated _s1 _s2 = no_pointer ()

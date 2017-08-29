@@ -3432,7 +3432,9 @@ struct
     struct
       type t = string list
       let compare s1 s2 =
-        Pervasives.(compare (List.sort compare s1) (List.sort compare s2))
+        Pervasives.compare
+          (List.sort Pervasives.compare s1)
+          (List.sort Pervasives.compare s2)
     end)
 
   let type_spec old_behaviors loc is_stmt_contract result env s =

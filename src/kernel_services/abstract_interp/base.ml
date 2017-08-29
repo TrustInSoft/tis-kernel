@@ -216,15 +216,20 @@ let () =
                 MaxValidAbsoluteAddress.set
                   ((Int.pred (mul_CHAR_BIT (Int.succ (Int.of_string max))))))
        with End_of_file | Scanf.Scan_failure _ | Failure _ as e ->
-         Kernel.abort "Invalid -absolute-valid-range integer-integer: each integer may be in decimal, hexadecimal (0x, 0X), octal (0o) or binary (0b) notation and has to hold in 64 bits. A correct example is -absolute-valid-range 1-0xFFFFFF0.@\nError was %S@."
+         Kernel.abort
+           "Invalid -absolute-valid-range integer-integer: \
+            each integer may be in decimal, hexadecimal (0x, 0X), octal (0o) \
+            or binary (0b) notation and has to hold in 64 bits. \
+            A correct example is -absolute-valid-range 1-0xFFFFFF0.@\n\
+            Error was %S@."
            (Printexc.to_string e))
 
 let min_valid_absolute_address = MinValidAbsoluteAddress.get
 let max_valid_absolute_address = MaxValidAbsoluteAddress.get
 
 let validity_from_size size =
-  assert Int.(ge size zero);
-  if Int.(equal size zero) then Empty
+  assert (Int.ge size Int.zero);
+  if Int.equal size Int.zero then Empty
   else Known (Int.zero, Int.pred size)
 
 let validity_from_known_size size =
@@ -281,13 +286,13 @@ let is_valid_offset ~for_writing size base offset =
   then raise Not_valid_offset;
   match validity base with
   | Empty ->
-    if not (Int.(equal zero size) && Ival.(equal offset zero)) then
+    if not (Int.equal Int.zero size && Ival.equal offset Ival.zero) then
       raise Not_valid_offset
   | Invalid ->
     (* Special case. We stretch the truth and say that the address of the
        base itself is valid for a size of 0. We use a size of 0 to emulate
        the semantics of "past-one" pointers. *)
-    if not (Int.(equal zero size) && Ival.(equal offset zero)) then
+    if not (Int.equal Int.zero size && Ival.equal offset Ival.zero) then
       raise Not_valid_offset
   | Known (min_valid,max_valid)
   | Unknown (min_valid, Some max_valid, _) ->

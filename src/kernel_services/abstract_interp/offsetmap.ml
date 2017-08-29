@@ -620,7 +620,7 @@ module Make (V : module type of Offsetmap_lattice_with_isotropy) = struct
   (* creates a fresh tree that binds [0..size-1] to the isotropic value [v].
      if [size] if 0, returns [Empty]. *)
   let isotropic_interval size v =
-    if Int.(equal size zero) then Empty
+    if Int.equal size Int.zero then Empty
     else
       nNode (pred size) Integer.zero m_empty size m_empty Rel.zero Integer.one v
 
@@ -1478,7 +1478,8 @@ module Make (V : module type of Offsetmap_lattice_with_isotropy) = struct
         add_node ~min:(succ offset) ~max:abs_max new_reml m v new_offr subr
 
   let update_itv_with_rem ~exact ~offset ~abs_max ~size ~rem v curr_off tree =
-    if Int.(equal size zero) then curr_off, tree else
+    if Int.equal size Int.zero then curr_off, tree
+    else
       let off1, t1 = keep_above ~offset:abs_max curr_off tree in
       let off2, t2 = keep_below ~offset curr_off tree in
       let rabs = (Rel.add_abs offset rem) %~ size in
@@ -1841,7 +1842,7 @@ module Make (V : module type of Offsetmap_lattice_with_isotropy) = struct
     let alarm, filtered_by_bound =
       Tr_offset.trim_by_validity offsets size validity
     in
-    if Int.(equal size zero) then alarm, `Map Empty
+    if Int.equal size Int.zero then alarm, `Map Empty
     else
       let init = isotropic_interval size V.bottom in
       let result =
@@ -2009,7 +2010,7 @@ module Make (V : module type of Offsetmap_lattice_with_isotropy) = struct
 
   (** pastes [from] (of size [size]) at all [offsets] in [dst] *)
   let paste_slice ~validity ~exact ~from:src ~size ~offsets dst =
-    if Int.(equal size zero) then (* nothing to do *) false, `Map dst
+    if Int.equal size Int.zero then (* nothing to do *) false, `Map dst
     else
       match offsets, src with
       (*Special case: [from] contains a single (aligned) binding [v], and [size]
@@ -2079,7 +2080,7 @@ module Make (V : module type of Offsetmap_lattice_with_isotropy) = struct
 
   let create_isotropic ~size v =
     assert (Int.ge size Int.zero);
-    if Int.(equal size zero) then Empty
+    if Int.equal size Int.zero then Empty
     else begin
       assert (V.is_isotropic v);
       isotropic_interval size v
@@ -2087,7 +2088,7 @@ module Make (V : module type of Offsetmap_lattice_with_isotropy) = struct
 
   let create ~size v ~size_v =
     assert (Int.ge size Int.zero);
-    if Int.(equal size zero) then Empty
+    if Int.equal size Int.zero then Empty
     else snd (interval_aux Int.zero (pred size) Int.zero size_v v)
 
   let cardinal_zero_or_one offsetmap =
@@ -2649,7 +2650,7 @@ module Int_Intervals = struct
          in [min..start_max+size-1]. Create an englobing offsetmap, then update
          it for all intervals. *)
       let aux_min_max min start_max =
-        if Int.(equal size zero) then Bottom else
+        if Int.equal size Int.zero then Bottom else
           let max = pred (start_max +~ size) in
           let curr_off, ifalse = aux_create_interval ~min ~max false in
           let validity = Base.Known (min, max) in
@@ -2976,6 +2977,9 @@ module Make_bitwise(V: sig
 
 end
 
+(* The module below is template destined to be copy-pasted. We need to silence
+   the warning about unused modules. *)
+[@@@warning "-60"]
 
 module Aux
     (V1 : module type of Offsetmap_lattice_with_isotropy)
@@ -3047,6 +3051,7 @@ module Aux
 
 end
 
+[@@@warning "+60"]
 
 (*
 Local Variables:

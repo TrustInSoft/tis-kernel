@@ -190,7 +190,8 @@ let compute kf =
       PerStmt
         (fun s ->
            try Cil_datatype.Stmt.Hashtbl.find h_local s
-           with Not_found -> assert false (* all statements have been visited*)),
+           with Not_found ->
+             assert false (* all statements have been visited*)),
       (if Cil_datatype.Stmt.Hashtbl.length h_merge = 0
        then NoMerge
        else Merge (fun s -> Cil_datatype.Stmt.Hashtbl.mem h_merge s))

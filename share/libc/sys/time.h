@@ -45,7 +45,7 @@ struct timezone {
 };
 
 /* Abstract representation of the current time. */
-//@ ghost volatile unsigned int __fc_time __attribute__((FRAMA_C_MODEL));
+//@ ghost extern volatile unsigned int __fc_time __attribute__((FRAMA_C_MODEL));
 //@ ghost extern int __fc_tz __attribute__((FRAMA_C_MODEL));
 
 /*@ assigns \result \from path[0..],times[0..1]; */

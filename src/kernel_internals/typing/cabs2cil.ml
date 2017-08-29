@@ -56,7 +56,6 @@
 
 (* The references to ISO means ANSI/ISO 9899-1999 *)
 
-open Cabs
 open Cil_types
 
 let dkey_cabs = Kernel.register_category "cabs:print"
@@ -137,7 +136,7 @@ module Initialization = Cabs2cil_Initialization
 type language = C | CPlusPlus
 
 let default_language = C
-let current_languague = ref default_language
+let current_language = ref default_language
 
 (* ---------- source error message handling ------------- *)
 
@@ -200,7 +199,7 @@ end = struct
   let add_target_hash = Hashtbl.add target_hash
   let iter_target_hash f = Hashtbl.iter f target_hash
 
-  let get_target_hash label = 
+  let get_target_hash label =
     match (Extlib.find_or_none (Hashtbl.find target_hash)) label with
     | Some address -> address
     | None ->
@@ -330,7 +329,7 @@ let fresh_global lookupname =
    - "type" for types. *)
 let kind_plus_name (kind : string) (original_name : string) : string =
   (* NOTE: typedefs live in the same namespace as normal identifiers. *)
-  let prefix = 
+  let prefix =
     match kind with
     | "" | "type" -> ""
     | _ -> kind ^ " "
@@ -432,7 +431,7 @@ let newAlphaName = NewAlphaName.newAlphaName
    - The [exp] and [typ] are used to store the result and its type if any.
    - The [boolean] tells if the result will be dropped. *)
 let gnu_body_result : (Cabs.statement * ((exp * typ) option ref) * bool) ref =
-  let last_statement = { stmt_ghost = false;
+  let last_statement = { Cabs.stmt_ghost = false;
                          stmt_node = Cabs.NOP (cabslu "_NOP") }
   in
   let result_and_its_type = ref None in
@@ -730,8 +729,8 @@ let make_global_varinfo (is_a_definition: bool) varinfo : varinfo * bool =
        storage.  *)
     let new_storage = (** See 6.2.2 *)
       match old_varinfo.vstorage, varinfo.vstorage with
-      (* The same identifier cannot have both internal and external linkage. 
-         Following C11:6.2.2p7 : 
+      (* The same identifier cannot have both internal and external linkage.
+         Following C11:6.2.2p7 :
          "If, within a translation unit, the same identifier appears with both
          internal and external linkage, the behavior is undefined."
 
@@ -875,26 +874,26 @@ let make_global_varinfo (is_a_definition: bool) varinfo : varinfo * bool =
       match varinfo.vtype with
       | TFun (_, Some formals, _, _) ->
         begin
-        try
-          let old_formals_varinfos = Cil.getFormalsDecl old_varinfo in
-          List.iter2
-            (fun old_formal_varinfo (new_name, new_typ, new_attrs) ->
-               if new_name <> "" then begin
-                 Kernel.debug ~dkey:category_global
-                   "replacing formal %s with %s"
-                   old_formal_varinfo.vname new_name;
-                 old_formal_varinfo.vname <- new_name;
-                 Cil.update_var_type old_formal_varinfo new_typ;
-                 old_formal_varinfo.vattr <- new_attrs;
-                 match old_formal_varinfo.vlogic_var_assoc with
-                 | None -> ()
-                 | Some old_logic_var -> old_logic_var.lv_name <- new_name
-               end)
-            old_formals_varinfos
-            formals
-         with
-         | Invalid_argument _ -> Kernel.abort "Inconsistent formals"
-         | Not_found -> Cil.setFormalsDecl old_varinfo varinfo.vtype
+          try
+            let old_formals_varinfos = Cil.getFormalsDecl old_varinfo in
+            List.iter2
+              (fun old_formal_varinfo (new_name, new_typ, new_attrs) ->
+                 if new_name <> "" then begin
+                   Kernel.debug ~dkey:category_global
+                     "replacing formal %s with %s"
+                     old_formal_varinfo.vname new_name;
+                   old_formal_varinfo.vname <- new_name;
+                   Cil.update_var_type old_formal_varinfo new_typ;
+                   old_formal_varinfo.vattr <- new_attrs;
+                   match old_formal_varinfo.vlogic_var_assoc with
+                   | None -> ()
+                   | Some old_logic_var -> old_logic_var.lv_name <- new_name
+                 end)
+              old_formals_varinfos
+              formals
+          with
+          | Invalid_argument _ -> Kernel.abort "Inconsistent formals"
+          | Not_found -> Cil.setFormalsDecl old_varinfo varinfo.vtype
         end
       | _ -> ()
     end ;
@@ -1236,7 +1235,7 @@ end = struct
       method private addLocalLabels block =
         List.iter
           (fun label -> Hashtbl.add localLabels label None)
-          block.blabels
+          block.Cabs.blabels
 
       method private removeLocalLabels block =
         List.iter
@@ -1245,7 +1244,7 @@ end = struct
                Kernel.warning ~current:true
                  "Local label %s declared but not defined" label;
              Hashtbl.remove localLabels label)
-          block.blabels
+          block.Cabs.blabels
 
       method! vblock block =
         (* Add the local labels, process the block, then remove the local
@@ -1257,8 +1256,8 @@ end = struct
       method! vstmt stmt =
         Cil.CurrentLoc.set (Cabshelper.get_statementloc stmt);
         begin
-          match stmt.stmt_node with
-          | LABEL (label, _, _) ->
+          match stmt.Cabs.stmt_node with
+          | Cabs.LABEL (label, _, _) ->
             begin
               try
                 match Hashtbl.find localLabels label with
@@ -1294,7 +1293,7 @@ end = struct
       method! vstmt stmt =
         let current_location = Cabshelper.get_statementloc stmt in
         begin
-          match stmt.stmt_node with
+          match stmt.Cabs.stmt_node with
           | Cabs.LABEL (label, _, _) ->
             Alpha.registerAlphaName
               ?undolist:None
@@ -1430,7 +1429,7 @@ let append_chunk_to_annot ~ghost annot_chunk current_chunk =
 
   (* If we have a single statement, we can avoid enclosing it into a block. *)
   | [ (_stmt, _effects, _calls) ] -> annot_chunk @@ (current_chunk, ghost)
-    
+
   (* Make a block, and put labels of the first statement on the block itself,
      so as to respect scoping rules for \at in further annotations. *)
   | _ ->
@@ -1637,8 +1636,8 @@ let rec assign_init ~ghost
             end else
               zero_init ~ghost
                 host_varinfo host_offset array_len array_base_type
-              (* Zero-init each field, so as to leave padding bits
-                 uninitialized. *)
+                (* Zero-init each field, so as to leave padding bits
+                   uninitialized. *)
           in
           let init_block : Chunk.t = base_init_block @@ (my_init, ghost) in
           (* Lift at toplevel contract implicit zero-initialization. *)
@@ -2164,11 +2163,11 @@ let convert_cv_spec_to_attr (cv_specs : Cabs.cvspec list)
   let attribute_of_cvspec cv_spec =
     let attribute_name =
       match cv_spec with
-      | CV_CONST -> "const"
-      | CV_VOLATILE -> "volatile"
-      | CV_RESTRICT -> "restrict"
-      | CV_ATOMIC -> "_Atomic"
-      | CV_ATTRIBUTE_ANNOT attr_annot -> Cil.mkAttrAnnot attr_annot
+      | Cabs.CV_CONST -> "const"
+      | Cabs.CV_VOLATILE -> "volatile"
+      | Cabs.CV_RESTRICT -> "restrict"
+      | Cabs.CV_ATOMIC -> "_Atomic"
+      | Cabs.CV_ATTRIBUTE_ANNOT attr_annot -> Cil.mkAttrAnnot attr_annot
     in
     let attribute_args = [] in
     (attribute_name, attribute_args)
@@ -2458,7 +2457,7 @@ let rec do_spec_list ghost
          with a preference for unsigned types.
          The underlying type EI of the enum is picked as follows:
          - let T be the smallest integer type that holds all the enum's
-           values; T is signed if any enum value is negative, unsigned 
+           values; T is signed if any enum value is negative, unsigned
            otherwise,
          - if the enum is packed or sizeof(T) >= sizeof(int), then EI = T;
          - otherwise EI = int if T is signed, and unsigned int otherwise.
@@ -2505,7 +2504,8 @@ let rec do_spec_list ghost
       and loop enumitem_value fields =
         match fields with
         | [] -> []
-        | (enumitem_name, { expr_node = Cabs.NOTHING; _ }, cloc) :: fields' ->
+        | (enumitem_name, { Cabs.expr_node = Cabs.NOTHING; _ }, cloc)
+          :: fields' ->
           (* Use the passed-in 'i' as the value, since none specified. *)
           process_name enumitem_name enumitem_value cloc fields'
 
@@ -2520,8 +2520,11 @@ let rec do_spec_list ghost
                 Printer.pp_exp enumitem_value
             | Some i ->
               let ikind = update_enum i in
-              if Cil.(theMachine.lowerConstants)
-              then Cil.kinteger64 ~loc:enumitem_value_exp.expr_loc ~kind:ikind i
+              if Cil.(theMachine.lowerConstants) then
+                Cil.kinteger64
+                  ~loc:enumitem_value_exp.Cabs.expr_loc
+                  ~kind:ikind
+                  i
               else enumitem_value
           in
           process_name kname enumitem_value cloc fields'
@@ -2721,8 +2724,8 @@ and do_attr (ghost : bool) (cabs_attribute : Cabs.attribute) : attribute list =
         then strip_underscore variable_name
         else variable_name
       in
-      let loc = cabs_exp.expr_loc in
-      match cabs_exp.expr_node with
+      let loc = cabs_exp.Cabs.expr_loc in
+      match cabs_exp.Cabs.expr_node with
       | Cabs.VARIABLE variable_name ->
         begin
           let variable_name = prepare_variable_name variable_name in
@@ -2750,7 +2753,8 @@ and do_attr (ghost : bool) (cabs_attribute : Cabs.attribute) : attribute list =
             Kernel.fatal ~current:true
               "Invalid attribute constant: %s" int_constant
         end
-      | Cabs.CALL ({ expr_node = Cabs.VARIABLE variable_name; _ }, args_exps) ->
+      | Cabs.CALL
+          (Cabs.{ expr_node = Cabs.VARIABLE variable_name; _ }, args_exps) ->
         let variable_name = prepare_variable_name variable_name in
         let attrparams =
           List.map (fun cabs_exp -> attrparam_of_cabs_exp cabs_exp) args_exps
@@ -2814,7 +2818,7 @@ and do_attr (ghost : bool) (cabs_attribute : Cabs.attribute) : attribute list =
            This hack needs to be reversed by the pretty-printer and by every
            plugin needing to access the variable.
            TODO: extend the attribute AST to allow C expressions directly. *)
-        ASizeOf (TArray 
+        ASizeOf (TArray
                    (TVoid [],
                     Some (Cil.evar varinfo),
                     Cil.empty_size_cache (),
@@ -2963,20 +2967,20 @@ and cabs_partition_attributes ghost
   let attribute_f
       (name_attributes_acc, function_attributes_acc, type_attributes_acc)
       attribute =
-      let attribute_class =
-        match do_attr ghost attribute with
-        | [] -> default_attr_class
-        | (Attr(attribute_name, _) | AttrAnnot attribute_name) :: _ ->
-          try Cil.attributeClass attribute_name
-          with Not_found -> default_attr_class
-      in
-      match attribute_class with
-      | Cil.AttrName _ -> (attribute :: name_attributes_acc,
-                           function_attributes_acc,
-                           type_attributes_acc)
-      | Cil.AttrType -> (name_attributes_acc,
+    let attribute_class =
+      match do_attr ghost attribute with
+      | [] -> default_attr_class
+      | (Attr(attribute_name, _) | AttrAnnot attribute_name) :: _ ->
+        try Cil.attributeClass attribute_name
+        with Not_found -> default_attr_class
+    in
+    match attribute_class with
+    | Cil.AttrName _ -> (attribute :: name_attributes_acc,
                          function_attributes_acc,
-                         attribute :: type_attributes_acc)
+                         type_attributes_acc)
+    | Cil.AttrType -> (name_attributes_acc,
+                       function_attributes_acc,
+                       attribute :: type_attributes_acc)
   in
   List.fold_left attribute_f ([], [], []) attributes
 
@@ -2994,7 +2998,7 @@ and do_type (ghost : bool) (is_fun_arg : bool)
   (* Now do the declarator type. But remember that the structure of the
      declarator type is as printed, meaning that it is the reverse of the
      right one. *)
-  let rec do_decl_type (base_type : typ) (attribute_acc : attribute list) 
+  let rec do_decl_type (base_type : typ) (attribute_acc : attribute list)
     : Cabs.decl_type -> typ * attributes =
     function
     | Cabs.JUSTBASE -> base_type, attribute_acc
@@ -3048,7 +3052,7 @@ and do_type (ghost : bool) (is_fun_arg : bool)
       else
       if not (Cil.isCompleteType ~allowZeroSizeArrays:true base_type) then
         if is_fun_arg then begin
-          if !current_languague <> CPlusPlus then
+          if !current_language <> CPlusPlus then
             (* C99:6.7.5.3p4, C11:6.7.6.3p4:
                "The parameters in a parameter type list in a function
                 declarator (...) shall not have incomplete type." *)
@@ -3088,7 +3092,7 @@ and do_type (ghost : bool) (is_fun_arg : bool)
              zero-length arrays are not allowed in C99"
             Printer.pp_typ base_type;
       let length_exp_option =
-        match length_cabs_exp.expr_node with
+        match length_cabs_exp.Cabs.expr_node with
         | Cabs.NOTHING -> None
         | _ ->
           (* Check that [length_cabs_exp] is a constant expression.
@@ -3192,7 +3196,7 @@ and do_type (ghost : bool) (is_fun_arg : bool)
         let attributes : attributes =
           match array_length_option with
           | None -> []
-          | Some attributes_exps -> 
+          | Some attributes_exps ->
             let static_attribute : attribute list =
               if Cil.hasAttribute "static" attributes
               then [Attr ("static", [])]
@@ -3273,11 +3277,11 @@ and is_variable_sized_array ghost (decl_type : Cabs.decl_type)
   let result = ref None in
   let decl_type' =
     let rec find_array = function
-      | JUSTBASE -> JUSTBASE
-      | PARENTYPE (pre_attributes, decl_type', post_attributes) ->
-        PARENTYPE (pre_attributes, find_array decl_type', post_attributes)
-      | ARRAY (JUSTBASE, attributes, length_option)
-        when length_option.expr_node != Cabs.NOTHING ->
+      | Cabs.JUSTBASE -> Cabs.JUSTBASE
+      | Cabs.PARENTYPE (pre_attributes, decl_type', post_attributes) ->
+        Cabs.PARENTYPE (pre_attributes, find_array decl_type', post_attributes)
+      | Cabs.ARRAY (Cabs.JUSTBASE, attributes, length_option)
+        when length_option.Cabs.expr_node != Cabs.NOTHING ->
         (* Try to compile the expression to a constant. *)
         let (_, chunk, exp, _) =
           (* NOTE: Actually we do not try to compile the expression to a
@@ -3289,13 +3293,15 @@ and is_variable_sized_array ghost (decl_type : Cabs.decl_type)
         in
         if Chunk.is_not_empty chunk || not (Cil.isConstant exp) then begin
           result := Some (chunk, exp);
-          PTR (attributes, JUSTBASE)
+          Cabs.PTR (attributes, Cabs.JUSTBASE)
         end else
-          ARRAY (JUSTBASE, attributes, length_option)
-      | ARRAY (decl_type', attributes, length_option) ->
-        ARRAY (find_array decl_type', attributes, length_option)
-      | PTR (attributes, decl_type') -> PTR (attributes, find_array decl_type')
-      | PROTO (decl_type', f, a) -> PROTO (find_array decl_type', f, a)
+          Cabs.ARRAY (Cabs.JUSTBASE, attributes, length_option)
+      | Cabs.ARRAY (decl_type', attributes, length_option) ->
+        Cabs.ARRAY (find_array decl_type', attributes, length_option)
+      | Cabs.PTR (attributes, decl_type') ->
+        Cabs.PTR (attributes, find_array decl_type')
+      | Cabs.PROTO (decl_type', f, a) ->
+        Cabs.PROTO (find_array decl_type', f, a)
     in
     find_array decl_type
   in
@@ -3464,13 +3470,35 @@ and make_comp_type ghost (is_struct: bool)
                     "bit-field width (%a) is negative"
                     (Integer.pretty ~hexa:false) bitfield_width;
                 (* Isn't the bit-field too wide? *)
-                let ftype_width = Cil.bitsSizeOf ftype in
-                if Integer.gt bitfield_width (Integer.of_int ftype_width) then
-                  Kernel.error ~current:true
-                    "bit-field width (%a) exceeds the the width of an object \
-                     of the type %a (%d)"
-                    (Integer.pretty ~hexa:false) bitfield_width
-                    Printer.pp_typ ftype ftype_width;
+                let bitfield_width =
+                  let ftype_width = Cil.bitsSizeOf ftype in
+                  if Integer.gt bitfield_width (Integer.of_int ftype_width) then
+                  begin
+                    if !current_language <> CPlusPlus then
+                      Kernel.error ~current:true
+                      "bit-field width (%a) exceeds the width of an object \
+                       of the type %a (%d)"
+                      (Integer.pretty ~hexa:false) bitfield_width
+                      Printer.pp_typ ftype ftype_width
+                    else
+                      (* Following N3376 [class.bit]p1:
+                         "The value of the integral constant expression may be
+                         larger than the number of bits in the object
+                         representation of the bit-field's type; in such cases
+                         the extra bits are used as padding bits and do not
+                         participate in the value representation of the
+                         bit-field."
+                         Note that we currently ignore the extra bits rather
+                         than keep them as padding. *)
+                      Kernel.warning ~current:true
+                      "bit-field width (%a) exceeds the width of an object \
+                       of the type %a (%d), truncating it"
+                      (Integer.pretty ~hexa:false) bitfield_width
+                      Printer.pp_typ ftype ftype_width;
+                    Integer.of_int ftype_width
+                  end else
+                    bitfield_width
+                in
                 (* Zero-width case: if the width is zero, the declaration should
                    have no declarator. In practice it boils down to checking if
                    the declaration has an identifier. The only possibility of a
@@ -3523,8 +3551,8 @@ and make_comp_type ghost (is_struct: bool)
     let fields =
       Extlib.filter_map''
         (function
-          | FIELD (specifier, fields) -> Some (specifier, fields)
-          | TYPE_ANNOT _ -> None)
+          | Cabs.FIELD (specifier, fields) -> Some (specifier, fields)
+          | Cabs.TYPE_ANNOT _ -> None)
         field_groups
     in
     List.concat (Extlib.map_flag_last do_field_group fields)
@@ -3539,8 +3567,8 @@ and make_comp_type ghost (is_struct: bool)
        for A *)
     if List.length compinfo.cfields <> List.length fieldinfos
     || List.exists2 (fun fieldinfo_1 fieldinfo_2 ->
-        not (Cil_datatype.Typ.equal fieldinfo_1.ftype fieldinfo_2.ftype))
-        compinfo.cfields fieldinfos
+           not (Cil_datatype.Typ.equal fieldinfo_1.ftype fieldinfo_2.ftype))
+         compinfo.cfields fieldinfos
     then
       Kernel.error ~once:true ~current:true
         "%s seems to be multiply defined" (Cil.compFullName compinfo)
@@ -3630,7 +3658,7 @@ and preprocess_cast ghost
   specifier', decl_type, init_expression'
 
 and get_int_const_exp ghost (expression : Cabs.expression) : exp =
-  let loc = expression.expr_loc in
+  let loc = expression.Cabs.expr_loc in
   let (_, chunk, exp, _) =
     let action = AExp None in
     do_expression (ghost_local_env ghost) ExpectConst expression action
@@ -3672,7 +3700,7 @@ and do_expression local_env
     (action : exp_action)
   : lval list * Chunk.t * exp * typ =
   let ghost = local_env.is_ghost in
-  let loc = expression.expr_loc in
+  let loc = expression.Cabs.expr_loc in
   (* Will be reset at the end of the compilation of current expression. *)
   let old_loc = Cil.CurrentLoc.get () in
   Cil.CurrentLoc.set loc;
@@ -3740,13 +3768,13 @@ and do_expression local_env
              (Chunk.remove_reads lval chunk, ghost))
             +++
             (Cil.mkStmtOneInstr ~ghost (Set(lval, exp', Cil.CurrentLoc.get ())),
-            effects')
+             effects')
           in
           (reads', chunk', exp', typ')
       end
   in
   let result =
-    match expression.expr_node with
+    match expression.Cabs.expr_node with
     | Cabs.PAREN _ -> Kernel.fatal ~current:true "stripParen"
     | Cabs.NOTHING when action = ADrop ->
       finish_exp [] (Chunk.unspecified_chunk Chunk.empty)
@@ -3779,7 +3807,7 @@ and do_expression local_env
             let typ = Cil.typeOf enumitem.eival in
             let reads = [] in
             let chunk = Chunk.unspecified_chunk Chunk.empty in
-            let exp = 
+            let exp =
               if Cil.theMachine.Cil.lowerConstants
               then enumitem.eival
               else Cil.new_exp ~loc (Const (CEnum enumitem))
@@ -4120,7 +4148,7 @@ and do_expression local_env
 
     (* Intercept the [sizeof("string")]. *)
     | Cabs.EXPR_SIZEOF
-        ({ expr_node = Cabs.CONSTANT (Cabs.CONST_STRING _); _ } as exp) ->
+        (Cabs.{ expr_node = Cabs.CONSTANT (Cabs.CONST_STRING _); _ } as exp) ->
       begin
         (* Process the string first. *)
         match do_expression local_env as_const exp (AExp None) with
@@ -4272,7 +4300,7 @@ and do_expression local_env
             (* Now pretend that this is just a reference to the newly created
                variable. *)
             let variable_exp =
-              { expr_node = Cabs.VARIABLE new_var_name;
+              { Cabs.expr_node = Cabs.VARIABLE new_var_name;
                 expr_loc = loc }
             in
             let reads, chunk, exp, typ' =
@@ -4391,38 +4419,38 @@ and do_expression local_env
           "invalid argument type `%a' to unary plus" Printer.pp_typ typ
 
     | Cabs.UNARY (Cabs.ADDROF, exp) -> begin
-        match exp.expr_node with
+        match exp.Cabs.expr_node with
         | Cabs.COMMA exps -> (* GCC extension. *)
           let expr_node =
             Cabs.COMMA (replaceLastInList exps
                           (fun exp ->
-                             { exp with expr_node =
-                                          Cabs.UNARY(Cabs.ADDROF, exp) }))
+                             Cabs.{ exp with expr_node =
+                                               Cabs.UNARY(Cabs.ADDROF, exp) }))
           in
-          let exp = { exp with expr_node } in
+          let exp = Cabs.{ exp with expr_node } in
           do_expression local_env DontExpectConst exp action
 
         | Cabs.QUESTION (exp_1, exp_2, exp_3) -> (* GCC extension *)
           let expr_node =
             Cabs.QUESTION (exp_1,
-                           { exp_2 with expr_node =
-                                          Cabs.UNARY(Cabs.ADDROF, exp_2)},
-                           { exp_3 with expr_node =
-                                          Cabs.UNARY(Cabs.ADDROF, exp_3)})
+                           Cabs.{ exp_2 with expr_node =
+                                               Cabs.UNARY(Cabs.ADDROF, exp_2)},
+                           Cabs.{ exp_3 with expr_node =
+                                               Cabs.UNARY(Cabs.ADDROF, exp_3)})
           in
-          let exp = { exp with expr_node } in
+          let exp = Cabs.{ exp with expr_node } in
           do_expression local_env DontExpectConst exp action
 
         | Cabs.BINARY
-            ((ADD_ASSIGN | SUB_ASSIGN | MUL_ASSIGN |
-              DIV_ASSIGN | MOD_ASSIGN | BAND_ASSIGN | BOR_ASSIGN |
-              XOR_ASSIGN | SHL_ASSIGN | SHR_ASSIGN | ASSIGN as op),
+            ((Cabs.(ADD_ASSIGN | SUB_ASSIGN | MUL_ASSIGN |
+                    DIV_ASSIGN | MOD_ASSIGN | BAND_ASSIGN | BOR_ASSIGN |
+                    XOR_ASSIGN | SHL_ASSIGN | SHR_ASSIGN | ASSIGN) as op),
              left_exp, right_exp) ->
           (*  Allowed in C++ only. *)
           (* [&(l op r )] --> [T* tmp=&l; *tmp = r; tmp] *)
           let addr_of_left_exp =
-            { expr_node = Cabs.UNARY(Cabs.ADDROF, left_exp);
-              expr_loc = left_exp.expr_loc; }
+            { Cabs.expr_node = Cabs.UNARY(Cabs.ADDROF, left_exp);
+              expr_loc = left_exp.Cabs.expr_loc; }
           in
           let _, _, for_printing_exp, left_typ =
             do_expression local_env DontExpectConst addr_of_left_exp AType in
@@ -4440,21 +4468,22 @@ and do_expression local_env
             let left_action = ASet (true, tmp_var_lval, [], left_typ) in
             do_expression local_env DontExpectConst addr_of_left_exp left_action
           in
-          let tmp_var_exp = Cil.evar ~loc:right_exp.expr_loc tmp_varinfo in
+          let tmp_var_exp = Cil.evar ~loc:right_exp.Cabs.expr_loc tmp_varinfo in
           let intermediate_stmt = (* [*p op r] *)
             let star_exp =
-              { expr_loc = exp.expr_loc;
+              { Cabs.expr_loc = exp.Cabs.expr_loc;
                 expr_node =
-                  UNARY (MEMOF,
-                         { expr_loc = exp.expr_loc;
-                           expr_node = VARIABLE tmp_varinfo.vname })}
+                  Cabs.UNARY (Cabs.MEMOF,
+                              Cabs.{ expr_loc = exp.expr_loc;
+                                     expr_node = VARIABLE tmp_varinfo.vname })}
             in
             let computation_exp =
-              { expr_loc = exp.expr_loc;
+              { Cabs.expr_loc = exp.Cabs.expr_loc;
                 expr_node = Cabs.BINARY (op, star_exp, right_exp) }
             in
-            { stmt_ghost = ghost;
-              stmt_node = COMPUTATION (computation_exp, exp.expr_loc) }
+            { Cabs.stmt_ghost = ghost;
+              stmt_node =
+                Cabs.COMPUTATION (computation_exp, exp.Cabs.expr_loc) }
           in
           let stmt_chuck = do_statement local_env intermediate_stmt in
           (* Add the instruction to the chunk. *)
@@ -4465,25 +4494,29 @@ and do_expression local_env
           in
           (left_reads, chunk, tmp_var_exp, left_typ)
 
-        | Cabs.UNARY ((PREINCR|PREDECR as op), exp) ->
+        | Cabs.UNARY ((Cabs.PREINCR|Cabs.PREDECR as op), exp) ->
           let addr_of_exp_plus_minus_one =
-            let constant_one = cabs_exp loc (CONSTANT (CONST_INT ("1"))) in
+            let constant_one =
+              cabs_exp loc (Cabs.CONSTANT (Cabs.CONST_INT "1"))
+            in
             let exp_plus_minus_one =
               let plus_minus_op : Cabs.binary_operator =
                 match op with
-                | PREINCR -> ADD_ASSIGN
-                | PREDECR -> SUB_ASSIGN
+                | Cabs.PREINCR -> Cabs.ADD_ASSIGN
+                | Cabs.PREDECR -> Cabs.SUB_ASSIGN
                 | _ -> assert false
               in
-              cabs_exp loc (BINARY(plus_minus_op, exp, constant_one))
+              cabs_exp loc (Cabs.BINARY(plus_minus_op, exp, constant_one))
             in
-            cabs_exp loc (UNARY (ADDROF, exp_plus_minus_one))
+            cabs_exp loc (Cabs.UNARY (Cabs.ADDROF, exp_plus_minus_one))
           in
           do_expression local_env DontExpectConst
             addr_of_exp_plus_minus_one action
 
         | Cabs.PAREN exp ->
-          let exp = { exp with expr_node = Cabs.UNARY (Cabs.ADDROF, exp) } in
+          let exp =
+            Cabs.{ exp with expr_node = Cabs.UNARY (Cabs.ADDROF, exp) }
+          in
           do_expression local_env DontExpectConst exp action
 
         | Cabs.VARIABLE variable_name
@@ -4508,7 +4541,7 @@ and do_expression local_env
               get_last_formal_arg !current_fun_fundec.sformals
             in
             let result_exp =
-              mkAddrOfAndMark exp.expr_loc (Cil.var last_formal_arg)
+              mkAddrOfAndMark exp.Cabs.expr_loc (Cil.var last_formal_arg)
             in
             let result_typ = Cil.typeOf result_exp in
             let result_typ, result_exp =
@@ -4546,7 +4579,7 @@ and do_expression local_env
             let exp =
               cabs_exp loc
                 (Cabs.CALL (cabs_exp loc (Cabs.VARIABLE "__builtin_next_arg"),
-                         [cabs_exp loc (Cabs.CONSTANT (Cabs.CONST_INT "0"))]))
+                            [cabs_exp loc (Cabs.CONSTANT (Cabs.CONST_INT "0"))]))
             in
             do_expression local_env as_const exp action
 
@@ -4637,37 +4670,38 @@ and do_expression local_env
                 Printer.pp_exp exp
           end
 
-        | NOTHING | LABELADDR _ | EXPR_SIZEOF _
-        | TYPE_SIZEOF _ | EXPR_ALIGNOF  _| TYPE_ALIGNOF _
-        | EXPR_PATTERN _
-        | CALL _
-        | BINARY ((ADD|SUB|MUL|DIV|MOD|AND|OR|BAND|BOR|XOR
-                  |SHL|SHR|EQ|NE|LT|GT|LE|GE), _, _)
-        | UNARY ((MINUS|PLUS|NOT|BNOT|ADDROF|POSINCR|POSDECR), _)
-        | GNU_BODY _
-        | CONSTANT (CONST_INT _ | CONST_FLOAT _ | CONST_CHAR _ | CONST_WCHAR _)
-        | CAST (_, (NO_INIT | SINGLE_INIT _)) ->
+        | Cabs.NOTHING | Cabs.LABELADDR _ | Cabs.EXPR_SIZEOF _
+        | Cabs.TYPE_SIZEOF _ | Cabs.EXPR_ALIGNOF  _| Cabs.TYPE_ALIGNOF _
+        | Cabs.EXPR_PATTERN _
+        | Cabs.CALL _
+        | Cabs.BINARY (Cabs.(ADD|SUB|MUL|DIV|MOD|AND|OR|BAND|BOR|XOR
+                            |SHL|SHR|EQ|NE|LT|GT|LE|GE), _, _)
+        | Cabs.UNARY (Cabs.(MINUS|PLUS|NOT|BNOT|ADDROF|POSINCR|POSDECR), _)
+        | Cabs.GNU_BODY _
+        | Cabs.CONSTANT
+          Cabs.(CONST_INT _ | CONST_FLOAT _ | CONST_CHAR _ | CONST_WCHAR _)
+        | Cabs.CAST (_, Cabs.(NO_INIT | SINGLE_INIT _)) ->
           Kernel.abort ~current:true "Unexpected operand for addrof"
       end
 
     | Cabs.UNARY((Cabs.PREINCR|Cabs.PREDECR) as unary_op, exp) -> begin
-        match exp.expr_node with
+        match exp.Cabs.expr_node with
         | Cabs.COMMA exps -> (* GCC extension. *)
           let exp =
             cabs_exp loc
               (Cabs.COMMA
                  (replaceLastInList exps
-                    (fun exp -> cabs_exp exp.expr_loc
+                    (fun exp -> cabs_exp exp.Cabs.expr_loc
                         (Cabs.UNARY (unary_op, exp)))))
           in
           do_expression local_env as_const exp action
         | Cabs.QUESTION (exp_1, exp_2, exp_3) -> (* GCC extension. *)
-          let exp = 
+          let exp =
             cabs_exp loc
               (Cabs.QUESTION
                  (exp_1,
-                  cabs_exp exp_2.expr_loc (Cabs.UNARY (unary_op, exp_2)),
-                  cabs_exp exp_3.expr_loc (Cabs.UNARY (unary_op, exp_3))))
+                  cabs_exp exp_2.Cabs.expr_loc (Cabs.UNARY (unary_op, exp_2)),
+                  cabs_exp exp_3.Cabs.expr_loc (Cabs.UNARY (unary_op, exp_3))))
           in
           do_expression local_env as_const exp action
         | Cabs.PAREN exp ->
@@ -4727,13 +4761,13 @@ and do_expression local_env
       end
 
     | Cabs.UNARY((Cabs.POSINCR|Cabs.POSDECR) as unary_op, exp) -> begin
-        match exp.expr_node with
+        match exp.Cabs.expr_node with
         | Cabs.COMMA exps -> (* GCC extension. *)
           let exp =
             cabs_exp loc
               (Cabs.COMMA
                  (replaceLastInList exps
-                    (fun exp -> cabs_exp exp.expr_loc
+                    (fun exp -> cabs_exp exp.Cabs.expr_loc
                         (Cabs.UNARY (unary_op, exp)))))
           in
           do_expression local_env as_const exp action
@@ -4742,92 +4776,92 @@ and do_expression local_env
             cabs_exp loc
               (Cabs.QUESTION
                  (exp_1,
-                  cabs_exp exp_2.expr_loc (Cabs.UNARY (unary_op, exp_2)),
-                  cabs_exp exp_3.expr_loc (Cabs.UNARY (unary_op, exp_3))))
+                  cabs_exp exp_2.Cabs.expr_loc (Cabs.UNARY (unary_op, exp_2)),
+                  cabs_exp exp_3.Cabs.expr_loc (Cabs.UNARY (unary_op, exp_3))))
           in
           do_expression local_env as_const exp action
         | Cabs.PAREN exp ->
-          let exp = cabs_exp exp.expr_loc (Cabs.UNARY (unary_op, exp)) in
+          let exp = cabs_exp exp.Cabs.expr_loc (Cabs.UNARY (unary_op, exp)) in
           do_expression local_env as_const exp action
         | Cabs.VARIABLE _ | Cabs.UNARY (Cabs.MEMOF, _) (* Regular lvalues. *)
         | Cabs.INDEX _ | Cabs.MEMBEROF _ | Cabs.MEMBEROFPTR _
         | Cabs.CAST _ (* A GCC extension. *) ->
-            if as_const = ExpectConst then
-              Kernel.warning ~current:true "POSTINCR or POSTDECR in constant";
-            (* If we do not drop the result then we must save the value. *)
-            let binop =
-              match unary_op with
-              | Cabs.POSINCR -> PlusA
-              | Cabs.POSDECR -> MinusA
-              | _ -> assert false
-            in
-            let (reads, chunk', exp, typ) =
-              do_expression local_env DontExpectConst exp (AExp None)
-            in
-            let lval =
-              match exp.enode with
-              | Lval lval -> lval
-              | CastE (_, { enode = Lval lval; _ }) -> lval
-              (* GCC extension. The addition must be be done at the cast type.
-                 The result is also of the cast type. *)
-              | _ -> Kernel.fatal ~current:true "Expected lval for ++ or --"
-            in
-            let chunk = Chunk.remove_reads lval chunk' in
-            let reads' =
-              List.filter
-                (fun lval' -> not (Cil_datatype.Lval.equal lval' lval))
-                reads
-            in
-            let op_result_typ, op_result_exp =
-              let one_exp = Cil.one ~loc:exp.eloc in
-              do_binop loc binop exp typ one_exp Cil.intType
-            in
-            let reads, chunk, result_exp =
-              match action with
-              | ADrop | AType -> [], chunk', exp
-              | _ ->
-                let descr =
-                  Pretty_utils.sfprintf "%a%s"
-                    Cil_descriptive_printer.pp_exp  exp
-                    (if unary_op = Cabs.POSINCR then "++" else "--")
-                in
-                let tmp_varinfo = make_new_tmp_var descr true typ in
-                let tmp_var_lval = Cil.var tmp_varinfo in
-                (* The tmp variable should not be investigated for unspecified
-                   writes: it occurs at the right place in the sequence. *)
-                let reads = [tmp_var_lval] in
-                let chunk =
-                  let stmt =
-                    let instr =
-                      Set (tmp_var_lval, exp, Cil.CurrentLoc.get ())
-                    in
-                    Cil.mkStmtOneInstr ~ghost:local_env.is_ghost instr
+          if as_const = ExpectConst then
+            Kernel.warning ~current:true "POSTINCR or POSTDECR in constant";
+          (* If we do not drop the result then we must save the value. *)
+          let binop =
+            match unary_op with
+            | Cabs.POSINCR -> PlusA
+            | Cabs.POSDECR -> MinusA
+            | _ -> assert false
+          in
+          let (reads, chunk', exp, typ) =
+            do_expression local_env DontExpectConst exp (AExp None)
+          in
+          let lval =
+            match exp.enode with
+            | Lval lval -> lval
+            | CastE (_, { enode = Lval lval; _ }) -> lval
+            (* GCC extension. The addition must be be done at the cast type.
+               The result is also of the cast type. *)
+            | _ -> Kernel.fatal ~current:true "Expected lval for ++ or --"
+          in
+          let chunk = Chunk.remove_reads lval chunk' in
+          let reads' =
+            List.filter
+              (fun lval' -> not (Cil_datatype.Lval.equal lval' lval))
+              reads
+          in
+          let op_result_typ, op_result_exp =
+            let one_exp = Cil.one ~loc:exp.eloc in
+            do_binop loc binop exp typ one_exp Cil.intType
+          in
+          let reads, chunk, result_exp =
+            match action with
+            | ADrop | AType -> [], chunk', exp
+            | _ ->
+              let descr =
+                Pretty_utils.sfprintf "%a%s"
+                  Cil_descriptive_printer.pp_exp  exp
+                  (if unary_op = Cabs.POSINCR then "++" else "--")
+              in
+              let tmp_varinfo = make_new_tmp_var descr true typ in
+              let tmp_var_lval = Cil.var tmp_varinfo in
+              (* The tmp variable should not be investigated for unspecified
+                 writes: it occurs at the right place in the sequence. *)
+              let reads = [tmp_var_lval] in
+              let chunk =
+                let stmt =
+                  let instr =
+                    Set (tmp_var_lval, exp, Cil.CurrentLoc.get ())
                   in
-                  Chunk.local_var_chunk chunk tmp_varinfo
-                  +++
-                  (stmt, Chunk.no_effects)
+                  Cil.mkStmtOneInstr ~ghost:local_env.is_ghost instr
                 in
-                let exp = Cil.new_exp ~loc (Lval(Cil.var tmp_varinfo)) in
-                reads, chunk, exp
-            in
-            let chunk =
-              let stmt =
-                let instr =
-                  Set (lval,
-                       Casts.makeCastT
-                         ~e:op_result_exp
-                         ~oldt:op_result_typ
-                         ~newt:(Cil.typeOfLval lval),
-                       Cil.CurrentLoc.get ())
-                in
-                Cil.mkStmtOneInstr ~ghost:local_env.is_ghost instr
+                Chunk.local_var_chunk chunk tmp_varinfo
+                +++
+                (stmt, Chunk.no_effects)
               in
-              let effects =
-                Chunk.make_effects ~modified:[] ~writes:[lval] ~reads:reads'
+              let exp = Cil.new_exp ~loc (Lval(Cil.var tmp_varinfo)) in
+              reads, chunk, exp
+          in
+          let chunk =
+            let stmt =
+              let instr =
+                Set (lval,
+                     Casts.makeCastT
+                       ~e:op_result_exp
+                       ~oldt:op_result_typ
+                       ~newt:(Cil.typeOfLval lval),
+                     Cil.CurrentLoc.get ())
               in
-              chunk +++ (stmt, effects)
+              Cil.mkStmtOneInstr ~ghost:local_env.is_ghost instr
             in
-            finish_exp reads chunk result_exp typ
+            let effects =
+              Chunk.make_effects ~modified:[] ~writes:[lval] ~reads:reads'
+            in
+            chunk +++ (stmt, effects)
+          in
+          finish_exp reads chunk result_exp typ
         | _ ->
           Kernel.abort ~current:true
             "Unexpected operand for post-increment or post-decrement operator"
@@ -4835,13 +4869,13 @@ and do_expression local_env
 
     | Cabs.BINARY(Cabs.ASSIGN, exp_1, exp_2) ->
       begin
-        match exp_1.expr_node with
+        match exp_1.Cabs.expr_node with
         | Cabs.COMMA exps -> (* GCC extension. *)
           do_expression local_env as_const
             (cabs_exp loc
                (Cabs.COMMA
                   (replaceLastInList exps
-                     (fun exp' -> cabs_exp exp'.expr_loc
+                     (fun exp' -> cabs_exp exp'.Cabs.expr_loc
                          (Cabs.BINARY(Cabs.ASSIGN, exp', exp_2))))))
             action
 
@@ -4853,9 +4887,9 @@ and do_expression local_env
             (cabs_exp loc
                (Cabs.QUESTION
                   (q_exp_1,
-                   cabs_exp q_exp_2.expr_loc
+                   cabs_exp q_exp_2.Cabs.expr_loc
                      (Cabs.BINARY (Cabs.ASSIGN, q_exp_2, exp_2)),
-                   cabs_exp q_exp_3.expr_loc
+                   cabs_exp q_exp_3.Cabs.expr_loc
                      (Cabs.BINARY (Cabs.ASSIGN, q_exp_3, exp_2)))))
             action
 
@@ -4865,10 +4899,10 @@ and do_expression local_env
                (Cabs.CAST
                   (t,
                    Cabs.SINGLE_INIT
-                     (cabs_exp exp'.expr_loc
+                     (cabs_exp exp'.Cabs.expr_loc
                         (Cabs.BINARY
                            (Cabs.ASSIGN, exp',
-                            (cabs_exp exp_2.expr_loc
+                            (cabs_exp exp_2.Cabs.expr_loc
                                (Cabs.CAST (t, Cabs.SINGLE_INIT exp_2)))))))))
             action
 
@@ -4931,7 +4965,7 @@ and do_expression local_env
                 let tmp_lval = Cil.var tmp_varinfo in
                 let tmp_chunk =
                   let tmp_exp = Cil.new_exp ~loc:exp_1.eloc (Lval tmp_lval) in
-                  let tmp_stmt = 
+                  let tmp_stmt =
                     let tmp_instr = Set (lval, tmp_exp, loc) in
                     Cil.mkStmtOneInstr ~ghost:local_env.is_ghost tmp_instr
                   in
@@ -4989,14 +5023,14 @@ and do_expression local_env
           Cabs.XOR_ASSIGN) as cabs_binop, exp_1, exp_2) ->
       begin
         let chunk_0 = Chunk.unspecified_chunk Chunk.empty in
-        match exp_1.expr_node with
+        match exp_1.Cabs.expr_node with
         | Cabs.COMMA comma_exps -> (* GCC extension. *)
           do_expression local_env as_const
             (cabs_exp loc
                (Cabs.COMMA
                   (replaceLastInList comma_exps
                      (fun exp' ->
-                        cabs_exp exp'.expr_loc
+                        cabs_exp exp'.Cabs.expr_loc
                           (Cabs.BINARY(cabs_binop, exp', exp_2))))))
             action
         | Cabs.QUESTION (q_exp_1, q_exp_2, q_exp_3) -> (* GCC extension. *)
@@ -5004,9 +5038,9 @@ and do_expression local_env
             (cabs_exp loc
                (Cabs.QUESTION
                   (q_exp_1,
-                   cabs_exp q_exp_2.expr_loc
+                   cabs_exp q_exp_2.Cabs.expr_loc
                      (Cabs.BINARY(cabs_binop, q_exp_2, exp_2)),
-                   cabs_exp q_exp_3.expr_loc
+                   cabs_exp q_exp_3.Cabs.expr_loc
                      (Cabs.BINARY(cabs_binop, q_exp_3, exp_2)))))
             action
         | Cabs.PAREN exp' ->
@@ -5139,7 +5173,7 @@ and do_expression local_env
 
     | Cabs.CALL(f, args) ->
       let (rf,sf, f', ft') =
-        match f.expr_node with
+        match f.Cabs.expr_node with
         (* Treat the variable case separate because we might be calling a
            function that does not have a prototype. In that case assume it takes
            ints as arguments. *)
@@ -5208,7 +5242,7 @@ and do_expression local_env
                 else [ Cil.var vi ]
               in
               (reads, Chunk.unspecified_chunk Chunk.empty,
-               Cil.new_exp ~loc:f.expr_loc (Lval(Cil.var vi)), vi.vtype)
+               Cil.new_exp ~loc:f.Cabs.expr_loc (Lval(Cil.var vi)), vi.vtype)
             (* Found. Do not use finish_exp. Simulate what = AExp None  *)
             with Not_found -> begin
                 Kernel.debug ~level:3
@@ -5222,13 +5256,13 @@ and do_expression local_env
                 (* Make it EXTERN *)
                 proto.vstorage <- Extern;
                 FunsCalledWithoutPrototype.add proto;
-                proto.vdecl <- f.expr_loc;
+                proto.vdecl <- f.Cabs.expr_loc;
                 ImplicitPrototypeHook.apply proto;
                 (* Add it to the file as well *)
                 Globals.cabsPushGlobal
-                  (GFunDecl (Cil.empty_funspec (),proto, f.expr_loc));
+                  (GFunDecl (Cil.empty_funspec (),proto, f.Cabs.expr_loc));
                 ([Cil.var proto],Chunk.unspecified_chunk Chunk.empty,
-                 Cil.new_exp ~loc:f.expr_loc (Lval(Cil.var proto)), ftype)
+                 Cil.new_exp ~loc:f.Cabs.expr_loc (Lval(Cil.var proto)), ftype)
               end
           end
         | _ -> do_expression local_env DontExpectConst f (AExp None)
@@ -5390,7 +5424,7 @@ and do_expression local_env
       let locals = ref [] in
 
       (* If we do not have a call, this is the result. *)
-      let pres: exp ref = ref (Cil.zero ~loc:expression.expr_loc) in
+      let pres: exp ref = ref (Cil.zero ~loc:expression.Cabs.expr_loc) in
 
       let prestype: typ ref = ref Cil.intType in
 
@@ -5551,7 +5585,7 @@ and do_expression local_env
                (match !pargs with
                 | [ ] -> begin
                     piscall := false;
-                    pres := Cil.new_exp ~loc:expression.expr_loc (SizeOfE !pf);
+                    pres := Cil.new_exp ~loc:expression.Cabs.expr_loc (SizeOfE !pf);
                     prestype := Cil.(theMachine.typeOfSizeOf)
                   end
                 | _ ->
@@ -5573,14 +5607,14 @@ and do_expression local_env
                 | [ arg ] -> begin
                     match (Cil.constFold true arg).enode with
                     | Const _ -> piscall := false;
-                      pres := Cil.integer ~loc:expression.expr_loc 1 ;
+                      pres := Cil.integer ~loc:expression.Cabs.expr_loc 1 ;
                       prestype := Cil.intType
 
                     | _ -> piscall := false;
                       Kernel.warning ~current:true ~once:true
                         "cannot decide if __builtin_constant_p has a \
                          constant argument. Assuming it is not a constant.";
-                      pres := Cil.integer ~loc:expression.expr_loc 0;
+                      pres := Cil.integer ~loc:expression.Cabs.expr_loc 0;
                       prestype := Cil.intType
                   end
                 | _ ->
@@ -5683,14 +5717,14 @@ and do_expression local_env
           prestype := t
         in
         match !pwhat with
-        | ADrop -> addCall None (Cil.zero ~loc:expression.expr_loc) resType'
+        | ADrop -> addCall None (Cil.zero ~loc:expression.Cabs.expr_loc) resType'
         | AType -> prestype := resType'
         | ASet(is_real_var, lv, _, vtype) when !pis__builtin_va_arg ->
           (* Make an exception here for [__builtin_va_arg]. *)
           addCall
             ~is_real_var
             None
-            (Cil.new_exp ~loc:expression.expr_loc (Lval(lv)))
+            (Cil.new_exp ~loc:expression.Cabs.expr_loc (Lval(lv)))
             vtype
 
         | ASet(is_real_var, lv, _, vtype)
@@ -5700,7 +5734,7 @@ and do_expression local_env
           addCall
             ~is_real_var
             (Some lv)
-            (Cil.new_exp ~loc:expression.expr_loc (Lval(lv)))
+            (Cil.new_exp ~loc:expression.Cabs.expr_loc (Lval(lv)))
             vtype
 
         | _ -> begin
@@ -5725,7 +5759,7 @@ and do_expression local_env
             addCall
               ~is_real_var:false
               (Some (Cil.var tmp))
-              (Cil.new_exp ~loc:expression.expr_loc (Lval(Cil.var tmp)))
+              (Cil.new_exp ~loc:expression.Cabs.expr_loc (Lval(Cil.var tmp)))
               restype'';
           end
       end;
@@ -5776,13 +5810,13 @@ and do_expression local_env
         *)
         let is_true_cond = evaluate_cond_exp ce1 in
         if as_const = ExpectConst && is_true_cond = `CTrue then begin
-          match e2.expr_node with
+          match e2.Cabs.expr_node with
           | Cabs.NOTHING ->
             (match ce1 with
              | CEExp (_,e) -> finish_exp [] Chunk.empty e (Cil.typeOf e)
              | _ ->
                finish_exp
-                 [] Chunk.empty (Cil.one ~loc:e2.expr_loc) Cil.intType
+                 [] Chunk.empty (Cil.one ~loc:e2.Cabs.expr_loc) Cil.intType
                  (* [e1] is the result of logic operations that by definition of
                     this branch evaluate to one. *))
           | _ ->
@@ -5795,7 +5829,7 @@ and do_expression local_env
           (* Now we must find the type of both branches, in order to compute
              the type of the result. *)
           let r2, se2, e2'o (* Is an option. None means use [e1]. *), t2 =
-            match e2.expr_node with
+            match e2.Cabs.expr_node with
             | Cabs.NOTHING -> begin (* The same as the type of [e1]. *)
                 match ce1 with
                 | CEExp (_, e1') ->
@@ -5855,7 +5889,7 @@ and do_expression local_env
                 let tmp = make_new_tmp_var descr true t3 in
                 let tmp_var = Cil.var tmp in
                 let tmp_lval =
-                  Cil.new_exp ~loc:expression.expr_loc (Lval (tmp_var))
+                  Cil.new_exp ~loc:expression.Cabs.expr_loc (Lval (tmp_var))
                 in
                 let (r1, se1, _, _) =
                   do_expression
@@ -5943,7 +5977,7 @@ and do_expression local_env
                 in
                 let tmp = make_new_tmp_var descr true tresult in
                 let tmp_var = Cil.var tmp in
-                let tmp_lval = Cil.new_exp ~loc:expression.expr_loc (Lval (tmp_var)) in
+                let tmp_lval = Cil.new_exp ~loc:expression.Cabs.expr_loc (Lval (tmp_var)) in
                 let (r1,se1, _, _) =
                   do_expression
                     local_env as_const e1 (ASet(false, tmp_var, [], tresult))
@@ -6002,14 +6036,14 @@ and do_expression local_env
            on the reversed list of statements. *)
         let findLastComputation = function
             s :: _  ->
-            let rec findLast st = match st.stmt_node with
+            let rec findLast st = match st.Cabs.stmt_node with
               | Cabs.SEQUENCE (_, s, _) -> findLast s
-              | CASE (_, s, _) -> findLast s
-              | CASERANGE (_, _, s, _) -> findLast s
-              | LABEL (_, s, _) -> findLast s
+              | Cabs.CASE (_, s, _) -> findLast s
+              | Cabs.CASERANGE (_, _, s, _) -> findLast s
+              | Cabs.LABEL (_, s, _) -> findLast s
               | Cabs.COMPUTATION _ ->
                 begin
-                  match local_env.is_ghost,st.stmt_ghost with
+                  match local_env.is_ghost,st.Cabs.stmt_ghost with
                   | true,true | false, false -> st
                   | true, false -> assert false
                   | false, true -> raise Not_found
@@ -6032,7 +6066,7 @@ and do_expression local_env
           with Not_found ->
           match action with
           | ADrop -> (* We are dropping the result and have no computation. *)
-            {stmt_ghost = local_env.is_ghost; stmt_node = Cabs.NOP loc}
+            Cabs.{stmt_ghost = local_env.is_ghost; stmt_node = Cabs.NOP loc}
           | _ ->
             Kernel.abort ~current:true
               "missing last expression in GNU statement-expression"
@@ -6047,7 +6081,7 @@ and do_expression local_env
         gnu_body_result := old_gnu;
         match !data with
         | None when drop_block_result ->
-          finish_exp [] se (Cil.zero ~loc:expression.expr_loc) Cil.voidType
+          finish_exp [] se (Cil.zero ~loc:expression.Cabs.expr_loc) Cil.voidType
         | None ->
           Kernel.abort ~current:true
             "missing result in GNU statement-expression"
@@ -6069,22 +6103,22 @@ and do_expression local_env
       end
 
     | Cabs.LABELADDR l -> (* GCC's taking the address of a label. *)
-        let label = (* To support locally declared labels. *)
-          Labels.Manage.lookup_label l
-        in
-        let addrval = ComputedGoto.get_target_hash label
-          (* match ComputedGoto.get_target_hash label with
-             | Some address -> address
-             | None ->
-               let target_next_address = ComputedGoto.get_target_next_address ()
-               in
-               ComputedGoto.add_target_hash label target_next_address;
-               target_next_address *)
-        in
-        finish_exp []
-          (Chunk.unspecified_chunk Chunk.empty)
-          (makeCast ~e:(Cil.integer ~loc addrval) ~newt:Cil.voidPtrType)
-          Cil.voidPtrType
+      let label = (* To support locally declared labels. *)
+        Labels.Manage.lookup_label l
+      in
+      let addrval = ComputedGoto.get_target_hash label
+      (* match ComputedGoto.get_target_hash label with
+         | Some address -> address
+         | None ->
+           let target_next_address = ComputedGoto.get_target_next_address ()
+           in
+           ComputedGoto.add_target_hash label target_next_address;
+           target_next_address *)
+      in
+      finish_exp []
+        (Chunk.unspecified_chunk Chunk.empty)
+        (makeCast ~e:(Cil.integer ~loc addrval) ~newt:Cil.voidPtrType)
+        Cil.voidPtrType
 
     | Cabs.EXPR_PATTERN _ ->
       Kernel.abort ~current:true "EXPR_PATTERN in cabs2cil input"
@@ -6145,9 +6179,9 @@ and do_cond_exp local_env as_const
     | CENot cond_exp_result ->
       CENot (remove_effects_const_exp cond_exp_result)
   in
-  let loc = exp.expr_loc in
+  let loc = exp.Cabs.expr_loc in
   let cond_exp_result =
-    match exp.expr_node with
+    match exp.Cabs.expr_node with
     | Cabs.BINARY (Cabs.AND, and_exp_1, and_exp_2) ->
       begin
         let cond_exp_result_1 =
@@ -6195,13 +6229,13 @@ and do_cond_exp local_env as_const
         match cond_exp_result_1, cond_exp_result_2 with
         | CEExp (chunk_1, ({ enode = Const constant_1; _ })), _ ->
           begin
-          match isConstTrueFalse constant_1 with
-           | `CFalse -> add_chunk_before_const_exp chunk_1 cond_exp_result_2
-           | `CTrue when can_drop_const_exp cond_exp_result_2 ->
-             cond_exp_result_1
-           | `CTrue ->
-             (* [chunk_2] might contain labels so we cannot drop it. *)
-             CEOr (cond_exp_result_1, cond_exp_result_2)
+            match isConstTrueFalse constant_1 with
+            | `CFalse -> add_chunk_before_const_exp chunk_1 cond_exp_result_2
+            | `CTrue when can_drop_const_exp cond_exp_result_2 ->
+              cond_exp_result_1
+            | `CTrue ->
+              (* [chunk_2] might contain labels so we cannot drop it. *)
+              CEOr (cond_exp_result_1, cond_exp_result_2)
           end
         | CEExp (chunk_1, exp_1), CEExp (chunk_2, exp_2)
           when Cil.(theMachine.useLogicalOperators)
@@ -6245,7 +6279,7 @@ and do_cond_exp local_env as_const
         as_const = ExpectConst ||
         as_const = DontExpectConstButSimplifyIfPossible
       in
-      let result_chunk = Chunk.add_reads exp.expr_loc reads chunk in
+      let result_chunk = Chunk.add_reads exp.Cabs.expr_loc reads chunk in
       let result_exp =
         if should_const_fold || Cil.(theMachine.lowerConstants)
         then Cil.constFold should_const_fold exp'
@@ -6262,7 +6296,7 @@ and do_condition local_env (is_const: bool)
     (chunk_if_true : Chunk.t)
     (chunk_if_false : Chunk.t) : Chunk.t =
   if Chunk.is_empty chunk_if_true && Chunk.is_empty chunk_if_false
-  (* TODO: Ignore the attribute [TIS_KERNEL_KEEP_BLOCK]. *) 
+  (* TODO: Ignore the attribute [TIS_KERNEL_KEEP_BLOCK]. *)
   then
     begin
       let (_reads, cond_exp_chunk, exp, _typ) =
@@ -6511,15 +6545,15 @@ and do_init
       match initializers with
       | (Cabs.NEXT_INIT,
          Cabs.SINGLE_INIT
-           ({ expr_node = Cabs.CAST ((specifier, decl_type), init_exp); _ }
+           (Cabs.{ expr_node = Cabs.CAST ((specifier, decl_type), init_exp); _ }
             as single_init_exp))
         :: remaining_initializers ->
         let specifier', decl_type', init_exp' =
           preprocess_cast local_env.is_ghost specifier decl_type init_exp
         in
         (Cabs.NEXT_INIT, Cabs.SINGLE_INIT
-           ({ expr_node = Cabs.CAST ((specifier', decl_type'), init_exp');
-              expr_loc = single_init_exp.expr_loc }))
+           Cabs.({ expr_node = Cabs.CAST ((specifier', decl_type'), init_exp');
+                   expr_loc = single_init_exp.expr_loc }))
         :: remaining_initializers
       | _ -> initializers
     in
@@ -6529,8 +6563,8 @@ and do_init
       match initializers with
       | (designator,
          Cabs.SINGLE_INIT
-           ({expr_node = Cabs.CAST ((specifier, decl_type),
-                                    Cabs.COMPOUND_INIT compound_init); _ }))
+           Cabs.({expr_node = Cabs.CAST ((specifier, decl_type),
+                                         Cabs.COMPOUND_INIT compound_init); _ }))
         :: remaining_initializers ->
         let specifier', decl_type', _init_exp' =
           preprocess_cast
@@ -6582,12 +6616,12 @@ and do_init
   | TArray(array_base_type, array_len_opt, _, _ ),
     (Cabs.NEXT_INIT,
      (Cabs.SINGLE_INIT
-        ({ expr_node = Cabs.CONSTANT (Cabs.CONST_STRING string_literal); _ }
+        (Cabs.{ expr_node = Cabs.CONSTANT (Cabs.CONST_STRING string_literal); _ }
          as string_literal_exp) |
       Cabs.COMPOUND_INIT
         [ (Cabs.NEXT_INIT,
            Cabs.SINGLE_INIT
-             ({ expr_node = Cabs.CONSTANT (Cabs.CONST_STRING string_literal); _ }
+             (Cabs.{ expr_node = Cabs.CONSTANT (Cabs.CONST_STRING string_literal); _ }
               as string_literal_exp)) ]))
     :: remaining_initializers
     when (match Cil.unrollType array_base_type with
@@ -6619,8 +6653,8 @@ and do_init
         let designator = Cabs.NEXT_INIT in
         let init_exp =
           let exp = Cabs.CONSTANT (Cabs.CONST_CHAR [char_code_int64]) in
-          Cabs.SINGLE_INIT { expr_node = exp;
-                          expr_loc  = string_literal_exp.expr_loc }
+          Cabs.SINGLE_INIT Cabs.{ expr_node = exp;
+                                  expr_loc  = string_literal_exp.expr_loc }
         in
         designator, init_exp
       in
@@ -6694,14 +6728,14 @@ and do_init
   | TArray(array_base_type, array_len_opt, _, _),
     (Cabs.NEXT_INIT,
      (Cabs.SINGLE_INIT
-        ({ expr_node = Cabs.CONSTANT (Cabs.CONST_WSTRING wide_string_literal); _ }
+        (Cabs.{ expr_node = Cabs.CONSTANT (Cabs.CONST_WSTRING wide_string_literal); _ }
          as wide_string_literal_exp) |
       Cabs.COMPOUND_INIT
         [ (Cabs.NEXT_INIT,
            Cabs.SINGLE_INIT
-             ({ expr_node =
-                  Cabs.CONSTANT (Cabs.CONST_WSTRING wide_string_literal);
-                _ } as wide_string_literal_exp)) ]))
+             (Cabs.{ expr_node =
+                       Cabs.CONSTANT (Cabs.CONST_WSTRING wide_string_literal);
+                     _ } as wide_string_literal_exp)) ]))
     :: remaining_initializers
     when
       begin
@@ -6743,8 +6777,8 @@ and do_init
         let designator = Cabs.NEXT_INIT in
         let init_exp =
           let exp = Cabs.CONSTANT (Cabs.CONST_INT (Int64.to_string c)) in
-          Cabs.SINGLE_INIT { expr_node = exp;
-                             expr_loc = wide_string_literal_exp.expr_loc }
+          Cabs.SINGLE_INIT Cabs.{ expr_node = exp;
+                                  expr_loc = wide_string_literal_exp.expr_loc }
         in
         designator, init_exp
       in
@@ -7184,8 +7218,8 @@ and do_init
           then remaining_initializers
           else
             (top (Cabs.ATINDEX_INIT(
-                 { expr_node = Cabs.CONSTANT(Cabs.CONST_INT(string_of_int i));
-                   expr_loc = fst idxs.expr_loc, snd idxe.expr_loc},
+                 Cabs.{ expr_node = Cabs.CONSTANT(Cabs.CONST_INT(string_of_int i));
+                        expr_loc = fst idxs.expr_loc, snd idxe.expr_loc},
                  Cabs.NEXT_INIT)), init_exp)
             :: loop (i + 1)
         in
@@ -7414,13 +7448,13 @@ and createLocal ghost ((_, sto, _, _) as specs)
       (inite : Cabs.init_expression)) as init_name)
   : Chunk.t =
   (* Check if we are declaring a function. *)
-  let rec isProto (dt: decl_type) : bool =
+  let rec isProto (dt: Cabs.decl_type) : bool =
     match dt with
-    | PROTO (JUSTBASE, _, _) -> true
-    | PROTO (x, _, _) -> isProto x
-    | PARENTYPE (_, x, _) -> isProto x
-    | ARRAY (x, _, _) -> isProto x
-    | PTR (_, x) -> isProto x
+    | Cabs.PROTO (Cabs.JUSTBASE, _, _) -> true
+    | Cabs.PROTO (x, _, _) -> isProto x
+    | Cabs.PARENTYPE (_, x, _) -> isProto x
+    | Cabs.ARRAY (x, _, _) -> isProto x
+    | Cabs.PTR (_, x) -> isProto x
     | _ -> false
   in
   match ndt with
@@ -7509,7 +7543,7 @@ and createLocal ghost ((_, sto, _, _) as specs)
             ~is_global:false
             loc
             (Cil.(theMachine.typeOfSizeOf), NoStorage, false, [])
-            ("__lengthof_" ^ vi.vname,JUSTBASE, [])
+            ("__lengthof_" ^ vi.vname,Cabs.JUSTBASE, [])
         in
         (* Register it *)
         let savelen = alpha_convert_var_and_add_to_env true savelen in
@@ -7644,22 +7678,27 @@ and createLocal ghost ((_, sto, _, _) as specs)
     end
 
 and doAliasFun vtype (thisname:string) (othername:string)
-    (sname:single_name) (loc: cabsloc) : unit =
+    (sname:Cabs.single_name) (loc: Cabs.cabsloc) : unit =
   (* This prototype declares that name is an alias for [othername], which must
      be defined in this file. *)
   let rt, formals, isva, _ = Cil.splitFunctionType vtype in
   if isva
   then Kernel.error ~once:true ~current:true "alias unsupported with varargs";
-  let args = List.map
-      (fun (n,_,_) -> { expr_loc = loc; expr_node = Cabs.VARIABLE n})
-      (Cil.argsToList formals) in
-  let call = Cabs.CALL ({expr_loc = loc; expr_node = Cabs.VARIABLE othername},
-                        args)
+  let args =
+    List.map
+      (fun (n,_,_) -> { Cabs.expr_loc = loc; expr_node = Cabs.VARIABLE n})
+      (Cil.argsToList formals)
   in
-  let stmt = {stmt_ghost = false;
-              stmt_node = if Cil.isVoidType rt then
-                  Cabs.COMPUTATION({expr_loc = loc; expr_node = call}, loc)
-                else Cabs.RETURN({expr_loc = loc; expr_node = call}, loc)}
+  let call =
+    Cabs.CALL
+      (Cabs.{expr_loc = loc; expr_node = Cabs.VARIABLE othername}, args)
+  in
+  let stmt =
+    { Cabs.stmt_ghost = false;
+      stmt_node =
+        if Cil.isVoidType rt then
+          Cabs.COMPUTATION(Cabs.{expr_loc = loc; expr_node = call}, loc)
+        else Cabs.RETURN(Cabs.{expr_loc = loc; expr_node = call}, loc) }
   in
   let body = { Cabs.blabels = []; Cabs.battrs = []; Cabs.bstmts = [stmt] } in
   let fdef = Cabs.FUNDEF (None, sname, body, loc, loc) in
@@ -7686,7 +7725,7 @@ and doDecl local_env (isglobal: bool) : Cabs.definition -> Chunk.t =
     let ghost = local_env.is_ghost in
     let spec_res = do_spec_list ghost sugg s in
     (* Do all the variables and concatenate the resulting statements. *)
-    let doOneDeclarator (acc: Chunk.t) (name: init_name) =
+    let doOneDeclarator (acc: Chunk.t) (name: Cabs.init_name) =
       let (n,ndt,a,l),_ = name in
       if isglobal then begin
         let bt,_,_,attrs = spec_res in
@@ -7768,7 +7807,7 @@ and doDecl local_env (isglobal: bool) : Cabs.definition -> Chunk.t =
     end
 
   | Cabs.FUNDEF (spec,((specs,(n,dt,a, _)) : Cabs.single_name),
-              (body : Cabs.block), loc1, loc2) when isglobal ->
+                 (body : Cabs.block), loc1, loc2) when isglobal ->
     begin
       let ghost = local_env.is_ghost in
       let idloc = loc1 in
@@ -7857,7 +7896,7 @@ and doDecl local_env (isglobal: bool) : Cabs.definition -> Chunk.t =
         (* Return type [va_list] is rejected. *)
         begin
           if Cil.isVariadicListType returnType then
-            Kernel.fatal ~current:true
+            Kernel.abort ~current:true
               "Function %a returns a va_list object."
               Printer.pp_varinfo !current_fun_fundec.svar;
         end;
@@ -7886,7 +7925,7 @@ and doDecl local_env (isglobal: bool) : Cabs.definition -> Chunk.t =
               f' :: fl'
           end
         in
-        let fmlocs = (match dt with PROTO(_, fml, _) -> fml | _ -> []) in
+        let fmlocs = (match dt with Cabs.PROTO(_, fml, _) -> fml | _ -> []) in
         let formals = doFormals (Cil.argsToList formals_t) fmlocs in
 
         (* In case of formals referred to in types of others, [do_type] has put
@@ -8148,7 +8187,7 @@ and doDecl local_env (isglobal: bool) : Cabs.definition -> Chunk.t =
       Chunk.empty
     end (* FUNDEF *)
 
-  | LINKAGE (n, loc, dl) ->
+  | Cabs.LINKAGE (n, loc, dl) ->
     Cil.CurrentLoc.set loc;
     if n <> "C" then
       Kernel.warning ~current:true
@@ -8296,7 +8335,9 @@ and doBody local_env (blk: Cabs.block) : Chunk.t =
   let ghost = local_env.is_ghost in
   enter_scope ();
   (* Rename the labels and add them to the environment. *)
-  List.iter (fun l -> ignore (Labels.Manage.gen_new_local_label l)) blk.blabels;
+  List.iter
+    (fun l -> ignore (Labels.Manage.gen_new_local_label l))
+    blk.Cabs.blabels;
   (* See if we have some attributes. *)
   let battrs = do_attributes ghost blk.Cabs.battrs in
 
@@ -8318,9 +8359,9 @@ and doBody local_env (blk: Cabs.block) : Chunk.t =
                   that the annotation will be attached to the whole result and
                   not to the first [Cil] statement. *)
                let new_behaviors, keep_next =
-                 match s.stmt_node with
-                 | CODE_ANNOT _  -> [], true
-                 | CODE_SPEC (s,_) ->
+                 match s.Cabs.stmt_node with
+                 | Cabs.CODE_ANNOT _  -> [], true
+                 | Cabs.CODE_SPEC (s,_) ->
                    List.map (fun x -> x.b_name) s.spec_behavior, true
                  | _ -> [], false
                in
@@ -8358,10 +8399,10 @@ and do_statement local_env (stmt : Cabs.statement) : Chunk.t =
       Kernel.warning ~source "%s. Ignoring loop annotation" msg;
       []
   in
-  let ghost = stmt.stmt_ghost in
+  let ghost = stmt.Cabs.stmt_ghost in
   let local_env = { local_env with is_ghost = ghost } in
 
-  match stmt.stmt_node with
+  match stmt.Cabs.stmt_node with
   | Cabs.NOP loc ->
     let empty_stmt = Cil.mkEmptyStmt ~ghost ~loc () in
     { Chunk.empty with Chunk.stmts_with_effects = [empty_stmt, Chunk.no_effects, []]}
@@ -8476,49 +8517,49 @@ and do_statement local_env (stmt : Cabs.statement) : Chunk.t =
     end
 
   | Cabs.FOR(loop_invariant, for_clause, exp_2, exp_3, stmt, loc) ->
-      Cil.CurrentLoc.set loc;
-      enter_scope (); (* Just in case we have a declaration. *)
-      ForLoopHook.apply (for_clause, exp_2, exp_3, stmt);
-      let (chunk_1, _, _), has_declaration =
-        match for_clause with
-        | FC_EXP exp_1 ->
-          do_full_exp local_env DontExpectConst exp_1 ADrop, false
-        | FC_DECL defn_1 ->
-          let chunk = doDecl local_env false defn_1 in
-          let exp = Cil.zero ~loc in
-          let typ = Cil.voidType in
-          (chunk, exp, typ), true
+    Cil.CurrentLoc.set loc;
+    enter_scope (); (* Just in case we have a declaration. *)
+    ForLoopHook.apply (for_clause, exp_2, exp_3, stmt);
+    let (chunk_1, _, _), has_declaration =
+      match for_clause with
+      | Cabs.FC_EXP exp_1 ->
+        do_full_exp local_env DontExpectConst exp_1 ADrop, false
+      | Cabs.FC_DECL defn_1 ->
+        let chunk = doDecl local_env false defn_1 in
+        let exp = Cil.zero ~loc in
+        let typ = Cil.voidType in
+        (chunk, exp, typ), true
+    in
+    let annotations = make_loop_annot loop_invariant loc in
+    let (chunk_3, _, _) = do_full_exp local_env DontExpectConst exp_3 ADrop in
+    Labels.Loops.start_loop false;
+    let stmt_chunk = do_statement local_env stmt in
+    (*Kernel.debug "Loop body : %a" d_chunk s';*)
+    Cil.CurrentLoc.set loc;
+    let chunk_3 = Labels.Loops.cons_label_continue ~ghost chunk_3 in
+    let break_cond_chunk = Chunk.Make.break_chunk ~ghost loc in
+    Labels.Loops.exit_loop ();
+    let result_chunk =
+      match exp_2.Cabs.expr_node with
+      | Cabs.NOTHING -> (* This means [true]. *)
+        chunk_1 @@
+        (Chunk.Make.loop_chunk ~ghost annotations
+           (stmt_chunk @@ (chunk_3, ghost)), ghost)
+      | _ ->
+        chunk_1 @@
+        (Chunk.Make.loop_chunk ~ghost annotations
+           (((do_condition local_env false exp_2 Chunk.Make.skip_chunk break_cond_chunk)
+             @@ (stmt_chunk, ghost)) @@ (chunk_3, ghost)), ghost)
+    in
+    exit_scope ();
+    if has_declaration then
+      let chunk =
+        let stmt = Cil.mkStmt ~ghost (Block (Chunk.to_block ~ghost result_chunk)) in
+        Chunk.of_stmt stmt
       in
-      let annotations = make_loop_annot loop_invariant loc in
-      let (chunk_3, _, _) = do_full_exp local_env DontExpectConst exp_3 ADrop in
-      Labels.Loops.start_loop false;
-      let stmt_chunk = do_statement local_env stmt in
-      (*Kernel.debug "Loop body : %a" d_chunk s';*)
-      Cil.CurrentLoc.set loc;
-      let chunk_3 = Labels.Loops.cons_label_continue ~ghost chunk_3 in
-      let break_cond_chunk = Chunk.Make.break_chunk ~ghost loc in
-      Labels.Loops.exit_loop ();
-      let result_chunk =
-        match exp_2.expr_node with
-        | Cabs.NOTHING -> (* This means [true]. *)
-          chunk_1 @@
-          (Chunk.Make.loop_chunk ~ghost annotations
-             (stmt_chunk @@ (chunk_3, ghost)), ghost)
-        | _ ->
-          chunk_1 @@
-          (Chunk.Make.loop_chunk ~ghost annotations
-             (((do_condition local_env false exp_2 Chunk.Make.skip_chunk break_cond_chunk)
-               @@ (stmt_chunk, ghost)) @@ (chunk_3, ghost)), ghost)
-      in
-      exit_scope ();
-      if has_declaration then
-        let chunk =
-          let stmt = Cil.mkStmt ~ghost (Block (Chunk.to_block ~ghost result_chunk)) in
-          Chunk.of_stmt stmt
-        in
-        { chunk with Chunk.cases = result_chunk.Chunk.cases }
-      else
-        result_chunk
+      { chunk with Chunk.cases = result_chunk.Chunk.cases }
+    else
+      result_chunk
 
   | Cabs.BREAK loc ->
     Cil.CurrentLoc.set loc;
@@ -8528,7 +8569,7 @@ and do_statement local_env (stmt : Cabs.statement) : Chunk.t =
     Cil.CurrentLoc.set loc;
     Labels.Loops.continue_or_label_chunk ~ghost loc
 
-  | Cabs.RETURN ({ expr_node = Cabs.NOTHING; _ }, loc) ->
+  | Cabs.RETURN (Cabs.{ expr_node = Cabs.NOTHING; _ }, loc) ->
     Cil.CurrentLoc.set loc;
     if not (Cil.isVoidType !current_return_type) then
       Kernel.error ~current:true
@@ -8664,7 +8705,7 @@ and do_statement local_env (stmt : Cabs.statement) : Chunk.t =
       match ComputedGoto.get_target_data () with
       | Some (switch_varinfo, switch_stmt) ->
         (* We have already generated this one.  *)
-        let set_chunk = 
+        let set_chunk =
           let set_instr =
             Set (Cil.var switch_varinfo, makeCast ~e:exp ~newt:Cil.intType, loc)
           in
@@ -8731,10 +8772,10 @@ and do_statement local_env (stmt : Cabs.statement) : Chunk.t =
             List.map escape tmpls
         in
         (tmpls', [], [], [],[])
-      | Some { aoutputs = outs;
-               ainputs = ins;
-               aclobbers = clobs;
-               alabels = labels } ->
+      | Some Cabs.{ aoutputs = outs;
+                    ainputs = ins;
+                    aclobbers = clobs;
+                    alabels = labels } ->
         let outs' =
           List.map
             (fun (id, c, e) ->
@@ -8782,7 +8823,7 @@ and do_statement local_env (stmt : Cabs.statement) : Chunk.t =
           (Asm(attr', tmpls', outs', ins', clobs', labels', loc)),
         Chunk.no_effects),
      ghost)
-  | THROW (e,loc) ->
+  | Cabs.THROW (e,loc) ->
     Cil.CurrentLoc.set loc;
     (match e with
      | None -> Chunk.of_stmt (Cil.mkStmt ~ghost (Throw (None,loc)))
@@ -8790,7 +8831,7 @@ and do_statement local_env (stmt : Cabs.statement) : Chunk.t =
        let se,e,t = do_full_exp local_env DontExpectConst e (AExp None) in
        se @@
        (Chunk.of_stmt (Cil.mkStmt ~ghost (Throw (Some (e,t),loc))),ghost))
-  | TRY_CATCH(stry,l,loc) ->
+  | Cabs.TRY_CATCH(stry,l,loc) ->
     Cil.CurrentLoc.set loc;
     let chunk_try = do_statement local_env stry in
     let type_one_catch (var,scatch) =
@@ -8814,7 +8855,7 @@ and do_statement local_env (stmt : Cabs.statement) : Chunk.t =
     let catches = List.map type_one_catch l in
     Chunk.of_stmt (Cil.mkStmt ~ghost
                      (TryCatch (Chunk.to_block ~ghost chunk_try,catches,loc)))
-  | TRY_FINALLY (b, h, loc) ->
+  | Cabs.TRY_FINALLY (b, h, loc) ->
     Cil.CurrentLoc.set loc;
     let b': Chunk.t = doBody local_env b in
     let h': Chunk.t = doBody local_env h in
@@ -8826,7 +8867,7 @@ and do_statement local_env (stmt : Cabs.statement) : Chunk.t =
                                   Chunk.to_block ~ghost h',
                                   loc)))
 
-  | TRY_EXCEPT (b, e, h, loc) ->
+  | Cabs.TRY_EXCEPT (b, e, h, loc) ->
     Cil.CurrentLoc.set loc;
     let b': Chunk.t = doBody local_env b in
     (* Now do [e]. *)
@@ -8849,12 +8890,12 @@ and do_statement local_env (stmt : Cabs.statement) : Chunk.t =
     in
     let il' = stmt_to_instrs se.Chunk.stmts_with_effects in
     Chunk.of_stmt (Cil.mkStmt ~ghost
-           (TryExcept
-              (Chunk.to_block ~ghost b',
-               (il', e'),
-               Chunk.to_block ~ghost h',
-               loc)))
-  | CODE_ANNOT (a, loc) ->
+                     (TryExcept
+                        (Chunk.to_block ~ghost b',
+                         (il', e'),
+                         Chunk.to_block ~ghost h',
+                         loc)))
+  | Cabs.CODE_ANNOT (a, loc) ->
     begin
       try
         let typed_annot =
@@ -8867,7 +8908,7 @@ and do_statement local_env (stmt : Cabs.statement) : Chunk.t =
         Chunk.empty
     end
 
-  | CODE_SPEC (a, loc) ->
+  | Cabs.CODE_SPEC (a, loc) ->
     begin
       try
         let spec =
@@ -8900,7 +8941,7 @@ let clear_env language =
   CompField.clear_env ();
   CallTempVars.clear ();
   ConstrExprId.reset ();
-  current_languague := language
+  current_language := language
 
 (* Translate a file *)
 let convFile ?(lang = default_language) (cabs_file : Cabs.file) : file =

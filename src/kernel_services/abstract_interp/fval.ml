@@ -244,8 +244,6 @@ module F = struct
     let classify_float = Pervasives.classify_float
 end
 
-module F_Set = Set.Make(F) (* Uses our really total compare function *)
-
 type float_kind = Float32 | Float64
 
 exception Non_finite

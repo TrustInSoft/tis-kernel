@@ -361,8 +361,6 @@ int vasprintf(char **dest, const char *fmt, va_list va);
 
 #endif
 
-__END_DECLS
-
 #ifdef _POSIX_C_SOURCE
 # if _POSIX_C_SOURCE >= 200112L
 #include "__fc_define_off_t.h"
@@ -374,5 +372,6 @@ int   fseeko(FILE *__stream, off_t __offset, int __whence);
 #endif
 
 #define IOV_MAX 1024
+__END_DECLS
 
 #endif

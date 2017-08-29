@@ -46,10 +46,8 @@ open Lang.F
 open Memory
 open Wpo
 
-module VC( M : Memory.Model ) =
-struct
+module VC( M : Memory.Model ) = struct
 
-  open M
   module V = Vars
   module P = WpPropId.PropId
   module C = CodeSemantics.Make(M)
@@ -178,7 +176,7 @@ struct
   let pretty fmt wp =
     begin
       (match wp.sigma with None -> () | Some s ->
-          Format.fprintf fmt "Sigma:@[<hov 2>%a@]@\n" Sigma.pretty s) ;
+          Format.fprintf fmt "Sigma:@[<hov 2>%a@]@\n" M.Sigma.pretty s) ;
       pp_gvcs fmt wp.vcs ;
     end
 
@@ -195,18 +193,18 @@ struct
     path = S.empty ;
   }
 
-  let sigma_opt = function None -> Sigma.create () | Some s -> s
+  let sigma_opt = function None -> M.Sigma.create () | Some s -> s
   let sigma_at w = sigma_opt w.sigma
   let sigma_union s1 s2 =
     match s1 , s2 with
     | None , s | s , None -> sigma_opt s , Passive.empty , Passive.empty
-    | Some s1 , Some s2 -> Sigma.merge s1 s2
+    | Some s1 , Some s2 -> M.Sigma.merge s1 s2
   let merge_sigma s1 s2 =
     match s1 , s2 with
     | None , s | s , None -> s , Passive.empty , Passive.empty
-    | Some s1 , Some s2 -> let s,p1,p2 = Sigma.merge s1 s2 in Some s,p1,p2
+    | Some s1 , Some s2 -> let s,p1,p2 = M.Sigma.merge s1 s2 in Some s,p1,p2
 
-  let join_with s = function None -> Passive.empty | Some s' -> Sigma.join s s'
+  let join_with s = function None -> Passive.empty | Some s' -> M.Sigma.join s s'
 
   let occurs_vc vc x =
     Vars.mem x vc.vars || Conditions.occurs x vc.hyps
@@ -360,7 +358,7 @@ struct
   let has_init wenv =
     let frame = wenv.frame in
     let init = L.mem_at_frame frame Clabels.Init in
-    let domain = Sigma.domain init in
+    let domain = M.Sigma.domain init in
     not (M.Heap.Set.is_empty domain)
 
   let merge wenv wp1 wp2 =
@@ -390,7 +388,7 @@ struct
       (fun wp ->
          match wp.sigma with
          | None ->
-           let s = Sigma.create () in
+           let s = M.Sigma.create () in
            phi (L.move wenv.main s) { wp with sigma = Some s }
          | Some s ->
            phi (L.move wenv.main s) wp) wp
@@ -581,10 +579,10 @@ struct
       effects vcs
 
   let cc_assigned env kind froms =
-    let dummy = Sigma.create () in
+    let dummy = M.Sigma.create () in
     let r0 = A.domain (L.assigns_from (L.move env dummy) froms) in
     let s1 = L.sigma env in
-    let s0 = Sigma.havoc s1 r0 in
+    let s0 = M.Sigma.havoc s1 r0 in
     let sref = match kind with
       | StmtAssigns -> s0
       | LoopAssigns -> s1
@@ -598,7 +596,7 @@ struct
         match ainfo.a_assigns with
 
         | WritesAny ->
-          let sigma = Sigma.havoc_any ~call:false (L.sigma env) in
+          let sigma = M.Sigma.havoc_any ~call:false (L.sigma env) in
           let vcs = do_assigns_everything ?stmt wp.effects wp.vcs in
           { sigma = Some sigma ; vcs=vcs ; effects = wp.effects }
 
@@ -615,7 +613,7 @@ struct
                 ?hpid ?stmt ~warn sequence assigned wp.effects wp.vcs in
             { sigma = Some sequence.pre ; vcs=vcs ; effects = wp.effects }
           | Warning.Failed warn ->
-            let sigma = Sigma.havoc_any ~call:false (L.sigma env) in
+            let sigma = M.Sigma.havoc_any ~call:false (L.sigma env) in
             let vcs = do_assigns_everything ?stmt ~warn wp.effects wp.vcs in
             { sigma = Some sigma ; vcs=vcs ; effects = wp.effects }
       end
@@ -636,7 +634,7 @@ struct
              (fun env wp ->
                 let s_here = L.sigma env in
                 let s_labl = L.mem_frame labl in
-                let pa = Sigma.join s_here s_labl in
+                let pa = M.Sigma.join s_here s_labl in
                 let stop,effects = Eset.partition (is_stopeffect labl) wp.effects in
                 let vcs = Gmap.filter (not_posteffect stop) wp.vcs in
                 let vcs = gmap (passify_vc pa) vcs in
@@ -649,11 +647,11 @@ struct
 
   let cc_lval env lv =
     let obj = Ctypes.object_of (Cil.typeOfLval lv) in
-    let dummy = Sigma.create () in
+    let dummy = M.Sigma.create () in
     let l0 = C.lval dummy lv in
     let s2 = L.sigma env in
     let domain = M.domain obj l0 in
-    let s1 = Sigma.havoc s2 domain in
+    let s1 = M.Sigma.havoc s2 domain in
     let loc = C.lval s1 lv in
     let seq = { pre=s1 ; post=s2 } in
     obj , domain , seq , loc
@@ -671,7 +669,7 @@ struct
         match outcome with
         | Warning.Failed warn ->
           (* L-Value is unknown *)
-          let sigma = Sigma.havoc_any ~call:false (L.sigma env) in
+          let sigma = M.Sigma.havoc_any ~call:false (L.sigma env) in
           let vcs = do_assigns_everything ~stmt ~warn wp.effects wp.vcs in
           { sigma = Some sigma ; vcs=vcs ; effects = wp.effects }
         | Warning.Result(l_warn,(obj,dom,seq,loc)) ->
@@ -810,9 +808,9 @@ struct
            List.fold_left (fun d (_,wp) ->
                match wp.sigma with
                | None -> d
-               | Some s -> Sigma.union d (Sigma.domain s)
-             ) Sigma.empty cases in
-         let sigma = Sigma.havoc (Sigma.create ()) domain in
+               | Some s -> M.Sigma.union d (M.Sigma.domain s)
+             ) M.Sigma.empty cases in
+         let sigma = M.Sigma.havoc (M.Sigma.create ()) domain in
          let warn,value =
            match Warning.catch ~source:"Switch"
                    ~severe:false ~effect:"Skip switched value"
@@ -935,7 +933,7 @@ struct
 
   let call_dynamic wenv stmt gpid fct calls = L.in_frame wenv.frame
       begin fun () ->
-        let sigma = Sigma.create () in
+        let sigma = M.Sigma.create () in
         let outcome = Warning.catch
             ~severe:false ~effect:"Ignored function pointer value"
             (C.call sigma) fct in
@@ -991,11 +989,11 @@ struct
   (* -------------------------------------------------------------------------- *)
 
   type callenv = {
-    sigma_pre : sigma ;
-    seq_post : sigma sequence ;
-    seq_exit : sigma sequence ;
-    seq_result : sigma sequence ;
-    loc_result : (typ * Ctypes.c_object * loc) option ;
+    sigma_pre : M.sigma ;
+    seq_post : M.sigma sequence ;
+    seq_exit : M.sigma sequence ;
+    seq_result : M.sigma sequence ;
+    loc_result : (typ * Ctypes.c_object * M.loc) option ;
     frame_pre : L.frame ;
     frame_post : L.frame ;
     frame_exit : L.frame ;
@@ -1005,7 +1003,7 @@ struct
 
   let cc_result_domain = function
     | Some lv ->
-      let dummy = Sigma.create () in
+      let dummy = M.Sigma.create () in
       let tr = Cil.typeOfLval lv in
       let lr = C.lval dummy lv in
       Some (M.domain (Ctypes.object_of tr) lr)
@@ -1014,7 +1012,7 @@ struct
   let cc_call_domain env0 kf es = function
     | WritesAny -> None
     | Writes froms ->
-      let dummy = Sigma.create () in
+      let dummy = M.Sigma.create () in
       let vs = List.map (C.exp dummy) es in
       let env = L.move env0 dummy in
       let init = L.mem_at env0 Clabels.Init in
@@ -1022,8 +1020,8 @@ struct
       Some (A.domain (L.in_frame frame (L.assigns_from env) froms))
 
   let cc_havoc d s = match d with
-    | None -> { pre = Sigma.havoc_any ~call:true s ; post = s }
-    | Some domain -> { pre = Sigma.havoc s domain ; post = s }
+    | None -> { pre = M.Sigma.havoc_any ~call:true s ; post = s }
+    | Some domain -> { pre = M.Sigma.havoc s domain ; post = s }
 
   let cc_callenv env0 lvr kf es assigns wpost wexit =
     let init = L.mem_at env0 Clabels.Init in
@@ -1034,7 +1032,7 @@ struct
     let seq_post = cc_havoc dom_call seq_result.pre in
     let seq_exit = cc_havoc dom_call (sigma_at wexit) in
     (* Pre-State *)
-    let sigma_pre, _, _ = Sigma.merge seq_post.pre seq_exit.pre in
+    let sigma_pre, _, _ = M.Sigma.merge seq_post.pre seq_exit.pre in
     let formals = List.map (C.exp sigma_pre) es in
     let call = L.call kf formals in
     let result = match lvr with
@@ -1134,8 +1132,8 @@ struct
       let descr = Printf.sprintf "%s '%s'" outcome fname in
       gmap (condition ~descr ~stmt pa hs) vcs in
 
-    let pa_post = Sigma.join call.sigma_pre call.seq_post.pre in
-    let pa_exit = Sigma.join call.sigma_pre call.seq_exit.pre in
+    let pa_post = M.Sigma.join call.sigma_pre call.seq_post.pre in
+    let pa_exit = M.Sigma.join call.sigma_pre call.seq_exit.pre in
 
     (* Skip Precond for Caveat mode *)
     let hs_pre = if Wp_parameters.CalleePreCond.get () then hs_pre else [] in
@@ -1163,7 +1161,7 @@ struct
            let v_exit = do_assigns_everything ~stmt ~warn p_exit.effects p_exit.vcs in
            let effects = Eset.union p_post.effects p_exit.effects in
            let vcs = gmerge v_post v_exit in
-           let sigma = Sigma.create () in
+           let sigma = M.Sigma.create () in
            { sigma = Some sigma ; vcs = vcs ; effects = effects }
       ) ()
 
@@ -1363,8 +1361,8 @@ struct
           Wpo.VC_Lemma.lemma = def ;
         } in
         let index = match LogicUsage.section_of_lemma l.lem_name with
-          | LogicUsage.Toplevel _ -> Wpo.Axiomatic None
-          | LogicUsage.Axiomatic a -> Wpo.Axiomatic (Some a.ax_name) in
+          | LogicUsage.Toplevel _ -> Wpo.IAxiomatic None
+          | LogicUsage.Axiomatic a -> Wpo.IAxiomatic (Some a.ax_name) in
         let mid = Model.get_id model in
         let sid = WpPropId.get_propid id in
         let wpo = {
@@ -1397,7 +1395,7 @@ let add_qed_check collection model ~qed ~raw ~goal =
       po_gid = id ;
       po_sid = id ;
       po_name = id ;
-      po_idx = Axiomatic None ;
+      po_idx = IAxiomatic None ;
       po_model = model ;
       po_pid = pid ;
       po_updater = Model.get_emitter model ;
@@ -1443,7 +1441,7 @@ struct
                    Model.on_kf kf
                      begin fun () ->
                        let bhv = WpStrategy.get_bhv strategy in
-                       let index = Wpo.Function( kf , bhv ) in
+                       let index = Wpo.IFunction (kf ,bhv) in
                        if WpRTE.missing_guards kf m then
                          Wp_parameters.warning ~current:false ~once:true
                            "Missing RTE guards" ;

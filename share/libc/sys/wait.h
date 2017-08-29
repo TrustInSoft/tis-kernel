@@ -56,7 +56,26 @@ pid_t  wait3(int *, int, struct rusage *);
 int waitid(idtype_t idt, id_t id, siginfo_t * sig, int options);
 pid_t waitpid(pid_t pid, int *stat_loc, int options);
 
+#ifdef _POSIX_SOURCE
+#define	_W_INT(i)	(i)
+#else
+#define	_W_INT(w)	(*(int *)&(w))	/* convert union wait to int */
+#define	WCOREFLAG	0200
+#endif
+#define	_WSTATUS(x)	(_W_INT(x) & 0177)
+#define	_WSTOPPED	0177
+#define WIFSTOPPED(x)	(_WSTATUS(x) == _WSTOPPED)
+#define WSTOPSIG(x)	(_W_INT(x) >> 8)
+#define WIFSIGNALED(x)	(_WSTATUS(x) != _WSTOPPED && _WSTATUS(x) != 0)
+#define WTERMSIG(x)	(_WSTATUS(x))
+#define WIFEXITED(x)	(_WSTATUS(x) == 0)
+#define WEXITSTATUS(x)	(_W_INT(x) >> 8)
+#ifndef _POSIX_SOURCE
+#define WCOREDUMP(x)	(_W_INT(x) & WCOREFLAG)
+#define	W_EXITCODE(ret, sig)	((ret) << 8 | (sig))
+#define	W_STOPCODE(sig)		((sig) << 8 | _WSTOPPED)
+#endif
+
 __END_DECLS
 
 #endif
-

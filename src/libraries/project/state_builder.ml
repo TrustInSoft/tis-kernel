@@ -762,6 +762,7 @@ struct
     let mem = HW.mem
     let find_all = HW.find_all
     let find = HW.find
+    let find_opt = HW.find_opt
     let remove = HW.remove
     let add h v = HW.replace h v v
 
@@ -832,8 +833,6 @@ module SharedCounter(Info : sig val name : string end) = struct
   let self = Cpt.self
 
 end
-
-module Cpt = SharedCounter(struct let name = "State_builder.Cpt" end)
 
 module Counter(Info : sig val name : string end) = struct
 

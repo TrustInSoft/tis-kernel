@@ -51,10 +51,10 @@ let display ?fmt kf =
     | Base.Var (v, _) ->
       if v.vtemp then v.vname = "__retres"
       else
-        ((not (Kernel_function.is_local v kf))
-         (* only locals of outermost block *)
-         || List.exists (fun x -> x.vid = v.vid)
-           (Kernel_function.get_definition kf).sbody.blocals )
+        (not (Kernel_function.is_local v kf))
+        (* only locals of outermost block *)
+        || List.exists (fun x -> x.vid = v.vid)
+          (Kernel_function.get_definition kf).sbody.blocals
     | _ -> true
   in
   try
@@ -118,20 +118,24 @@ let assigns_inputs_to_zone state assigns =
     match ins with
     | FromAny -> Zone.top
     | From l ->
-      try
-        List.fold_left
-          (fun acc t ->
-             let z = Eval_terms.eval_tlval_as_zone
-                 ~with_alarms:CilE.warn_none_mode
-                 ~for_writing:false env t.it_content in
-             Zone.join acc z)
-          acc
-          l
-      with Eval_terms.LogicEvalError e ->
-        Value_parameters.warning ~current:true ~once:true
-          "Failed to interpret inputs in assigns clause '%a'%a"
-          Printer.pp_from asgn eval_error_reason e;
-        Zone.top
+      begin
+        try
+          List.fold_left
+            (fun acc t ->
+               let z =
+                 Eval_terms.eval_tlval_as_zone
+                   ~with_alarms:CilE.warn_none_mode
+                   ~for_writing:false env t.it_content
+               in
+               Zone.join acc z)
+            acc
+            l
+        with Eval_terms.LogicEvalError e ->
+          Value_parameters.warning ~current:true ~once:true
+            "Failed to interpret inputs in assigns clause '%a'%a"
+            Printer.pp_from asgn eval_error_reason e;
+          Zone.top
+      end
   in
   match assigns with
   | WritesAny -> Zone.top
@@ -219,14 +223,14 @@ let () =
   Db.Value.access_expr := access_value_of_expr;
   Db.Value.Logic.eval_predicate := eval_predicate;
   Db.From.find_deps_term_no_transitivity_state :=
-    find_deps_term_no_transitivity_state;
+    find_deps_term_no_transitivity_state
 
 
-  (* -------------------------------------------------------------------------- *)
-  (*                    Register Evaluation Functions                           *)
-  (* -------------------------------------------------------------------------- *)
+(* -------------------------------------------------------------------------- *)
+(*                    Register Evaluation Functions                           *)
+(* -------------------------------------------------------------------------- *)
 
-  (* Functions to register in Db.Value that depend on evaluation functions. *)
+(* Functions to register in Db.Value that depend on evaluation functions. *)
 module Export = struct
   let lval_to_loc_with_deps_state ~with_alarms state ~deps lv =
     let _state, deps, r, _ =
@@ -269,7 +273,11 @@ module Export = struct
     Valarms.start_stmt kinstr;
     let state_to_joined_zone state acc =
       let _, r =
-        lval_to_precise_loc_with_deps_state_alarm ~with_alarms state ~deps:None lv
+        lval_to_precise_loc_with_deps_state_alarm
+          ~with_alarms
+          state
+          ~deps:None
+          lv
       in
       let zone = Precise_locs.enumerate_valid_bits ~for_writing:false r in
       Locations.Zone.join acc zone
@@ -305,9 +313,13 @@ module Export = struct
     match loc.Locations.size with
     | Int_Base.Top -> None
     | Int_Base.Value size ->
-      match snd (Cvalue.Model.copy_offsetmap loc.Locations.loc size state) with
-      | `Top | `Bottom -> None
-      | `Map m -> Some m
+      begin
+        match
+          snd (Cvalue.Model.copy_offsetmap loc.Locations.loc size state)
+        with
+        | `Top | `Bottom -> None
+        | `Map m -> Some m
+      end
 
   let lval_to_offsetmap kinstr lv ~with_alarms =
     Valarms.start_stmt kinstr;

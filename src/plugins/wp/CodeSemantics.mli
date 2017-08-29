@@ -37,40 +37,37 @@
 
 open Cil_types
 open Ctypes
-open Lang.F
 
 module Make(M : Memory.Model) :
 sig
 
-  open M
-
   type loc = M.loc
   type value = loc Memory.value
-  type sigma = Sigma.t
+  type sigma = M.Sigma.t
 
-  val cval : value -> term
+  val cval : value -> Lang.F.term
   val cloc : value -> loc
 
   val cast : typ -> typ -> value -> value
-  val equal_typ : typ -> value -> value -> pred
-  val equal_obj : c_object -> value -> value -> pred
+  val equal_typ : typ -> value -> value -> Lang.F.pred
+  val equal_obj : c_object -> value -> value -> Lang.F.pred
 
   val exp : sigma -> exp -> value
-  val cond : sigma -> exp -> pred
+  val cond : sigma -> exp -> Lang.F.pred
   val lval : sigma -> lval -> loc
 
   val call : sigma -> exp -> loc
   val loc_of_exp : sigma -> exp -> loc
-  val val_of_exp : sigma -> exp -> term
+  val val_of_exp : sigma -> exp -> Lang.F.term
 
-  val return : sigma -> typ -> exp -> term
+  val return : sigma -> typ -> exp -> Lang.F.term
 
-  val is_zero : sigma -> c_object -> loc -> pred
+  val is_zero : sigma -> c_object -> loc -> Lang.F.pred
   val is_exp_range :
-    sigma -> loc -> c_object -> term -> term ->
+    sigma -> loc -> c_object -> Lang.F.term -> Lang.F.term ->
     value option -> (** None means equal to zero/null *)
-    pred
+    Lang.F.pred
 
-  val instance_of : loc -> kernel_function -> pred
+  val instance_of : loc -> kernel_function -> Lang.F.pred
 
 end

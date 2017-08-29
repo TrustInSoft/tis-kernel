@@ -131,8 +131,10 @@ module Make(D: DATA) = struct
   let nth n t =
     try List.nth t.first n
     with Failure _ ->
-    try List.nth (List.rev t.last) (n - List.length t.first)
-    with Failure s -> invalid_arg s
+      begin
+        try List.nth (List.rev t.last) (n - List.length t.first)
+        with Failure s -> invalid_arg s
+      end
 
   let idx x t =
     let i = ref 0 in

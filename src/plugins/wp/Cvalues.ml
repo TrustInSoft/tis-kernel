@@ -39,7 +39,6 @@ open Cil_types
 open Ctypes
 open Qed
 open Lang
-open Lang.F
 open Memory
 open Definitions
 
@@ -47,20 +46,21 @@ open Definitions
 (* --- C Constants                                                        --- *)
 (* -------------------------------------------------------------------------- *)
 
-let ainf = Some e_zero
-let asup n = Some (e_int (n-1))
-let arange k n = p_and (p_leq e_zero k) (p_lt k (e_int n))
+let ainf = Some Lang.F.e_zero
+let asup n = Some (Lang.F.e_int (n-1))
+let arange k n =
+  Lang.F.p_and (Lang.F.p_leq Lang.F.e_zero k) (Lang.F.p_lt k (Lang.F.e_int n))
 
 let rec constant = function
-  | CInt64(z,_,_) -> e_bigint z
-  | CChr c -> e_int64 (Ctypes.char c)
+  | CInt64(z,_,_) -> Lang.F.e_bigint z
+  | CChr c -> Lang.F.e_int64 (Ctypes.char c)
   | CReal(f,_,_) -> Cfloat.code_lit f
   | CEnum e -> constant_exp e.eival
   | CStr _ | CWStr _ -> Warning.error "String constants not yet implemented"
 
 and logic_constant = function
-  | Integer(z,_) -> e_bigint z
-  | LChr c -> e_int64 (Ctypes.char c)
+  | Integer(z,_) -> Lang.F.e_bigint z
+  | LChr c -> Lang.F.e_int64 (Ctypes.char c)
   | LReal r -> Cfloat.acsl_lit r
   | LEnum e -> constant_exp e.eival
   | LStr _ | LWStr _ -> Warning.error "String constants not yet implemented"
@@ -97,9 +97,9 @@ sig
   val natural : bool
   (* natural: all types are constrained, but only with their natural values *)
   (* otherwize: only atomic types are constrained *)
-  val is_int : c_int -> term -> pred
-  val is_float : c_float -> term -> pred
-  val is_pointer : term -> pred
+  val is_int : c_int -> Lang.F.term -> Lang.F.pred
+  val is_float : c_float -> Lang.F.term -> Lang.F.pred
+  val is_pointer : Lang.F.term -> Lang.F.pred
 end
 
 module STRUCTURAL(C : CASES) =
@@ -134,13 +134,13 @@ struct
     | C_float f -> C.is_float f t
     | C_pointer _ty -> C.is_pointer t
     | C_comp c ->
-      if constrained_comp c then is_record c t else p_true
+      if constrained_comp c then is_record c t else Lang.F.p_true
     | C_array a ->
       if constrained_elt a.arr_element
       then
         let te,ds = Ctypes.array_dimensions a in
         is_array te ds t
-      else p_true
+      else Lang.F.p_true
 
   and is_typ typ t = is_obj (Ctypes.object_of typ) t
 
@@ -150,8 +150,11 @@ struct
       (fun lfun ->
          let basename = if c.cstruct then "S" else "U" in
          let s = Lang.freshvar ~basename (Lang.tau_of_comp c) in
-         let def = p_all
-             (fun f -> is_typ f.ftype (e_getfield (e_var s) (Lang.Cfield f)))
+         let def = Lang.F.p_all
+             (fun f ->
+                is_typ f.ftype
+                  (Lang.F.e_getfield
+                     (Lang.F.e_var s) (Lang.Cfield f)))
              c.cfields
          in {
            d_lfun = lfun ; d_types = 0 ; d_params = [s] ;
@@ -165,9 +168,14 @@ struct
       (Lang.generated_p (array_name te ds))
       (fun lfun ->
          let x = Lang.freshvar ~basename:"T" (Matrix.tau te ds) in
-         let ks = List.map (fun _d -> Lang.freshvar ~basename:"k" Logic.Int) ds in
-         let e = List.fold_left (fun a k -> e_get a (e_var k)) (e_var x) ks in
-         let def = p_forall ks (is_obj te e) in
+         let ks =
+           List.map (fun _d -> Lang.freshvar ~basename:"k" Logic.Int) ds
+         in
+         let e =
+           List.fold_left
+             (fun a k -> Lang.F.e_get a (Lang.F.e_var k)) (Lang.F.e_var x) ks
+         in
+         let def = Lang.F.p_forall ks (is_obj te e) in
          {
            d_lfun = lfun ; d_types = 0 ; d_params = [x] ;
            d_cluster = Definitions.matrix te ;
@@ -186,8 +194,8 @@ module NULL = STRUCTURAL
     (struct
       let prefix = "Null"
       let natural = true
-      let is_int _i = p_equal e_zero
-      let is_float _f = p_equal e_zero_real
+      let is_int _i = Lang.F.p_equal Lang.F.e_zero
+      let is_float _f = Lang.F.p_equal Lang.F.e_zero_real
       let is_pointer p = Context.get null p
     end)
 
@@ -199,7 +207,7 @@ module TYPE = STRUCTURAL
       let natural = false
       let is_int = Cint.range
       let is_float = Cfloat.range
-      let is_pointer _ = p_true
+      let is_pointer _ = Lang.F.p_true
     end)
 
 let has_ctype = TYPE.is_typ
@@ -207,10 +215,10 @@ let has_ctype = TYPE.is_typ
 let has_ltype ltype e =
   match Logic_utils.unroll_type ltype with
   | Ctype typ -> has_ctype typ e
-  | Ltype _ | Lvar _ | Linteger | Lreal | Larrow _ -> p_true
+  | Ltype _ | Lvar _ | Linteger | Lreal | Larrow _ -> Lang.F.p_true
 
 let is_object obj = function
-  | Loc _ -> p_true
+  | Loc _ -> Lang.F.p_true
   | Val e -> TYPE.is_obj obj e
 
 let cdomain typ =
@@ -242,12 +250,12 @@ module EQARRAY = Model.Generator(Matrix.NATURAL)
         let tau = Matrix.tau te ds in
         let xa = Lang.freshvar ~basename:"T" tau in
         let xb = Lang.freshvar ~basename:"T" tau in
-        let ta = e_var xa in
-        let tb = e_var xb in
-        let ta_xs = List.fold_left e_get ta denv.index_val in
-        let tb_xs = List.fold_left e_get tb denv.index_val in
-        let property = p_hyps (denv.index_range) (!s_eq te ta_xs tb_xs) in
-        let definition = p_forall denv.index_var property in
+        let ta = Lang.F.e_var xa in
+        let tb = Lang.F.e_var xb in
+        let ta_xs = List.fold_left Lang.F.e_get ta denv.index_val in
+        let tb_xs = List.fold_left Lang.F.e_get tb denv.index_val in
+        let property = Lang.F.p_hyps (denv.index_range) (!s_eq te ta_xs tb_xs) in
+        let definition = Lang.F.p_forall denv.index_var property in
         (* Definition of the symbol *)
         Definitions.define_symbol {
           d_lfun = lfun ; d_types = 0 ;
@@ -261,7 +269,7 @@ module EQARRAY = Model.Generator(Matrix.NATURAL)
 
 let rec equal_object obj a b =
   match obj with
-  | C_int _ | C_float _ | C_pointer _ -> p_equal a b
+  | C_int _ | C_float _ | C_pointer _ -> Lang.F.p_equal a b
   | C_array t ->
     equal_array (Matrix.of_array t) a b
   | C_comp c ->
@@ -276,13 +284,13 @@ and equal_comp c a b =
        let basename = if c.cstruct then "S" else "U" in
        let xa = Lang.freshvar ~basename (Lang.tau_of_comp c) in
        let xb = Lang.freshvar ~basename (Lang.tau_of_comp c) in
-       let ra = e_var xa in
-       let rb = e_var xb in
-       let def = p_all
+       let ra = Lang.F.e_var xa in
+       let rb = Lang.F.e_var xb in
+       let def = Lang.F.p_all
            (fun f ->
               let fd = Cfield f in
               equal_typ f.ftype
-                (e_getfield ra fd) (e_getfield rb fd))
+                (Lang.F.e_getfield ra fd) (Lang.F.e_getfield rb fd))
            c.cfields
        in {
          d_lfun = lfun ; d_types = 0 ; d_params = [xa;xb] ;
@@ -293,8 +301,8 @@ and equal_comp c a b =
 
 and equal_array m a b =
   match m with
-  | _obj , [None] -> p_equal a b
-  | _ -> p_call (EQARRAY.get m) (Matrix.size m @ [a;b])
+  | _obj , [None] -> Lang.F.p_equal a b
+  | _ -> Lang.F.p_call (EQARRAY.get m) (Matrix.size m @ [a;b])
 
 let () = s_eq := equal_object
 
@@ -329,15 +337,15 @@ let plain lt e =
 (* --- Int-As-Boolans                                                     --- *)
 (* -------------------------------------------------------------------------- *)
 
-let bool_eq a b = e_if (e_eq a b) e_one e_zero
-let bool_lt a b = e_if (e_lt a b) e_one e_zero
-let bool_neq a b = e_if (e_eq a b) e_zero e_one
-let bool_leq a b = e_if (e_leq a b) e_one e_zero
-let bool_and a b = e_and [e_neq a e_zero ; e_neq b e_zero]
-let bool_or  a b = e_or  [e_neq a e_zero ; e_neq b e_zero]
-let bool_val e = e_if e e_one e_zero
-let is_true p = e_if (e_prop p) e_one e_zero
-let is_false p = e_if (e_prop p) e_zero e_one
+let bool_eq a b = Lang.F.e_if (Lang.F.e_eq a b) Lang.F.e_one Lang.F.e_zero
+let bool_lt a b = Lang.F.e_if (Lang.F.e_lt a b) Lang.F.e_one Lang.F.e_zero
+let bool_neq a b = Lang.F.e_if (Lang.F.e_eq a b) Lang.F.e_zero Lang.F.e_one
+let bool_leq a b = Lang.F.e_if (Lang.F.e_leq a b) Lang.F.e_one Lang.F.e_zero
+let bool_and a b = Lang.F.e_and Lang.F.[e_neq a e_zero ; e_neq b e_zero]
+let bool_or  a b = Lang.F.e_or Lang.F.[e_neq a e_zero ; e_neq b e_zero]
+let bool_val e = Lang.F.e_if e Lang.F.e_one Lang.F.e_zero
+let is_true p = Lang.F.e_if (Lang.F.e_prop p) Lang.F.e_one Lang.F.e_zero
+let is_false p = Lang.F.e_if (Lang.F.e_prop p) Lang.F.e_zero Lang.F.e_one
 
 (* -------------------------------------------------------------------------- *)
 (* --- Lifting Memory Model to Values                                     --- *)
@@ -372,15 +380,15 @@ struct
     | Lset _ -> Warning.error "T-Set of regions not yet implemented"
 
   let rdescr = function
-    | Sloc l -> [],l,p_true
+    | Sloc l -> [],l,Lang.F.p_true
     | Sdescr(xs,l,p) -> xs,l,p
     | Sarray(l,obj,n) ->
       let x = Lang.freshvar ~basename:"k" Logic.Int in
-      let k = e_var x in
+      let k = Lang.F.e_var x in
       [x],M.shift l obj k,arange k n
     | Srange(l,obj,a,b) ->
       let x = Lang.freshvar ~basename:"k" Logic.Int in
-      let k = e_var x in
+      let k = Lang.F.e_var x in
       [x],M.shift l obj k,Vset.in_range k a b
 
   let vset_of_sloc sloc =
@@ -432,11 +440,11 @@ struct
       Vset (f2 (vset a) (vset b))
 
   let map f = map_lift f (Vset.map f)
-  let map_opp = map_lift e_opp Vset.map_opp
+  let map_opp = map_lift Lang.F.e_opp Vset.map_opp
 
   let apply f = apply_lift f (Vset.lift f)
-  let apply_add = apply_lift e_add Vset.lift_add
-  let apply_sub = apply_lift e_sub Vset.lift_sub
+  let apply_add = apply_lift Lang.F.e_add Vset.lift_add
+  let apply_sub = apply_lift Lang.F.e_sub Vset.lift_sub
 
   let map_loc f lv =
     if is_single lv then Vloc (f (loc lv))
@@ -479,19 +487,19 @@ struct
         | Vset.Singleton _ | Vset.Set _ -> kset
         | Vset.Range(a,b) ->
           let cap l = function None -> Some l | u -> u in
-          Vset.Range(cap e_zero a,cap (e_int (s-1)) b)
+          Vset.Range(cap Lang.F.e_zero a,cap (Lang.F.e_int (s-1)) b)
         | Vset.Descr(xs,k,p) ->
-          let a = e_zero in
-          let b = e_int s in
-          Vset.Descr(xs,k,p_conj [p_leq a k;p_lt k b;p])
+          let a = Lang.F.e_zero in
+          let b = Lang.F.e_int s in
+          Vset.Descr(xs,k,Lang.F.p_conj [Lang.F.p_leq a k;Lang.F.p_lt k b;p])
       else kset
 
   let is_ainf = function
-    | Some e -> e == e_zero
+    | Some e -> e == Lang.F.e_zero
     | None -> false
 
   let is_asup n = function
-    | Some e -> e == e_int (n-1)
+    | Some e -> e == Lang.F.e_int (n-1)
     | None -> false
 
   let srange loc obj size a b =
@@ -524,7 +532,7 @@ struct
       | _ ->
         let xs,l,p = rdescr sloc in
         let ys,k,q = Vset.descr kset in
-        Sdescr( xs @ ys , M.shift l obj k , p_and p q )
+        Sdescr( xs @ ys , M.shift l obj k , Lang.F.p_and p q )
 
   let shift lv obj ?size kv =
     if is_single kv then
@@ -631,7 +639,9 @@ struct
                   let ys,l2,p2 = rdescr s2 in
                   let se1 = Rloc(obj1,l1) in
                   let se2 = Rloc(obj2,l2) in
-                  p_forall (xs@ys) (p_hyps [p1;p2] (M.separated se1 se2))
+                  Lang.F.p_forall
+                    (xs@ys)
+                    (Lang.F.p_hyps [p1;p2] (M.separated se1 se2))
               in cond::w
            ) w sloc2
       ) w sloc1
@@ -647,7 +657,7 @@ struct
   let separated regions =
     (* forall i<j, (tau_i,R_i)#(tau_j,R_j) *)
     (* forall i<j, forall p in R_j, forall q in R_j, p#q *)
-    p_conj (separated_regions [] regions)
+    Lang.F.p_conj (separated_regions [] regions)
 
   (* -------------------------------------------------------------------------- *)
   (* --- Included                                                           --- *)
@@ -660,10 +670,13 @@ struct
       let ys,l2,p2 = rdescr s2 in
       let se1 = Rloc(obj1,l1) in
       let se2 = Rloc(obj2,l2) in
-      p_forall xs (p_imply p1 (p_exists ys (p_and p2 (M.included se1 se2))))
+      Lang.F.p_forall xs
+        (Lang.F.p_imply p1
+           (Lang.F.p_exists ys (Lang.F.p_and p2 (M.included se1 se2))))
 
   let included obj1 r1 obj2 r2 =
-    p_all (fun s1 -> p_any (fun s2 -> included_sloc obj1 s1 obj2 s2) r2) r1
+    Lang.F.p_all
+      (fun s1 -> Lang.F.p_any (fun s2 -> included_sloc obj1 s1 obj2 s2) r2) r1
 
   (* -------------------------------------------------------------------------- *)
   (* --- Valid                                                              --- *)
@@ -673,9 +686,10 @@ struct
     | Sloc l -> M.valid sigma acs (Rloc(obj,l))
     | Sarray(l,t,n) -> M.valid sigma acs (Rrange(l,t,ainf,asup n))
     | Srange(l,t,a,b) -> M.valid sigma acs (Rrange(l,t,a,b))
-    | Sdescr(xs,l,p) -> p_forall xs (p_imply p (M.valid sigma acs (Rloc(obj,l))))
+    | Sdescr(xs,l,p) ->
+      Lang.F.p_forall xs (Lang.F.p_imply p (M.valid sigma acs (Rloc(obj,l))))
 
-  let valid sigma acs obj = p_all (valid_sloc sigma acs obj)
+  let valid sigma acs obj = Lang.F.p_all (valid_sloc sigma acs obj)
 
   (* -------------------------------------------------------------------------- *)
   (* --- Subset                                                             --- *)

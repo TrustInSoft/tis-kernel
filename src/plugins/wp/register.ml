@@ -87,8 +87,8 @@ let wp_iter_model ?ip ?index job =
     let pool : Models.t Fmap.t ref = ref Fmap.empty in
     Wpo.iter ?ip ?index ~on_goal:(fun wpo ->
         match Wpo.get_index wpo with
-        | Wpo.Axiomatic _ -> ()
-        | Wpo.Function(kf,_) ->
+        | Wpo.IAxiomatic _ -> ()
+        | Wpo.IFunction (kf, _) ->
           let m = Wpo.get_model wpo in
           let ms = try Fmap.find kf !pool with Not_found -> Models.empty in
           if not (Models.mem m ms) then

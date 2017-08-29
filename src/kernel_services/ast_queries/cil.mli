@@ -1078,7 +1078,7 @@ val removeAttribute: string -> unit
 (** Remove an attribute previously registered. *)
 
 val attributeClass: string -> attributeClass
-(** Return the class of an attributes. *)
+(** Return the class of an attribute. *)
 
 (** Partition the attributes into classes:name attributes and type attributes *)
 val partitionAttributes:  default:attributeClass ->

@@ -659,7 +659,8 @@ let do_compute_call kf ~recursive ~call_kinstr state actuals ~call_node () =
             Kernel_function.pretty kf_clone
       in
       set_caller kf_clone;
-      compute_non_recursive_call kf_clone ~call_kinstr state actuals ~call_node
+      compute_non_recursive_call
+        kf_clone ~call_kinstr state actuals ~call_node
     else begin
       set_caller kf;
       compute_recursive_call kf ~call_kinstr state actuals

@@ -255,6 +255,8 @@ module WarnDecimalFloat: Parameter_sig.String
 module ImplicitFunctionDeclaration: Parameter_sig.String
 (** Behavior of option "-implicit-function-declaration" *)
 
+module Language: Parameter_sig.String
+(** Behavior of option "-language" *)
 
 (* ************************************************************************* *)
 (** {3 Customizing cabs2cil options} *)

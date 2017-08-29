@@ -33,7 +33,7 @@
 
 (* Modules [Hashtbl] and [Kernel] are not usable here. Thus use above modules
    instead. *)
-module Output = Project_skeleton.Output
+
 
 (**************************************************************************)
 (** {2 Datatype} *)

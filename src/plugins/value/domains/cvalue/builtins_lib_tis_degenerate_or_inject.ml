@@ -34,7 +34,8 @@ let tis_degenerate_or_inject state actuals =
     begin match actuals with
       | [] ->
         let v = Cvalue.V.inject_int (Integer.of_int v_to_inject) in
-        { Value_types.c_values = [ Value_types.StateOnly(Eval_op.wrap_int v, state) ];
+        { Value_types.c_values =
+            [ Value_types.StateOnly(Eval_op.wrap_int v, state) ];
           c_clobbered = Base.SetLattice.bottom;
           c_cacheable = Value_types.Cacheable;
           c_from = None; (* TODO?*)
@@ -43,7 +44,8 @@ let tis_degenerate_or_inject state actuals =
       | _ -> raise Db.Value.Outside_builtin_possibilities
     end
 
-let () = Builtins.register_builtin "tis_degenerate_or_inject" tis_degenerate_or_inject
+let () =
+  Builtins.register_builtin "tis_degenerate_or_inject" tis_degenerate_or_inject
 
 (*
   Local Variables:

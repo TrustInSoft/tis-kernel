@@ -33,7 +33,6 @@
 
 open Cil_types
 open Cil_datatype
-open Locations
 open Abstract_interp
 open Cvalue
 open Bit_utils
@@ -342,26 +341,26 @@ let infer_binop_res_type op targ =
   | Lt | Gt | Le | Ge | Eq | Ne | LAnd | LOr ->
     Cil.intType (* those operators always return a boolean *)
 
-type logic_deps = Zone.t Logic_label.Map.t
+type logic_deps = Locations.Zone.t Logic_label.Map.t
 
 let deps_at lbl (ld:logic_deps) =
   try Logic_label.Map.find lbl ld
-  with Not_found -> Zone.bottom
+  with Not_found -> Locations.Zone.bottom
 
 let add_deps lbl ldeps deps : logic_deps =
   let prev_deps = deps_at lbl ldeps in
-  let deps = Zone.join prev_deps deps in
+  let deps = Locations.Zone.join prev_deps deps in
   Logic_label.Map.add lbl deps ldeps
 
 let join_logic_deps (ld1:logic_deps) (ld2: logic_deps) : logic_deps =
   let aux _ d1 d2 = match d1, d2 with
     | None as d, None | (Some _ as d), None | None, (Some _ as d) -> d
-    | Some d1, Some d2 -> Some (Zone.join d1 d2)
+    | Some d1, Some d2 -> Some (Locations.Zone.join d1 d2)
   in
   Logic_label.Map.merge aux ld1 ld2
 
 let empty_logic_deps =
-  Logic_label.Map.add lbl_here Zone.bottom Logic_label.Map.empty
+  Logic_label.Map.add lbl_here Locations.Zone.bottom Logic_label.Map.empty
 
 
 (* Type holding the result of an evaluation. Currently, 'a is either
@@ -500,22 +499,22 @@ let rec eval_term ~with_alarms env t =
     let r = eval_thost_toffset ~with_alarms env thost toffs in
     { etype = TPtr (r.etype, []);
       ldeps = r.ldeps;
-      eunder = loc_bits_to_loc_bytes_under r.eunder;
-      eover = loc_bits_to_loc_bytes r.eover }
+      eunder = Locations.loc_bits_to_loc_bytes_under r.eunder;
+      eover = Locations.loc_bits_to_loc_bytes r.eover }
 
   | TStartOf (thost, toffs) ->
     let r = eval_thost_toffset ~with_alarms env thost toffs in
     { etype = TPtr (Cil.typeOf_array_elem r.etype, []);
       ldeps = r.ldeps;
-      eunder = loc_bits_to_loc_bytes_under r.eunder;
-      eover = loc_bits_to_loc_bytes r.eover }
+      eunder = Locations.loc_bits_to_loc_bytes_under r.eunder;
+      eover = Locations.loc_bits_to_loc_bytes r.eover }
 
   | TLval _ ->
     let lval = eval_tlval ~with_alarms env t in
     let typ = lval.etype in
     let size = Eval_typ.sizeof_lval_typ typ in
     let state = env_current_state env in
-    let eover_loc = make_loc lval.eover size in
+    let eover_loc = Locations.make_loc lval.eover size in
     let eover = Eval_op.find ~with_alarms state eover_loc in
     let eover = Eval_op.make_volatile ~typ eover in
     let eover = Eval_op.reinterpret ~with_alarms typ eover in
@@ -523,7 +522,7 @@ let rec eval_term ~with_alarms env t =
     let deps =
       if Cvalue.Model.is_reachable state then
         add_deps env.e_cur empty_logic_deps
-          (enumerate_valid_bits ~for_writing:false eover_loc)
+          (Locations.enumerate_valid_bits ~for_writing:false eover_loc)
       else empty_logic_deps
     in
 
@@ -742,7 +741,9 @@ let rec eval_term ~with_alarms env t =
   | Toffset (_lbl, t) ->
     let r = eval_term ~with_alarms env t in
     let add_offset _ offs acc = Ival.join offs acc in
-    let offs = Location_Bytes.fold_topset_ok add_offset r.eover Ival.bottom in
+    let offs =
+      Locations.Location_Bytes.fold_topset_ok add_offset r.eover Ival.bottom
+    in
     let eover = Cvalue.V.inject_ival offs in
     { etype = Cil.intType;
       ldeps = r.ldeps;
@@ -752,7 +753,7 @@ let rec eval_term ~with_alarms env t =
   | Tbase_addr (_lbl, t) ->
     let r = eval_term ~with_alarms env t in
     let add_base b acc = V.join acc (V.inject b Ival.zero) in
-    let eover = Location_Bytes.fold_bases add_base r.eover V.bottom in
+    let eover = Locations.Location_Bytes.fold_bases add_base r.eover V.bottom in
     { etype = Cil.charPtrType;
       ldeps = r.ldeps;
       eover;
@@ -766,8 +767,10 @@ let rec eval_term ~with_alarms env t =
            frontiers are always 0 or 8*k-1 (because validity is in bits and
            starts on zero), so we add 1 everywhere, then divide by eight. *)
         let convert start_bits end_bits =
-          let congr_succ i = Int.(equal zero (rem (succ i) eight)) in
-          let congr_or_zero i = Int.(equal zero i || congr_succ i) in
+          let congr_succ i =
+            Int.equal Int.zero (Int.rem (Int.succ i) Int.eight)
+          in
+          let congr_or_zero i = Int.equal Int.zero i || congr_succ i in
           assert (congr_or_zero start_bits || congr_or_zero end_bits);
           let start_bytes = Int.(pos_div (Int.succ start_bits) eight) in
           let end_bytes =   Int.(pos_div (Int.succ end_bits)   eight) in
@@ -784,7 +787,9 @@ let rec eval_term ~with_alarms env t =
       in
       Ival.join acc bl
     in
-    let bl = Location_Bytes.fold_bases add_block_length r.eover Ival.bottom in
+    let bl =
+      Locations.Location_Bytes.fold_bases add_block_length r.eover Ival.bottom
+    in
     let eover = V.inject_ival bl in
     { etype = Cil.charPtrType;
       ldeps = r.ldeps;
@@ -860,7 +865,7 @@ and eval_binop ~with_alarms env op t1 t2 =
 and eval_tlhost ~with_alarms env lv =
   match lv with
   | TVar { lv_origin = Some v; _ } ->
-    let loc = Location_Bits.inject (Base.of_varinfo v) Ival.zero in
+    let loc = Locations.Location_Bits.inject (Base.of_varinfo v) Ival.zero in
     { etype = v.vtype;
       ldeps = empty_logic_deps;
       eover = loc;
@@ -868,7 +873,7 @@ and eval_tlhost ~with_alarms env lv =
   | TResult typ ->
     begin match env.result with
       | Some v ->
-        let loc = Location_Bits.inject (Base.of_varinfo v) Ival.zero in
+        let loc = Locations.Location_Bits.inject (Base.of_varinfo v) Ival.zero in
         { etype = typ;
           ldeps = empty_logic_deps;
           eunder = loc; eover = loc }
@@ -876,7 +881,7 @@ and eval_tlhost ~with_alarms env lv =
     end
   | TVar ({ lv_origin = None; _ } as tlv) ->
     let b, ty = supported_logic_var tlv in
-    let loc = Location_Bits.inject b Ival.zero in
+    let loc = Locations.Location_Bits.inject b Ival.zero in
     { etype = ty;
       ldeps = empty_logic_deps;
       eover = loc;
@@ -890,8 +895,8 @@ and eval_tlhost ~with_alarms env lv =
     in
     { etype = tres;
       ldeps = r.ldeps;
-      eunder = loc_bytes_to_loc_bits r.eunder;
-      eover = loc_bytes_to_loc_bits r.eover }
+      eunder = Locations.loc_bytes_to_loc_bits r.eunder;
+      eover = Locations.loc_bytes_to_loc_bits r.eover }
 
 and eval_toffset ~with_alarms env typ toffset =
   match toffset with
@@ -954,8 +959,8 @@ and eval_thost_toffset ~with_alarms env thost toffs =
   let roffset = eval_toffset ~with_alarms env rhost.etype toffs in
   { etype = roffset.etype;
     ldeps = join_logic_deps rhost.ldeps roffset.ldeps;
-    eunder = Location_Bits.shift_under roffset.eunder rhost.eunder;
-    eover = Location_Bits.shift roffset.eover rhost.eover;
+    eunder = Locations.Location_Bits.shift_under roffset.eunder rhost.eunder;
+    eover = Locations.Location_Bits.shift roffset.eover rhost.eover;
   }
 
 and eval_tlval ~with_alarms env t =
@@ -963,13 +968,16 @@ and eval_tlval ~with_alarms env t =
   | TLval (thost, toffs) ->
     eval_thost_toffset ~with_alarms env thost toffs
   | Tunion l ->
-    let eunder, eover, deps = List.fold_left
+    let eunder, eover, deps =
+      List.fold_left
         (fun (accunder, accover, accdeps) t ->
            let r = eval_tlval ~with_alarms env t in
-           Location_Bits.link accunder r.eunder,
-           Location_Bits.join accover r.eover,
-           join_logic_deps accdeps r.ldeps
-        ) (Location_Bits.top, Location_Bits.bottom, empty_logic_deps) l
+           Locations.Location_Bits.link accunder r.eunder,
+           Locations.Location_Bits.join accover r.eover,
+           join_logic_deps accdeps r.ldeps)
+        (Locations.Location_Bits.top,
+         Locations.Location_Bits.bottom, empty_logic_deps)
+        l
     in
     { etype = infer_type t.term_type;
       ldeps = deps;
@@ -977,8 +985,8 @@ and eval_tlval ~with_alarms env t =
   | Tempty_set ->
     { etype = infer_type t.term_type;
       ldeps = empty_logic_deps;
-      eunder = Location_Bits.bottom;
-      eover = Location_Bits.bottom }
+      eunder = Locations.Location_Bits.bottom;
+      eover = Locations.Location_Bits.bottom }
   | Tat (t, lab) ->
     eval_tlval ~with_alarms { env with e_cur = lab } t
   | TLogic_coerce (_lt, t) ->
@@ -990,20 +998,26 @@ and eval_tlval ~with_alarms env t =
 let eval_tlval_as_location ~with_alarms env t =
   let r = eval_tlval ~with_alarms env t in
   let s = Eval_typ.sizeof_lval_typ r.etype in
-  make_loc r.eover s
+  Locations.make_loc r.eover s
 
 let eval_tlval_as_location_with_deps ~with_alarms env t =
   let r = eval_tlval ~with_alarms env t in
   let s = Eval_typ.sizeof_lval_typ r.etype in
-  (make_loc r.eover s, r.ldeps)
+  (Locations.make_loc r.eover s, r.ldeps)
 
 
 (* Return a pair of (under-approximating, over-approximating) zones. *)
 let eval_tlval_as_zone_under_over ~with_alarms ~for_writing env t =
   let r = eval_tlval ~with_alarms env t in
   let s = Eval_typ.sizeof_lval_typ r.etype in
-  let under = enumerate_valid_bits_under ~for_writing (make_loc r.eunder s) in
-  let over = enumerate_valid_bits ~for_writing (make_loc r.eover s) in
+  let under =
+    Locations.enumerate_valid_bits_under
+      ~for_writing
+      (Locations.make_loc r.eunder s)
+  in
+  let over =
+    Locations.enumerate_valid_bits ~for_writing (Locations.make_loc r.eover s)
+  in
   (under, over)
 
 let eval_tlval_as_zone ~with_alarms ~for_writing env t =
@@ -1186,8 +1200,8 @@ and reduce_by_predicate_content ~with_alarms env positive p_content =
           let fred = Eval_op.reduce_by_initialized_defined (fred positive)
           in
           let state_reduced =
-            let loc_bits = loc_bytes_to_loc_bits rlocb.eunder in
-            let loc = make_loc loc_bits size in
+            let loc_bits = Locations.loc_bytes_to_loc_bits rlocb.eunder in
+            let loc = Locations.make_loc loc_bits size in
             let loc = Eval_op.make_loc_contiguous loc in
             Eval_op.apply_on_all_locs fred loc state
           in
@@ -1285,28 +1299,32 @@ and reduce_by_valid ~with_alarms env positive ~for_writing (tset: term) =
      example if offset is a field access. *)
   let aux lv env (offs_typ, offs) =
     try
-      if not (Location_Bits.cardinal_zero_or_one lv.eover) ||
+      if not (Locations.Location_Bits.cardinal_zero_or_one lv.eover) ||
          not (Ival.cardinal_zero_or_one offs)
       then raise DoNotReduce;
       let state = env_current_state env in
-      let lvloc = make_loc lv.eover (Eval_typ.sizeof_lval_typ lv.etype) in
+      let lvloc =
+        Locations.make_loc lv.eover (Eval_typ.sizeof_lval_typ lv.etype)
+      in
       (* [p] is the range that we attempt to reduce *)
       let p_orig = Eval_op.find ~with_alarms state lvloc in
       let pb = Locations.loc_bytes_to_loc_bits p_orig in
-      let shifted_p = Location_Bits.shift offs pb in
-      let lshifted_p = make_loc shifted_p (Eval_typ.sizeof_lval_typ offs_typ) in
+      let shifted_p = Locations.Location_Bits.shift offs pb in
+      let lshifted_p =
+        Locations.make_loc shifted_p (Eval_typ.sizeof_lval_typ offs_typ)
+      in
       let valid = (* reduce the shifted pointer to the wanted part *)
         if positive
         then Locations.valid_part ~for_writing lshifted_p
         else Locations.invalid_part lshifted_p
       in
-      let valid = valid.loc in
-      if Location_Bits.equal shifted_p valid
+      let valid = valid.Locations.loc in
+      if Locations.Location_Bits.equal shifted_p valid
       then env
       else
         (* Shift back *)
         let shift = Ival.neg_int offs in
-        let pb = Location_Bits.shift shift valid in
+        let pb = Locations.Location_Bits.shift shift valid in
         let p = Locations.loc_bits_to_loc_bytes pb in
         (* Store the result *)
         let state = Model.reduce_previous_binding state lvloc p in
@@ -1348,7 +1366,9 @@ and reduce_by_valid ~with_alarms env positive ~for_writing (tset: term) =
       begin
         try
           let r = eval_tlval ~with_alarms env t in
-          let loc = make_loc r.eunder (Eval_typ.sizeof_lval_typ r.etype) in
+          let loc =
+            Locations.make_loc r.eunder (Eval_typ.sizeof_lval_typ r.etype)
+          in
           Eval_op.apply_on_all_locs (aux r.etype) loc env
         with LogicEvalError ee ->
           display_evaluation_error ee;
@@ -1522,20 +1542,20 @@ let eval_predicate env pred =
           let size = Eval_typ.sizeof_lval_typ typ_pointed in
           (* Check that the given location is valid *)
           let valid ~over:locbytes_over ~under:locbytes_under =
-            let loc = loc_bytes_to_loc_bits locbytes_over in
+            let loc = Locations.loc_bytes_to_loc_bits locbytes_over in
             let loc = Locations.make_loc loc size in
             if not (Locations.is_valid ~for_writing loc) then begin
               (* \valid does not hold if the over-approximation is invalid
                  everywhere, or if a part of the under-approximation is invalid
               *)
-              let valid = valid_part ~for_writing loc in
+              let valid = Locations.valid_part ~for_writing loc in
               if Locations.is_bottom_loc valid then raise Stop;
-              let loc_under = loc_bytes_to_loc_bits locbytes_under in
+              let loc_under = Locations.loc_bytes_to_loc_bits locbytes_under in
               let loc_under = Locations.make_loc loc_under size in
               let valid_loc_under =
                 Locations.valid_part ~for_writing loc_under
               in
-              if not (Location.equal loc_under valid_loc_under) then
+              if not (Locations.Location.equal loc_under valid_loc_under) then
                 raise Stop;
               raise DoNotReduce (* In any case *)
             end
@@ -1592,9 +1612,9 @@ let eval_predicate env pred =
           if not (Cil.isPointerType typ) then
             ast_error "\\initialized or \\dangling on \
                        incorrect location";
-          let locbi = loc_bytes_to_loc_bits locb.eover in
+          let locbi = Locations.loc_bytes_to_loc_bits locb.eover in
           let size = sizeof_pointed typ in
-          let loc = make_loc locbi size in
+          let loc = Locations.make_loc locbi size in
           let alarm, value = Model.find_unspecified state loc in
           if alarm then c_alarm ();
           let translate =
@@ -1603,7 +1623,8 @@ let eval_predicate env pred =
               (function
                 | V_Or_Uninitialized.C_uninit_esc _ -> Unknown
                 | V_Or_Uninitialized.C_uninit_noesc v ->
-                  if Location_Bytes.is_bottom v then False else Unknown
+                  if Locations.Location_Bytes.is_bottom v then False
+                  else Unknown
                 | V_Or_Uninitialized.C_init_esc _
                 | V_Or_Uninitialized.C_init_noesc _ -> True)
             (*         | Pdangling _ ->  TODO: handle Palive
@@ -1622,8 +1643,8 @@ let eval_predicate env pred =
               let _, value = Model.find_unspecified state loc in
               if translate value = False then raise DefinitelyFalse
             in
-            let loc_bits = loc_bytes_to_loc_bits locb.eunder in
-            let loc = make_loc loc_bits size in
+            let loc_bits = Locations.loc_bytes_to_loc_bits locb.eunder in
+            let loc = Locations.make_loc loc_bits size in
             let loc = Eval_op.make_loc_contiguous loc in
             try
               Eval_op.apply_on_all_locs check loc ();
@@ -1675,8 +1696,8 @@ let eval_predicate env pred =
            if not (Cil.isPointerType typ)
            then ast_error "separated on non-pointers";
            let size = sizeof_pointed typ in
-           let loc_over = loc_bytes_to_loc_bits rtset.eover in
-           let loc_under = loc_bytes_to_loc_bits rtset.eunder in
+           let loc_over = Locations.loc_bytes_to_loc_bits rtset.eover in
+           let loc_under = Locations.loc_bytes_to_loc_bits rtset.eunder in
            Locations.enumerate_bits (Locations.make_loc loc_over size),
            Locations.enumerate_bits_under (Locations.make_loc loc_under size)
          in
@@ -1685,9 +1706,9 @@ let eval_predicate env pred =
          (* Are those two lists of locations separated? *)
          let do_two (z1, zu1) l2 =
            let combine (z2, zu2) =
-             if Zone.intersects z1 z2 then begin
+             if Locations.Zone.intersects z1 z2 then begin
                unknown := true;
-               if Zone.intersects zu1 zu2 then raise Exit;
+               if Locations.Zone.intersects zu1 zu2 then raise Exit;
              end
            in
            List.iter combine l2
@@ -1782,7 +1803,7 @@ let predicate_deps env pred =
     | Pinitialized (lbl, tsets) | Pdangling (lbl, tsets) ->
       let loc, deploc =
         eval_tlval_as_location_with_deps ~with_alarms env tsets in
-      let zone = enumerate_valid_bits ~for_writing:false loc in
+      let zone = Locations.enumerate_valid_bits ~for_writing:false loc in
       Logic_label.Map.add lbl zone deploc
 
     | Pnot p -> do_eval env p
@@ -1867,7 +1888,9 @@ let () =
        try
          let r= eval_tlval ~with_alarms env t in
          let s = Eval_typ.sizeof_lval_typ r.etype in
-         make_loc r.eunder s, make_loc r.eover s, deps_at lbl_here r.ldeps
+         Locations.make_loc r.eunder s,
+         Locations.make_loc r.eover s,
+         deps_at lbl_here r.ldeps
        with LogicEvalError _ -> raise Db.Properties.Interp.No_conversion
     );
 

@@ -138,7 +138,9 @@ module Location_Bytes = struct
     Top(Base.SetLattice.top, origin)
 
   let inject_top_origin o b =
-    if Base.Hptset.(equal b empty || equal b Base.null_set) then
+    if Base.Hptset.equal b Base.Hptset.empty ||
+       Base.Hptset.equal b Base.null_set
+    then
       top_int
     else
       Top (Base.SetLattice.inject (Base.Hptset.add Base.null b), o)
@@ -435,7 +437,7 @@ let reduce_offset_by_validity ~for_writing ?(bitfield=true) base offsets size =
   else
     match Base.validity base, size with
     | Base.Empty, _ ->
-      if Int_Base.(compare size zero) > 0 then Ival.bottom else Ival.zero
+      if Int_Base.compare size Int_Base.zero > 0 then Ival.bottom else Ival.zero
     | Base.Invalid, _ -> Ival.bottom
     | _, Int_Base.Top -> offsets
     | (Base.Known (minv,maxv) | Base.Unknown (minv,_,maxv)),

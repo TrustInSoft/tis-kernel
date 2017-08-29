@@ -531,7 +531,7 @@ let rec find_offset typ ~offset om =
     match Cil.unrollType typ with
     | TArray (typ_elt, _, _, _) ->
       let size_elt = Integer.of_int (Cil.bitsSizeOf typ_elt) in
-      if Integer.(equal size_elt zero) then
+      if Integer.equal size_elt Integer.zero then
         begin
           (* array of elements of size 0 - trying to recompute the original
              offset in the case of multidimensional incomplete arrays is

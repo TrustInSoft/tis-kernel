@@ -26,7 +26,12 @@ exception Abort_to_top
          to avoid a forward reference. *)
 open Strlen
 
-let abstract_strlen ~character_bits ~max ~(emit_alarm : strlen_alarm_context) str state =
+let abstract_strlen
+    ~character_bits
+    ~max
+    ~(emit_alarm : strlen_alarm_context)
+    str
+    state =
   (* Checks whether the call to strlen would provoke a rte:
      Calls emit_alarm (e.g. to emit \valid_string(...)) if anything at all
      is wrong.
@@ -186,7 +191,8 @@ let tis_strlen ~str_or_wcs state actuals =
     in
     if Ival.is_bottom value
     then
-      { Value_types.c_values = [ Value_types.StateOnly(None, Cvalue.Model.bottom) ];
+      { Value_types.c_values =
+          [ Value_types.StateOnly(None, Cvalue.Model.bottom) ];
         c_clobbered = Base.SetLattice.bottom;
         c_cacheable = Value_types.Cacheable;
         c_from = None; (* TODO?*)
@@ -194,7 +200,8 @@ let tis_strlen ~str_or_wcs state actuals =
       }
     else
       { Value_types.c_values =
-          [ Value_types.StateOnly(Eval_op.wrap_size_t (V.inject_ival value), state) ];
+          [ Value_types.StateOnly
+              (Eval_op.wrap_size_t (V.inject_ival value), state) ];
         c_clobbered = Base.SetLattice.bottom;
         c_cacheable = Value_types.Cacheable;
         c_from = None; (* TODO?*)
@@ -224,7 +231,10 @@ let tis_strnlen ~str_or_wcs state actuals =
       if !notyet_invalid_string
       then begin
         notyet_invalid_string := false;
-        Value_parameters.warning ~once:true ~current:true "assert (string valid up to n)";
+        Value_parameters.warning
+          ~once:true
+          ~current:true
+          "assert (string valid up to n)";
       end
     in
     {strlen_alarm_invalid_string = emit_alarm_invalid_string}
@@ -237,11 +247,15 @@ let tis_strnlen ~str_or_wcs state actuals =
       Value_parameters.warning ~once:true ~current:true
         "assert(no address in second argument of strnlen)";
     let max = match Ival.max_int n with Some m -> m | None -> str_infinity in
-    Aux.additional_ptr_validity_check_for_size_zero ~for_writing:false ~size actual;
+    Aux.additional_ptr_validity_check_for_size_zero
+      ~for_writing:false
+      ~size
+      actual;
     let value = abstract_strlen ~character_bits ~max ~emit_alarm str state in
     if Ival.is_bottom value
     then
-      { Value_types.c_values = [ Value_types.StateOnly(None, Cvalue.Model.bottom) ];
+      { Value_types.c_values =
+          [ Value_types.StateOnly(None, Cvalue.Model.bottom) ];
         c_clobbered = Base.SetLattice.bottom;
         c_cacheable = Value_types.Cacheable;
         c_from = None; (* TODO?*)
@@ -255,7 +269,8 @@ let tis_strnlen ~str_or_wcs state actuals =
          which are less than the greater value of [value] *)
       let value = Ival.join value (Ival.narrow rangevalue n) in
       { Value_types.c_values =
-          [ Value_types.StateOnly(Eval_op.wrap_size_t (V.inject_ival value), state) ];
+          [ Value_types.StateOnly
+              (Eval_op.wrap_size_t (V.inject_ival value), state) ];
         c_clobbered = Base.SetLattice.bottom;
         c_cacheable = Value_types.Cacheable;
         c_from = None; (* TODO?*)

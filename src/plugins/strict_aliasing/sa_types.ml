@@ -379,14 +379,13 @@ module EffectiveType = struct
 end
 
 open SimpleType
-open EffectiveType
 
 
 (* DEFAULT VALUES *)
 
-let top = Top
-let bottom = EffectiveType SimpleTypeSet.empty
-let may_alias = EffectiveType (SimpleTypeSet.singleton MayAlias)
+let top = EffectiveType.Top
+let bottom = EffectiveType.EffectiveType SimpleTypeSet.empty
+let may_alias = EffectiveType.EffectiveType (SimpleTypeSet.singleton MayAlias)
 let st_bool = IntegerType Bool
 let st_short = IntegerType Short
 let st_ushort = IntegerType UnsignedShort
@@ -408,28 +407,33 @@ let st_void = VoidType
 let st_ptr_char = PointerType st_char
 let st_first_access = FirstAccessType
 let st_va_list = VaList
-let et_bool = EffectiveType (SimpleTypeSet.singleton st_bool)
-let et_short = EffectiveType (SimpleTypeSet.singleton st_short)
-let et_int = EffectiveType (SimpleTypeSet.singleton st_int)
-let et_long = EffectiveType (SimpleTypeSet.singleton st_long)
-let et_longlong = EffectiveType (SimpleTypeSet.singleton st_longlong)
-let et_float = EffectiveType (SimpleTypeSet.singleton st_float)
-let et_double = EffectiveType (SimpleTypeSet.singleton st_double)
-let et_longdouble = EffectiveType (SimpleTypeSet.singleton st_longdouble)
-let et_char = EffectiveType (SimpleTypeSet.singleton st_char)
-let et_schar = EffectiveType (SimpleTypeSet.singleton st_schar)
-let et_uchar = EffectiveType (SimpleTypeSet.singleton st_uchar)
-let et_void = EffectiveType (SimpleTypeSet.singleton st_void)
-let et_ptr_char = EffectiveType (SimpleTypeSet.singleton st_ptr_char)
-let et_first_access = EffectiveType (SimpleTypeSet.singleton st_first_access)
-let et_va_list = EffectiveType (SimpleTypeSet.singleton st_va_list)
+let et_bool = EffectiveType.EffectiveType (SimpleTypeSet.singleton st_bool)
+let et_short = EffectiveType.EffectiveType (SimpleTypeSet.singleton st_short)
+let et_int = EffectiveType.EffectiveType (SimpleTypeSet.singleton st_int)
+let et_long = EffectiveType.EffectiveType (SimpleTypeSet.singleton st_long)
+let et_longlong =
+  EffectiveType.EffectiveType (SimpleTypeSet.singleton st_longlong)
+let et_float = EffectiveType.EffectiveType (SimpleTypeSet.singleton st_float)
+let et_double = EffectiveType.EffectiveType (SimpleTypeSet.singleton st_double)
+let et_longdouble =
+  EffectiveType.EffectiveType (SimpleTypeSet.singleton st_longdouble)
+let et_char = EffectiveType.EffectiveType (SimpleTypeSet.singleton st_char)
+let et_schar = EffectiveType.EffectiveType (SimpleTypeSet.singleton st_schar)
+let et_uchar = EffectiveType.EffectiveType (SimpleTypeSet.singleton st_uchar)
+let et_void = EffectiveType.EffectiveType (SimpleTypeSet.singleton st_void)
+let et_ptr_char =
+  EffectiveType.EffectiveType (SimpleTypeSet.singleton st_ptr_char)
+let et_first_access =
+  EffectiveType.EffectiveType (SimpleTypeSet.singleton st_first_access)
+let et_va_list =
+  EffectiveType.EffectiveType (SimpleTypeSet.singleton st_va_list)
 
 (* HELPERS *)
 
 let is_bottom ety =
   match ety with
-  | Top -> false
-  | EffectiveType set -> SimpleTypeSet.is_empty set
+  | EffectiveType.Top -> false
+  | EffectiveType.EffectiveType set -> SimpleTypeSet.is_empty set
 
 let is_may_alias = EffectiveType.equal may_alias
 let is_void_type = EffectiveType.equal et_void
@@ -441,42 +445,42 @@ let is_character_type ety =
   EffectiveType.equal et_uchar ety
 
 let is_effective_type = function
-  | EffectiveType _ -> true
-  | Top -> false
+  | EffectiveType.EffectiveType _ -> true
+  | EffectiveType.Top -> false
 
 let is_first_access_type = EffectiveType.equal et_first_access
 
 let has_first_access_type = function
-  | EffectiveType set ->
+  | EffectiveType.EffectiveType set ->
     SimpleTypeSet.exists (SimpleType.equal st_first_access) set
-  | Top -> false
+  | EffectiveType.Top -> false
 
 let replace_first_access_type et1 et2 =
   match et1, et2 with
-  | Top, _ -> Top
-  | _, Top -> et1
-  | EffectiveType _, _ when not (has_first_access_type et1) -> et1
-  | EffectiveType set1, EffectiveType set2 ->
+  | EffectiveType.Top, _ -> EffectiveType.Top
+  | _, EffectiveType.Top -> et1
+  | EffectiveType.EffectiveType _, _ when not (has_first_access_type et1) -> et1
+  | EffectiveType.EffectiveType set1, EffectiveType.EffectiveType set2 ->
     let set' =
       SimpleTypeSet.filter
         (fun s -> not (SimpleType.equal st_first_access s))
         set1
     in
-    EffectiveType (SimpleTypeSet.union set' set2)
+    EffectiveType.EffectiveType (SimpleTypeSet.union set' set2)
 
 
 
 (* TRANSLATORS *)
 
 let pointer_of = function
-  | EffectiveType set1 ->
+  | EffectiveType.EffectiveType set1 ->
     let set' =
       SimpleTypeSet.fold
         (fun elt acc -> SimpleTypeSet.add (PointerType elt) acc)
         set1
         SimpleTypeSet.empty
     in
-    EffectiveType set'
+    EffectiveType.EffectiveType set'
   | ety -> ety
 
 let pointed_type ety =
@@ -498,8 +502,9 @@ let pointed_type ety =
       SimpleTypeSet.empty
   in
   match ety with
-  | Top -> top
-  | EffectiveType set -> EffectiveType (pointed_set_type set)
+  | EffectiveType.Top -> top
+  | EffectiveType.EffectiveType set ->
+    EffectiveType.EffectiveType (pointed_set_type set)
 
 
 let rec function_type is_variadic ret_type parameters =
@@ -562,7 +567,7 @@ and simple_type_of_cil_type ?(array_as_ptr = false) ty =
 
 and effective_type_of_cil_type ?(array_as_ptr = false) ty =
   let sty = simple_type_of_cil_type ~array_as_ptr ty in
-  EffectiveType (SimpleTypeSet.singleton sty)
+  EffectiveType.EffectiveType (SimpleTypeSet.singleton sty)
 
 let ival_of_expr state expr =
   let bytes = !Db.Value.eval_expr ~with_alarms:CilE.warn_none_mode state expr in
@@ -584,7 +589,7 @@ let rec simple_type_of_offset state cil_type offset =
 
 let effective_type_of_offset state last_type offset =
   let simple_type = simple_type_of_offset state last_type offset in
-  EffectiveType (SimpleTypeSet.singleton simple_type)
+  EffectiveType.EffectiveType (SimpleTypeSet.singleton simple_type)
 
 let has_may_alias ty =
   match Cil.unrollType ty with
@@ -595,7 +600,8 @@ let effective_type_of_lvalue ?(array_as_ptr = false) state lval =
   if has_may_alias (Cil.typeOfLval lval) then may_alias
   else
     match lval with
-    | _, NoOffset -> effective_type_of_cil_type ~array_as_ptr (Cil.typeOfLval lval)
+    | _, NoOffset ->
+      effective_type_of_cil_type ~array_as_ptr (Cil.typeOfLval lval)
     | Var vinfo, offset -> effective_type_of_offset state vinfo.vtype offset
     | Mem e, offset ->
       let mem_lval = (Mem e, NoOffset) in
@@ -610,9 +616,9 @@ let rec effective_type_of_expression ~keep_cast state e =
   | AddrOf l ->
     let add_to st acc = SimpleTypeSet.add (PointerType st) acc in
     begin match effective_type_of_lvalue state l with
-      | Top -> top
-      | EffectiveType set1 ->
-        EffectiveType SimpleTypeSet.(fold add_to set1 empty)
+      | EffectiveType.Top -> top
+      | EffectiveType.EffectiveType set1 ->
+        EffectiveType.EffectiveType SimpleTypeSet.(fold add_to set1 empty)
     end
   | CastE (typ, expr)
     when not keep_cast && Cil.(isPointerType (unrollType typ)) ->
@@ -661,7 +667,7 @@ let effective_type_of_location locations =
       locations.Locations.loc
       SimpleTypeSet.empty
   in
-  EffectiveType effective_types
+  EffectiveType.EffectiveType effective_types
 
 module EffectiveTypeData = Datatype.Make(EffectiveType)
 
@@ -679,11 +685,11 @@ module Lmap_bitwise_input = struct
 
   let join tleft tright =
     match tleft, tright with
-    | Top, _ | _, Top -> top
-    | EffectiveType set1, EffectiveType set2 ->
-      EffectiveType (SimpleTypeSet.union set1 set2)
+    | EffectiveType.Top, _ | _, EffectiveType.Top -> top
+    | EffectiveType.EffectiveType set1, EffectiveType.EffectiveType set2 ->
+      EffectiveType.EffectiveType (SimpleTypeSet.union set1 set2)
 
-  let is_included = is_compatible
+  let is_included = EffectiveType.is_compatible
 
   let join_and_is_included tleft tright =
     (join tleft tright, is_included tleft tright)

@@ -145,7 +145,9 @@ let time ?rmax ?radd job data =
 (* --- Process                                                            --- *)
 (* -------------------------------------------------------------------------- *)
 
-type process_result = Not_ready of (unit -> unit) | Result of Unix.process_status
+type process_result =
+  | Not_ready of (unit -> unit)
+  | Result of Unix.process_status
 
 let pp_status fmt = function
   | Unix.WEXITED s -> Format.fprintf fmt "exit[%d]" s

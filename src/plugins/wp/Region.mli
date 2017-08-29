@@ -36,18 +36,17 @@
 (* -------------------------------------------------------------------------- *)
 
 open Lang
-open Lang.F
 open Vset
 
 (** {2 Paths} *)
 
 type path = offset list
 and offset =
-  | Oindex of term
+  | Oindex of Lang.F.term
   | Ofield of field
 
-val access : term -> path -> term
-val update : term -> path -> term -> term
+val access : Lang.F.term -> path -> Lang.F.term
+val update : Lang.F.term -> path -> Lang.F.term -> Lang.F.term
 
 (** {2 Regions} *)
 
@@ -64,10 +63,10 @@ val path : path -> region (** Empty, but Full for the path *)
 val rpath : rpath -> region (** Empty, but Full for the r-paths *)
 val merge : region -> region -> region
 
-val disjoint : region -> region -> pred
-val subset : region -> region -> pred
-val equal_but : tau -> region -> term -> term -> pred
+val disjoint : region -> region -> Lang.F.pred
+val subset : region -> region -> Lang.F.pred
+val equal_but : tau -> region -> Lang.F.term -> Lang.F.term -> Lang.F.pred
 
-val vars : region -> Vars.t
-val occurs : var -> region -> bool
+val vars : region -> Lang.F.Vars.t
+val occurs : Lang.F.var -> region -> bool
 val pretty : Format.formatter -> region -> unit

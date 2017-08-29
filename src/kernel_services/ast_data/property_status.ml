@@ -1402,7 +1402,6 @@ module Consolidation_graph = struct
   end
 
   module G = Graph.Persistent.Digraph.ConcreteLabeled(Vertex)(Edge)
-  module G_oper = Graph.Oper.P(G)
 
   module Graph_by_property =
     State_builder.Hashtbl

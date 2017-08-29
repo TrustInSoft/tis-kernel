@@ -66,11 +66,11 @@ let iter_kf on_goal ?bhv kf =
   match bhv with
   | None ->
     (* iter on all behaviors, see Wpo.iter *)
-    Wpo.iter ~index:(Wpo.Function(kf,None)) ~on_goal ()
+    Wpo.iter ~index:(Wpo.IFunction (kf, None)) ~on_goal ()
   | Some bs ->
     List.iter
       (fun b ->
-         Wpo.iter ~index:(Wpo.Function(kf,Some b)) ~on_goal ()
+         Wpo.iter ~index:(Wpo.IFunction (kf, Some b)) ~on_goal ()
       ) bs
 
 let iter_goals = Wpo.iter_on_goals

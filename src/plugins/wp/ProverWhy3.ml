@@ -400,7 +400,7 @@ let assemble_wpo wpo =
   let dir = Model.directory () in
   let index = Wpo.get_index wpo in
   let file = match index with
-    | Wpo.Axiomatic _ ->
+    | Wpo.IAxiomatic _ ->
       begin match wpo.Wpo.po_formula with
         | Wpo.GoalAnnot _ | Wpo.GoalCheck _ -> assert false
         | Wpo.GoalLemma vca ->
@@ -411,7 +411,7 @@ let assemble_wpo wpo =
           let goal = Lang.lemma_id lemma.l_name in
           { file ; theory ; goal }
       end
-    | Wpo.Function (kf,_behv) ->
+    | Wpo.IFunction (kf, _behv) ->
       let model = Model.get_model () in
       let file = Wpo.DISK.file_kf ~kf ~model ~prover:VCS.Why3ide in
       let age = try FunFile.find kf with Not_found -> -1 in
@@ -436,7 +436,7 @@ let assemble_wpo wpo =
             end in
           Command.print_file file
             (fun fmt ->
-               let fun_index = Wpo.Function(kf,None) in
+               let fun_index = Wpo.IFunction (kf, None) in
                Wpo.iter ~index:fun_index ~on_goal:(on_goal fmt) ());
           assert (!age_max >= Wpo.age wpo);
           FunFile.update kf (!age_max);

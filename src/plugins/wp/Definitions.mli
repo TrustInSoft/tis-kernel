@@ -35,11 +35,11 @@ open LogicUsage
 open Cil_types
 open Ctypes
 open Lang
-open Lang.F
 
 type cluster
 
-val cluster : id:string -> ?title:string -> ?position:Lexing.position -> unit -> cluster
+val cluster :
+  id:string -> ?title:string -> ?position:Lexing.position -> unit -> cluster
 val axiomatic : axiomatic -> cluster
 val section : logic_section -> cluster
 val compinfo : compinfo -> cluster
@@ -53,7 +53,7 @@ val cluster_compare : cluster -> cluster -> int
 val pp_cluster : Format.formatter -> cluster -> unit
 val iter : (cluster -> unit) -> unit
 
-type trigger = (var,lfun) Qed.Engine.ftrigger
+type trigger = (Lang.F.var,lfun) Qed.Engine.ftrigger
 type typedef = (tau,field,lfun) Qed.Engine.ftypedef
 
 type dlemma = {
@@ -61,15 +61,15 @@ type dlemma = {
   l_cluster : cluster ;
   l_assumed : bool ;
   l_types : int ;
-  l_forall : var list ;
+  l_forall : Lang.F.var list ;
   l_triggers : trigger list list ; (** OR of AND-triggers *)
-  l_lemma : pred ;
+  l_lemma : Lang.F.pred ;
 }
 
 type definition =
   | Logic of tau
-  | Value of tau * recursion * term
-  | Predicate of recursion * pred
+  | Value of tau * recursion * Lang.F.term
+  | Predicate of recursion * Lang.F.pred
   | Inductive of dlemma list
 
 and recursion = Def | Rec
@@ -78,15 +78,15 @@ type dfun = {
   d_lfun   : lfun ;
   d_cluster : cluster ;
   d_types  : int ;
-  d_params : var list ;
+  d_params : Lang.F.var list ;
   d_definition : definition ;
 }
 
 module Trigger :
 sig
-  val of_term : term -> trigger
-  val of_pred : pred -> trigger
-  val vars : trigger -> Vars.t
+  val of_term : Lang.F.term -> trigger
+  val of_pred : Lang.F.pred -> trigger
+  val vars : trigger -> Lang.F.Vars.t
 end
 
 val define_symbol : dfun -> unit
@@ -96,8 +96,8 @@ val compile_lemma  : (logic_lemma -> dlemma) -> logic_lemma -> unit
 val define_lemma  : dlemma -> unit
 val define_type   : cluster -> logic_type_info -> unit
 
-val call_fun : lfun -> (lfun -> dfun) -> term list -> term
-val call_pred : lfun -> (lfun -> dfun) -> term list -> pred
+val call_fun : lfun -> (lfun -> dfun) -> Lang.F.term list -> Lang.F.term
+val call_pred : lfun -> (lfun -> dfun) -> Lang.F.term list -> Lang.F.pred
 
 type axioms = cluster * logic_lemma list
 
@@ -116,9 +116,9 @@ class virtual visitor : cluster ->
     method vcomp : compinfo -> unit
     method vfield : Field.t -> unit
     method vtau : tau -> unit
-    method vparam : var -> unit
-    method vterm : term -> unit
-    method vpred : pred -> unit
+    method vparam : Lang.F.var -> unit
+    method vterm : Lang.F.term -> unit
+    method vpred : Lang.F.pred -> unit
     method vsymbol : lfun -> unit
     method vlemma : logic_lemma -> unit
     method vcluster : cluster -> unit

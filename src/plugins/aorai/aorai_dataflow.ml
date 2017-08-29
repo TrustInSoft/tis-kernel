@@ -443,7 +443,7 @@ module Computer(I: Init) = struct
 
   let doInstr s i _ (state,loops as d) =
     match i with
-    | Call (_,{ enode = Lval(Var v,NoOffset) },args,_) ->
+    | Cil_types.Call (_, { enode = Lval(Var v,NoOffset) }, args, _) ->
       let kf = Globals.Functions.get v in
       if Data_for_aorai.isIgnoredFunction (Kernel_function.get_name kf)
       then d (* we simply skip ignored functions. *)
@@ -760,7 +760,7 @@ struct
 
   let doInstr s instr state =
     match instr with
-    | Call (_,{ enode = Lval(Var v,NoOffset) },_,_) ->
+    | Cil_types.Call (_, { enode = Lval(Var v,NoOffset) }, _, _) ->
       let kf = Globals.Functions.get v in
       if Data_for_aorai.isIgnoredFunction (Kernel_function.get_name kf)
       then Dataflow2.Default (* we simply skip ignored functions. *)

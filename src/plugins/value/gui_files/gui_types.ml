@@ -34,10 +34,14 @@
 open Cil_types
 
 type gui_callstack =
-  | GC_Filtered (* Some results have been hidden by a filter *)
-  | GC_Consolidated (* Join of all possible callstacks *)
-  | GC_Single of Value_callstack.callstack (* Only one callstack possible here *)
-  | GC_Callstack of Value_callstack.callstack (* One of multiple callstacks *)
+  | GC_Filtered
+  (* Some results have been hidden by a filter *)
+  | GC_Consolidated
+  (* Join of all possible callstacks *)
+  | GC_Single of Value_callstack.callstack
+  (* Only one callstack possible here *)
+  | GC_Callstack of Value_callstack.callstack
+  (* One of multiple callstacks *)
 
 let hash_gui_callstack = function
   | GC_Filtered -> 0

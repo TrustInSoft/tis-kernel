@@ -179,12 +179,12 @@ let rec castTo ?(fromsource=false)
       result
 
     | _, TBuiltin_va_list _ ->
-      Kernel.fatal ~current:true
+      Kernel.abort ~current:true
         "Casting %a to __builtin_va_list"
         Cil_printer.pp_typ ot
 
     | TBuiltin_va_list _, _ ->
-      Kernel.fatal ~current:true
+      Kernel.abort ~current:true
         "Casting __builtin_va_list to %a"
         Cil_printer.pp_typ ot
 
@@ -232,7 +232,8 @@ let rec castTo ?(fromsource=false)
           end
       end
     | _ ->
-      error "cannot cast from %a to %a@\n"
+      Kernel.abort ~current:true
+        "cannot cast from %a to %a@\n"
         Cil_printer.pp_typ ot Cil_printer.pp_typ nt'
   end
 

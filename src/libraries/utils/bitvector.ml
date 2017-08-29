@@ -242,22 +242,21 @@ let concat bv1 size1 bv2 size2 =
   let snd_bits = 8 - fst_bits in
 
   (* Byte-aligned case. *)
-  if fst_bits = 0 then
-    (String.blit bv2 0 copy len1 str2;
-     copy)
+  if fst_bits = 0 then begin
+    String.blit bv2 0 copy len1 str2;
+    copy
+  end
 
   (* Not aligned. *)
   else
     let rec loop prev_byte i =
       let j = len1 + i in
-      if i <= str2 - 1
-      then
-        (Bytes.set copy j (prev_byte ||| (bv2.[i] <-< fst_bits));
-         loop (bv2.[i] >-> snd_bits) (i+1))
-      else
-      if j < newlen
-      then Bytes.set copy j (bv2.[str2-1] >-> snd_bits)
-      else ()
+      if i <= str2 - 1 then begin
+        Bytes.set copy j (prev_byte ||| (bv2.[i] <-< fst_bits));
+        loop (bv2.[i] >-> snd_bits) (i+1)
+      end
+      else if j < newlen then
+        Bytes.set copy j (bv2.[str2-1] >-> snd_bits)
     in
     loop bv1.[len1] 0;
     clean_trail (size1+size2) copy;;

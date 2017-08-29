@@ -78,15 +78,20 @@ let report_specialized ip =
   (match ip with Property.IPPropertyInstance _ -> false | _ -> true)
 
 let report_proven ip =
-  let open Consolidation in
   Report_parameters.Proven.get () ||
-  match get ip with
-  | Considered_valid | Valid _
-  | Invalid_but_dead _ | Valid_but_dead _ | Unknown_but_dead _
-  | Valid_under_hyp _ -> false
+  match Consolidation.get ip with
+  | Consolidation.Considered_valid
+  | Consolidation.Valid _
+  | Consolidation.Invalid_but_dead _
+  | Consolidation.Valid_but_dead _
+  | Consolidation.Unknown_but_dead _
+  | Consolidation.Valid_under_hyp _ -> false
 
-  | Never_tried | Unknown _ | Invalid _ | Invalid_under_hyp _ | Inconsistent _
-    -> true
+  | Consolidation.Never_tried
+  | Consolidation.Unknown _
+  | Consolidation.Invalid _
+  | Consolidation.Invalid_under_hyp _
+  | Consolidation.Inconsistent _  -> true
 
 
 let report_ip ip =

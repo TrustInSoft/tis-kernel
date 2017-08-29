@@ -1086,42 +1086,49 @@ end
 module LoopInfo = struct
   type node = CFG.V.t
   type graph = t
-  type tenv = { graph : t ;
-                dfsp : int Ntbl.t;
-                iloop_header : node Ntbl.t;
-                loop_headers : node list ;
-                irreducible : node list ;
-                unstruct_coef : int }
+  type tenv =
+    { t_graph: t ;
+      t_dfsp: int Ntbl.t;
+      t_iloop_header: node Ntbl.t;
+      t_loop_headers: node list ;
+      t_irreducible: node list ;
+      t_unstruct_coef: int }
 
   let init cfg =
-    let env = { graph = cfg ;
-                dfsp = Ntbl.create 97; iloop_header =  Ntbl.create 7;
-                loop_headers = []; irreducible = []; unstruct_coef = 0 } in
+    let env =
+      { t_graph = cfg ;
+        t_dfsp = Ntbl.create 97;
+        t_iloop_header = Ntbl.create 7;
+        t_loop_headers = [];
+        t_irreducible = [];
+        t_unstruct_coef = 0 }
+    in
     env, cfg_start cfg
 
   let eq_nodes = CFG.V.equal
 
-  let set_pos env n pos = Ntbl.add env.dfsp n pos; env
-  let reset_pos env n = Ntbl.replace env.dfsp n 0; env
-  let get_pos env n = try Ntbl.find env.dfsp n with Not_found -> 0
+  let set_pos env n pos = Ntbl.add env.t_dfsp n pos; env
+  let reset_pos env n = Ntbl.replace env.t_dfsp n 0; env
+  let get_pos env n = try Ntbl.find env.t_dfsp n with Not_found -> 0
   let get_pos_if_traversed env n =
-    try Some (Ntbl.find env.dfsp n) with Not_found -> None
+    try Some (Ntbl.find env.t_dfsp n) with Not_found -> None
 
-  let set_iloop_header env b h = Ntbl.add env.iloop_header b h; env
+  let set_iloop_header env b h = Ntbl.add env.t_iloop_header b h; env
   let get_iloop_header env b =
-    try Some (Ntbl.find env.iloop_header b) with Not_found -> None
+    try Some (Ntbl.find env.t_iloop_header b) with Not_found -> None
 
-  let add_loop_header env h = { env with loop_headers = h :: env.loop_headers}
-  let add_irreducible env h = { env with irreducible = h :: env.irreducible}
+  let add_loop_header env h =
+    { env with t_loop_headers = h :: env.t_loop_headers}
+  let add_irreducible env h = { env with t_irreducible = h :: env.t_irreducible}
   let add_reentry_edge env _ _ = (* TODO *) env
 
-  let is_irreducible env h = List.exists (eq_nodes h) env.irreducible
+  let is_irreducible env h = List.exists (eq_nodes h) env.t_irreducible
 
-  let fold_succ f env n = fold_succ (fun v env -> f env v) env.graph n env
+  let fold_succ f env n = fold_succ (fun v env -> f env v) env.t_graph n env
 
   let unstructuredness env =
-    let k = float_of_int env.unstruct_coef in
-    let k = k /. (float_of_int (CFG.nb_edges (cfg_graph env.graph))) in
+    let k = float_of_int env.t_unstruct_coef in
+    let k = k /. (float_of_int (CFG.nb_edges (cfg_graph env.t_graph))) in
     let k = 1. +. k in
     k
 
@@ -1181,13 +1188,15 @@ let mark_loops cfg =
           insert_loop_node cfg h (Vloop2 (false, n))
     in loop::loops
   in
-  let loops = List.fold_left mark_loop [] env.LoopInfo.loop_headers in
+  let loops = List.fold_left mark_loop [] env.LoopInfo.t_loop_headers in
   debug2 "unstructuredness coef = %f@." (LoopInfo.unstructuredness env);
   { cfg with loop_nodes = Some loops }
 
-let loop_nodes cfg = match cfg.loop_nodes with Some l -> l
-                                             | None -> Wp_parameters.fatal
-                                                         "Cannot use the loop nodes before having computed them"
+let loop_nodes cfg =
+  match cfg.loop_nodes with
+  | Some l -> l
+  | None ->
+    Wp_parameters.fatal "Cannot use the loop nodes before having computed them"
 
 let strange_loops cfg =
   let strange n = match node_type n with

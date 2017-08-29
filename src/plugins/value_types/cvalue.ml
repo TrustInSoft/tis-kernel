@@ -209,7 +209,7 @@ module V = struct
       Format.fprintf fmt "{{ ANYTHING%a }}"
         pretty_org a
     | Top (Base.SetLattice.Set t, a) ->
-      let t = Base.SetLattice.(inject (O.remove Base.null t)) in
+      let t = Base.SetLattice.inject (Base.SetLattice.O.remove Base.null t) in
       Format.fprintf fmt "{{ garbled mix of &%a%a }}"
         Base.SetLattice.pretty t pretty_org a
     | Map m ->
@@ -461,7 +461,6 @@ module V = struct
 
   (* Compute the pointwise difference between two Locations_Bytes.t. *)
   let sub_untyped_pointwise v1 v2 =
-    let open Locations in
     match v1, v2 with
     | Top _, Top _
     | Top (Base.SetLattice.Top, _), Map _
@@ -472,7 +471,9 @@ module V = struct
       (* Differences between pointers containing garbled mixes must always
          result in an alarm, as garbled mix at least contain a pointer and NULL *)
       let s' = Base.SetLattice.O.add Base.null s in
-      if Base.SetLattice.O.(intersects s' (from_shape (M.shape m))) then
+      if Base.SetLattice.O.intersects s'
+          (Base.SetLattice.O.from_shape (M.shape m))
+      then
         Ival.top, true
       else
         Ival.bottom, true
@@ -798,7 +799,7 @@ module V = struct
   let merge_neutral_element = singleton_zero
 
   let all_values ~size v =
-    if Int.(equal size zero) then true
+    if Int.equal size Int.zero then true
     else
       try
         let i = project_ival v in
@@ -834,9 +835,7 @@ module V = struct
 
   let precise_ptr_compare binop ptr1 ptr2 : Abstract_interp.Comp.result =
 
-    let open Abstract_interp.Comp in
-
-    let offsets_compare binop offsets1 offsets2 : result =
+    let offsets_compare binop offsets1 offsets2 : Abstract_interp.Comp.result =
       let is_an_offset = function
         | Ival.Set   _ -> true
         | Ival.Top   _ -> true
@@ -852,23 +851,26 @@ module V = struct
        * [comp_result = 0  <==> base1 = base2]
        * [comp_result > 0  <==> base1 > base2]
        * etc... *)
-      let predicate = to_predicate binop in
+      let predicate = Abstract_interp.Comp.to_predicate binop in
       predicate comp_result 0
     in
 
-    let base1, offsets1 = try find_lonely_key ptr1 with Not_found -> assert false
-    and base2, offsets2 = try find_lonely_key ptr2 with Not_found -> assert false
+    let base1, offsets1 =
+      try find_lonely_key ptr1 with Not_found -> assert false
+    in
+    let base2, offsets2 =
+      try find_lonely_key ptr2 with Not_found -> assert false
     in
     (* First check if the bases are equal. *)
-    if bases_compare Eq base1 base2
+    if bases_compare Abstract_interp.Comp.Eq base1 base2
     then
       (* The bases are equal: we should compare their offsets. *)
       offsets_compare binop offsets1 offsets2
     else
       (* The bases are not equal: comparing them directly will be enough. *)
     if bases_compare binop base1 base2
-    then True
-    else False
+    then Abstract_interp.Comp.True
+    else Abstract_interp.Comp.False
 
   let ptr_compare binop ptr1 ptr2 =
     let are_ptrs_precise = (is_ptr_precise ptr1) && (is_ptr_precise ptr2)
@@ -1003,7 +1005,7 @@ module V_Or_Uninitialized = struct
       let no_escaping_adr = is_noesc t in
       let initialized = is_initialized t in
       let v = get_v t in
-      match V.(equal bottom v), initialized, no_escaping_adr with
+      match V.equal V.bottom v, initialized, no_escaping_adr with
       | false, false, false ->
         Format.fprintf fmt "%a or UNINITIALIZED or ESCAPINGADDR" pp v
       | true, false, false ->
@@ -1069,8 +1071,6 @@ module V_Or_Uninitialized = struct
            let mem_project = Datatype.never_any_project
          end)
        : Datatype.S with type t := t)
-
-    module Top_Param = Base.SetLattice
 
     let is_isotropic t = V.is_isotropic (get_v t)
 

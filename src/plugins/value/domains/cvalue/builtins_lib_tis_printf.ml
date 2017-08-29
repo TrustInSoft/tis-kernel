@@ -50,7 +50,7 @@ exception Return_bottom
 module Aux = Builtins_lib_tis_aux
 
 let bottom_result =
-  { Value_types.c_values = [ Value_types.StateOnly(None, Cvalue.Model.bottom) ] ;
+  { Value_types.c_values = [ Value_types.StateOnly(None, Cvalue.Model.bottom) ];
     c_clobbered = Base.SetLattice.bottom;
     c_cacheable = Value_types.NoCache;
     c_from = None; (* TODO?*)
@@ -136,7 +136,8 @@ let copy_string ~source_char_size result state l ~precision ~width flags =
         | Some width when width <= count -> 0
         | Some width -> width - count
       in
-      (* add padding before of after the string depending on the alignment flag *)
+      (* add padding before of after the string depending on the
+         alignment flag *)
       let padding = String.make diff ' ' in
       match flags with
       | "-" ->
@@ -152,14 +153,16 @@ let copy_char result c =
   match !result with
   | LockedImprecise _ -> ()
   | Unlocked _ ->
-    try
-      let c = Cvalue.V.project_ival c in
-      let c = Ival.project_int c in
-      let c = Int.logand c (Int.of_int 255) in
-      add_char result (char_of_int (Int.to_int c));
-    with
-    | Ival.Not_Singleton_Int -> lock_imprecise result
-    | Cvalue.V.Not_based_on_null -> raise_problem ()
+    begin
+      try
+        let c = Cvalue.V.project_ival c in
+        let c = Ival.project_int c in
+        let c = Int.logand c (Int.of_int 255) in
+        add_char result (char_of_int (Int.to_int c));
+      with
+      | Ival.Not_Singleton_Int -> lock_imprecise result
+      | Cvalue.V.Not_based_on_null -> raise_problem ()
+    end
 
 type 'a readysetgo = NotYet | Ready | Started of 'a | Ignored
 (* If precision is negative it should be ignored *)
@@ -218,28 +221,31 @@ let copy_int seen_percent conversion_specifier result arg =
   match !result with
   | LockedImprecise _ -> ()
   | Unlocked buffer ->
-    try
-      let i = Cvalue.V.project_ival arg in
-      let i = Ival.project_int i in
-      if Integer.is_zero i then
-        ( match seen_percent with
-            Seen (_, _, precision, _, _) when
+    begin
+      try
+        let i = Cvalue.V.project_ival arg in
+        let i = Ival.project_int i in
+        if Integer.is_zero i then begin
+          match seen_percent with
+          | Seen (_, _, precision, _, _) when
               get_precision_value precision = Some 0 ->
             raise Printing_zero_with_precision_zero
-          | _ -> () );
-      let i =
-        if Int.gt i Int.max_int64 then Int.sub i Int.two_power_64 else i
-      in
-      let i = Integer.to_int64 i in
-      let seen_percent = ignore_zero_if_precision seen_percent in
-      let fmt = format_of_seen_percent seen_percent "L" conversion_specifier in
-      let fmt = Scanf.format_from_string fmt "%Ld" in
-      let i = Format.sprintf fmt i in
-      Buffer.add_string buffer i
-    with
-      Ival.Not_Singleton_Int | Cvalue.V.Not_based_on_null ->
-      lock_imprecise result
-    | Printing_zero_with_precision_zero -> ()
+          | _ -> ()
+        end;
+        let i =
+          if Int.gt i Int.max_int64 then Int.sub i Int.two_power_64 else i
+        in
+        let i = Integer.to_int64 i in
+        let seen_percent = ignore_zero_if_precision seen_percent in
+        let fmt = format_of_seen_percent seen_percent "L" conversion_specifier in
+        let fmt = Scanf.format_from_string fmt "%Ld" in
+        let i = Format.sprintf fmt i in
+        Buffer.add_string buffer i
+      with
+        Ival.Not_Singleton_Int | Cvalue.V.Not_based_on_null ->
+        lock_imprecise result
+      | Printing_zero_with_precision_zero -> ()
+    end
 
 (* TODO: catch exception of Integer.to_int64  *)
 (* TODO: add test case for an unsigned long int n > 2^63 (gives neg value?) *)
@@ -249,22 +255,24 @@ let copy_float seen_percent conversion_specifier result arg =
   match !result with
   | LockedImprecise _ -> ()
   | Unlocked buffer ->
-    try
-      let i = Cvalue.V.project_ival arg in
-      let lf, uf = Ival.min_and_max_float i in
-      if Fval.F.equal lf uf
-      then
-        let f = Fval.F.to_float lf in
-        let format = format_of_seen_percent seen_percent "" conversion_specifier
-        in
-        let result = Floating_point.unsafe_printf_float format f in
-        Buffer.add_string buffer result
-      else
-        raise Fval.Non_finite
-    with
-      Fval.Non_finite | Cvalue.V.Not_based_on_null ->
-      lock_imprecise result
-
+    begin
+      try
+        let i = Cvalue.V.project_ival arg in
+        let lf, uf = Ival.min_and_max_float i in
+        if Fval.F.equal lf uf
+        then
+          let f = Fval.F.to_float lf in
+          let format =
+            format_of_seen_percent seen_percent "" conversion_specifier
+          in
+          let result = Floating_point.unsafe_printf_float format f in
+          Buffer.add_string buffer result
+        else
+          raise Fval.Non_finite
+      with
+        Fval.Non_finite | Cvalue.V.Not_based_on_null ->
+        lock_imprecise result
+    end
 
 let write_string_to_memory l state ~max_length formatting_result =
   let exact = Location_Bytes.cardinal_zero_or_one l in
@@ -440,11 +448,15 @@ let interpret_format ~character_width state l args =
                 Seen(flags, width, Ready, "", false)
             | _digit when c >= '0' && c <= '9' ->
               if modifier <> "" then begin
-                Value_parameters.warning ~current:true "digit after modifier in format";
+                Value_parameters.warning
+                  ~current:true
+                  "digit after modifier in format";
                 do_bottom_format();
               end;
               if star then begin
-                Value_parameters.warning ~current:true "digit after '*' in format";
+                Value_parameters.warning
+                  ~current:true
+                  "digit after '*' in format";
                 do_bottom_format();
               end;
               let catc i =
@@ -484,10 +496,10 @@ let interpret_format ~character_width state l args =
                   end;
                   let arg_int = Ival.project_int (Cvalue.V.project_ival arg) in
                   (* If precision is negative, it should be ignored *)
-                  if (Int.lt arg_int Int.zero) then
+                  if Int.lt arg_int Int.zero then
                     seen_percent := Seen (flags, width, Ignored, "", true)
                   else begin
-                    let arg_v = Started(arg_int) in
+                    let arg_v = Started arg_int in
                     seen_percent := Seen (flags, width, arg_v, "", true)
                   end
                 | Started _ ->
@@ -499,11 +511,14 @@ let interpret_format ~character_width state l args =
                     match width with
                     | Some _ ->
                       Value_parameters.warning ~current:true
-                        "'*' in format string after width and before precision specifier";
+                        "'*' in format string after width and before \
+                         precision specifier";
                       do_bottom_format ();
                     | None ->
                       begin
-                        let arg = eat_arg_and_reset_seen_percent [Cil.intType] [] in
+                        let arg =
+                          eat_arg_and_reset_seen_percent [Cil.intType] []
+                        in
                         if not Cvalue.V.(is_included arg top_int)
                         then
                           begin
@@ -511,12 +526,15 @@ let interpret_format ~character_width state l args =
                               "addresses appear to be passed for %%*";
                             raise_problem ()
                           end;
-                        let arg_int = Ival.project_int (Cvalue.V.project_ival arg) in
+                        let arg_int =
+                          Ival.project_int (Cvalue.V.project_ival arg)
+                        in
                         (* Negative width should be interpreted as a '-' flag
                            followed by a positive width *)
-                        if (Int.lt arg_int Int.zero) then
+                        if Int.lt arg_int Int.zero then
                           seen_percent :=
-                            Seen (flags^"-", Some (Int.neg arg_int), precision, "", true)
+                            Seen (flags ^ "-", Some (Int.neg arg_int),
+                                  precision, "", true)
                         else
                           seen_percent :=
                             Seen (flags, Some arg_int, precision, "", true)
@@ -536,7 +554,8 @@ let interpret_format ~character_width state l args =
                   [Cil.charPtrType; Cil.ucharPtrType; Cil.scharPtrType;
                    Cil.charConstPtrType],
                   (Bit_utils.sizeofchar())
-                  (* modifier list is exhaustive, all the other cases are undefined *)
+                  (* modifier list is exhaustive, all the other cases
+                     are undefined *)
                 else do_bottom_format ()
               in
               let precision = get_precision_value precision in
@@ -550,7 +569,8 @@ let interpret_format ~character_width state l args =
                   copy_string ~source_char_size ~precision ~width
                     result state arg flags
                 | f ->
-                  (* All the flags except  "-" and "" result in undefined behavior *)
+                  (* All the flags except "-" and "" result in
+                     undefined behavior *)
                   Value_parameters.warning ~current:true
                     "invalid flag '%s' with %%s format specifier" f;
                   do_bottom_format();
@@ -560,7 +580,8 @@ let interpret_format ~character_width state l args =
                 |NotYet ->
                   let typ =
                     if modifier = "" then Cil.voidPtrType
-                    (* modifier list is exhaustive, all the other cases are undefined *)
+                    (* modifier list is exhaustive, all the other
+                       cases are undefined *)
                     else do_bottom_format()
                   in
                   let _ = eat_arg_and_reset_seen_percent [typ] [] in
@@ -590,12 +611,11 @@ let interpret_format ~character_width state l args =
                 in
                 let arg = eat_arg_and_reset_seen_percent typ allowable in
                 begin
-                  if (String.contains flags '#') then
-                    begin
-                      Value_parameters.warning ~current:true
-                        "Invalid flag '#' with %%%c format specifier" c;
-                      do_bottom_format();
-                    end
+                  if String.contains flags '#' then begin
+                    Value_parameters.warning ~current:true
+                      "Invalid flag '#' with %%%c format specifier" c;
+                    do_bottom_format();
+                  end
                   else
                     copy_int current_seen_percent c result arg
                 end
@@ -604,7 +624,7 @@ let interpret_format ~character_width state l args =
               begin
                 let typ, allowable =
                   if modifier = "h" || modifier = "hh"
-                  then (
+                  then begin
                     if  Cil.theMachine.Cil.theMachine.sizeof_short <
                         Cil.theMachine.Cil.theMachine.sizeof_int
                     then [Cil.intType; ], [] (* This assumes short < int *)
@@ -614,12 +634,13 @@ let interpret_format ~character_width state l args =
                          in printf functions. Aborting.";
                       abort_format ()
                     end
-                  )
+                  end
                   else if modifier = "" then [Cil.uintType], [Cil.intType]
                   else if modifier = "l" then [Cil.ulongType], [Cil.longType]
                   else if modifier = "ll" || modifier = "j"
                   then [Cil.ulongLongType], [Cil.longLongType]
-                  else if modifier = "z" then [Cil.theMachine.Cil.typeOfSizeOf], []
+                  else if modifier = "z" then
+                    [Cil.theMachine.Cil.typeOfSizeOf], []
                   else abort_modifier()
                 in
                 let arg = eat_arg_and_reset_seen_percent typ allowable in
@@ -630,7 +651,8 @@ let interpret_format ~character_width state l args =
                 let typ =
                   if modifier = "" || modifier = "l" then Cil.doubleType
                   else if modifier = "L" then Cil.longDoubleType
-                  (* modifier list is exhaustive, all the other cases are undefined *)
+                  (* modifier list is exhaustive, all the other cases
+                     are undefined *)
                   else do_bottom_format()
                 in
                 let arg = eat_arg_and_reset_seen_percent [typ] [] in
@@ -642,7 +664,8 @@ let interpret_format ~character_width state l args =
                   let typ =
                     if modifier = "" then Cil.intType
                     else if modifier = "l" then Cil.theMachine.Cil.wcharType
-                    (* modifier list is exhaustive, all the other cases are undefined *)
+                    (* modifier list is exhaustive, all the other
+                       cases are undefined *)
                     else do_bottom_format()
                   in
                   let arg = eat_arg_and_reset_seen_percent [typ] [] in
@@ -723,7 +746,8 @@ let tis_printf state args =
       let formating_result = interpret_format_char state format rest in
       let v = abstract_length formating_result in
       Format.fprintf !formatter_stdout "%s@?" formating_result.string;
-      { Value_types.c_values = [ Value_types.StateOnly(Eval_op.wrap_int v, state) ];
+      { Value_types.c_values =
+          [ Value_types.StateOnly(Eval_op.wrap_int v, state) ];
         c_clobbered = Base.SetLattice.bottom;
         c_cacheable = Value_types.NoCache;
         c_from = None; (* TODO?*)
@@ -761,7 +785,8 @@ let tis_fprintf state args =
       Format.printf "@\nfprintf(%a,...)@\n%s@."
         Cil_printer.pp_exp file_expr
         formating_result.string;
-      { Value_types.c_values = [ Value_types.StateOnly(Eval_op.wrap_int v, state) ];
+      { Value_types.c_values =
+          [ Value_types.StateOnly(Eval_op.wrap_int v, state) ];
         c_clobbered = Base.SetLattice.bottom;
         c_cacheable = Value_types.NoCache;
         c_from = None; (* TODO?*)
@@ -782,7 +807,8 @@ let tis_wprintf state args =
       let fmtres = interpret_format_wchar state format rest in
       let v = abstract_length fmtres in
       Format.printf "@\n%s@." fmtres.string;
-      { Value_types.c_values = [ Value_types.StateOnly(Eval_op.wrap_int v, state) ];
+      { Value_types.c_values =
+          [ Value_types.StateOnly(Eval_op.wrap_int v, state) ];
         c_clobbered = Base.SetLattice.bottom;
         c_cacheable = Value_types.NoCache;
         c_from = None; (* TODO?*)
@@ -845,7 +871,7 @@ let tis_snprintf state args =
       begin
         try
           let n, n_addr = Cvalue.V.split Base.null nv in
-          if (Ival.is_bottom n) then raise Cvalue.V.Not_based_on_null;
+          if Ival.is_bottom n then raise Cvalue.V.Not_based_on_null;
           if not (Cvalue.V.is_bottom n_addr)
           then begin
             Value_parameters.warning ~current:true

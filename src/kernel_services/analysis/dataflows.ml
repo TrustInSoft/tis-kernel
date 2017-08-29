@@ -103,6 +103,9 @@ module type CONSULTABLE_WORKLIST = sig
 
 end
 
+(** {2 Examples of use} *)
+[@@@ warning "-60"]
+
 (* Worklist for a "rapid" framework. Just iterate over all statements
    until none has changed. *)
 module Rapid_forward_worklist(Fenv:FUNCTION_ENV):CONSULTABLE_WORKLIST = struct
@@ -165,6 +168,8 @@ module Simple_forward_worklist(Fenv:FUNCTION_ENV):CONSULTABLE_WORKLIST = struct
   let in_worklist ord = Bitvector.mem w.bv ord
 end
 ;;
+
+[@@@ warning "+60"]
 
 type direction = Forward | Backward;;
 
@@ -535,8 +540,6 @@ struct
     List.fold_left P.join P.bottom post_states
 end
 
-module Simple_forward_generic_storage(Fenv:FUNCTION_ENV)(P:FORWARD_MONOTONE_PARAMETER_GENERIC_STORAGE) =
-  Forward_monotone_generic_storage(Fenv)(P)(Forward_connected_component_worklist(Fenv));;
 
 (****************************************************************)
 (* Edge-based forward dataflow with array-based storage. Should be

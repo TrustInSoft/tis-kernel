@@ -34,10 +34,9 @@
 (*                                                                        *)
 (**************************************************************************)
 
-open Format open Pervasives
 open Ltlast
 
-let out_fmt=ref (formatter_of_out_channel stdout)
+let out_fmt = ref (Format.formatter_of_out_channel stdout)
 
 let rec ltl_form_to_string = function
   | LNext (f) ->
@@ -79,11 +78,11 @@ let rec ltl_form_to_string = function
 
 let output ltl_form file =
   let c = open_out file in
-  out_fmt:=formatter_of_out_channel c ;
-  fprintf !out_fmt "%s\n\n" (ltl_form_to_string ltl_form);
-  fprintf !out_fmt "@?"; (* Flush du flux *)
+  out_fmt := Format.formatter_of_out_channel c ;
+  Format.fprintf !out_fmt "%s\n\n" (ltl_form_to_string ltl_form);
+  Format.fprintf !out_fmt "@?"; (* Flush du flux *)
   close_out c;
-  out_fmt:=formatter_of_out_channel stdout
+  out_fmt := Format.formatter_of_out_channel stdout
 
 (*
 Local Variables:

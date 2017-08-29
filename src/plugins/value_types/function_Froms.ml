@@ -505,7 +505,7 @@ module Memory = struct
     let dirdeps = substitute_data_deps call_site_froms data in
     let inddeps = substitute_indirect_deps call_site_froms indirect in
     let dir = dirdeps.data in
-    let ind = Zone.(join dirdeps.indirect inddeps) in
+    let ind = Zone.join dirdeps.indirect inddeps in
     { data = dir; indirect = ind }
 
 

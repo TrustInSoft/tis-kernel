@@ -17,7 +17,6 @@ open Value_util
 (* define helper functions and values*)
 module Aux = Builtins_lib_tis_aux
 let register_builtin = Aux.register_builtin
-let dkey = Aux.dkey
 
 (*  Implementation of [memset] that accepts imprecise arguments. Assumes
     the syntactic context is positioned. *)
@@ -72,7 +71,8 @@ let tis_memset_imprecise state dst v size =
         new_state
     with Not_found -> new_state (* from find_lonely_key + explicit raise *)
   in
-  { Value_types.c_values = [  Value_types.StateOnly(Eval_op.wrap_ptr dst, new_state') ];
+  { Value_types.c_values =
+      [  Value_types.StateOnly(Eval_op.wrap_ptr dst, new_state') ];
     c_clobbered = Base.SetLattice.bottom;
     c_cacheable = Value_types.Cacheable;
     c_from = None; (* TODO?*)
@@ -86,7 +86,10 @@ let tis_memset state actuals =
   match actuals with
   | [(exp_dst, dst, _) as actual; (_exp_v, v, _); (exp_size, size, _)] ->
     begin
-      Aux.additional_ptr_validity_check_for_size_zero ~for_writing:true ~size actual;
+      Aux.additional_ptr_validity_check_for_size_zero
+        ~for_writing:true
+        ~size
+        actual;
       (* Position syntactic context *)
       let term_size = Logic_utils.expr_to_term ~cast:true exp_size in
       let array_dst = Logic_utils.array_with_range exp_dst term_size in

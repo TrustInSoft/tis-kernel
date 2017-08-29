@@ -410,11 +410,13 @@ let on ?selection p f x =
     if debug_atleast 1 then go ()
     else begin try go () with e -> set_to_old (); raise e end
 
+[@@@ warning "-44"]
 (* [set_current] must never be called internally. *)
 module Hide_set_current = struct let set_current () = assert false end
 open Hide_set_current
 (* Silence warning on unused and unexported functions *)
 let () = if false then set_current ()
+[@@@ warning "+44"]
 
 exception Cannot_remove of string
 

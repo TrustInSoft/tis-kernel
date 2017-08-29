@@ -724,7 +724,7 @@ enum
 #define __FC_MAX_OPEN_FILES 1024
 
 // __fc_fds represents the state of open file descriptors.
-//@ ghost int __fc_fds[__FC_MAX_OPEN_FILES];
+//@ ghost extern int __fc_fds[__FC_MAX_OPEN_FILES];
 // TODO: Model the state of some functions more precisely.
 // TODO: define __fc_fds as volatile.
 

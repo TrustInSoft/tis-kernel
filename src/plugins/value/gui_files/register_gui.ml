@@ -123,7 +123,7 @@ module Callstacks_manager = struct
   module GColumn = struct
     type t = GTree.view_column
     let hash c = c#misc#get_oid
-    let equal c1 c2 = (c1#misc#get_oid = c2#misc#get_oid)
+    let equal c1 c2 = c1#misc#get_oid = c2#misc#get_oid
   end
 
   (* Hash tables indexed by GTree columns *)
@@ -161,8 +161,8 @@ module Callstacks_manager = struct
      'Selection' tab, they are also used to refine the states that
      are being shown, as well as 'go to callers', etc. *);
     mutable filters: filter list;
-    mutable full_callstacks_height: bool (* Set to 'true' to expand rows so
-                                            that the entire callstacks are shown *);
+    mutable full_callstacks_height: bool;
+    (* Set to 'true' to expand rows so that the entire callstacks are shown *)
     mutable show_consolidated: bool (* show results in consolidated state *);
     mutable show_by_callstacks: bool (* show results by callstacks *);
     mutable hidden_columns: column_type list (* columns hidden by the user *);
@@ -251,7 +251,12 @@ module Callstacks_manager = struct
 
   (* This function creates a single GTree that displays per-callstack
      results *)
-  let make_panel (main_ui:main_ui) ~callback_focus_callstack ~show_consolidated ~show_by_callstacks ~full_callstacks_height =
+  let make_panel
+      (main_ui:main_ui)
+      ~callback_focus_callstack
+      ~show_consolidated
+      ~show_by_callstacks
+      ~full_callstacks_height =
     let gtk_model =
       object(self)
         val mutable m = Data.empty
@@ -380,7 +385,7 @@ module Callstacks_manager = struct
                in
                [`TEXT (pp_text stack); `STYLE `NORMAL]
            in
-           [`HEIGHT height] @ text)
+           `HEIGHT height :: text)
     in
     let col_empty = w#add_column_empty in
     let clear_widget remove_columns =
@@ -427,10 +432,12 @@ module Callstacks_manager = struct
         else expr_string
       in
       (* 'Before' column *)
-      let col_before = w#add_column_text [`YALIGN 0.0]
+      let col_before =
+        w#add_column_text
+          [ `YALIGN 0.0 ]
           (fun (_, row) ->
              let data = find_data row expr in
-             [`TEXT !!(data.Gui_eval.before_string)])
+             [ `TEXT !! data.Gui_eval.before_string ])
       in
       let tip_before =
         Printf.sprintf "Value of '%s' before the current point" expr_string
@@ -464,7 +471,7 @@ module Callstacks_manager = struct
              | GA_Unchanged -> [`TEXT "unchanged"; `STYLE `ITALIC]
              | GA_After _ ->
                !show_after_col ();
-               [`TEXT !!(data.Gui_eval.after_string); `STYLE `NORMAL])
+               [`TEXT !! data.Gui_eval.after_string; `STYLE `NORMAL])
       in
       col_after#set_visible false;
       let title_after = expr_string ^ " (after)" in
@@ -686,7 +693,9 @@ module Callstacks_manager = struct
              (* Add 'Focus' option when a callstack is selected *)
              begin match row.callstack with
                | GC_Single cs | GC_Callstack cs ->
-                 let focus = GMenu.menu_item ~label:"Focus on this callstack"() in
+                 let focus =
+                   GMenu.menu_item ~label:"Focus on this callstack"()
+                 in
                  (!!menu)#add focus;
                  ignore (focus#connect#activate
                            (callback_focus_unfocus (Some [cs]) icon));
@@ -1175,8 +1184,10 @@ let left_click_values_computed main_ui cm localizable =
     | PVDecl (Some kf, vi) when vi.vformal ->
       let lv = (Var vi, NoOffset) in
       select_lv main_ui cm (GL_Pre kf) lv
-    | PIP (IPCodeAnnot (kf, stmt,
-                        {annot_content = AAssert (_, p) | AInvariant (_, true, p)} )) ->
+    | PIP
+        (IPCodeAnnot
+           (kf, stmt,
+            {annot_content = AAssert (_, p) | AInvariant (_, true, p)} )) ->
       select_predicate main_ui cm (GL_Stmt (kf, stmt)) p
     | PIP (IPPredicate (_, kf, Kglobal, p) as ip) -> begin
         match Gui_eval.classify_pre_post kf ip with
@@ -1195,7 +1206,11 @@ let left_click_values_computed main_ui cm localizable =
       Eval_terms.pretty_logic_evaluation_error ee
 
 (* Actions to perform when the user has right-clicked, and Value is computed *)
-let right_click_values_computed main_ui menu (cm: Callstacks_manager.t) localizable =
+let right_click_values_computed
+    main_ui
+    menu
+    (cm: Callstacks_manager.t)
+    localizable =
   match localizable with
   | PVDecl (Some kf, _) ->
     menu_go_to_callers main_ui menu cm#focused_rev_callstacks kf
@@ -1231,7 +1246,7 @@ let _right_click_value_not_computed (main_ui:main_ui) (menu:menu) localizable =
   | PVDecl (_,_) -> begin
       ignore
         (menu#add_item "Compute callers"
-           ~callback:(fun () -> (gui_compute_values main_ui)))
+           ~callback:(fun () -> gui_compute_values main_ui))
     end
   | _ -> ()
 
@@ -1274,40 +1289,39 @@ let used_var = UsedVarState.memo
 let hide_unused = ref (fun () -> false)
 
 let sync_filetree (filetree:Filetree.t) =
-  if not (!hide_unused ()) then
-    (Globals.Functions.iter
-       (fun kf ->
-          try
-            let vi = Kernel_function.get_vi kf in
-            let strikethrough =
-              Db.Value.is_computed () && not (!Db.Value.is_called kf)
-            in
-            filetree#set_global_attribute ~strikethrough vi
-          with Not_found -> ());
-     Globals.Vars.iter
-       (fun vi _ ->
-          if vi.vsource = true then
-            filetree#set_global_attribute
-              ~strikethrough:(Db.Value.is_computed () && not (used_var vi))
-              vi
-       );
-     if not (filetree#flat_mode) then
-       List.iter
-         (fun file ->
-            (* the display name removes the path *)
-            let name, _globals = Globals.FileIndex.find file in
-            let globals_state = filetree#get_file_globals name in
-            filetree#set_file_attribute
-              ~strikethrough:(Db.Value.is_computed () &&
-                              List.for_all snd globals_state)
-              name
-         )
-         (Globals.FileIndex.get_files ())
-    )
-  else
-    (* Some lines may have disappeared. We should reset the entire filetree,
-       but the method reset of design.ml already does this. *)
-    ()
+  if not (!hide_unused ()) then begin
+    Globals.Functions.iter
+      (fun kf ->
+         try
+           let vi = Kernel_function.get_vi kf in
+           let strikethrough =
+             Db.Value.is_computed () && not (!Db.Value.is_called kf)
+           in
+           filetree#set_global_attribute ~strikethrough vi
+         with Not_found -> ());
+    Globals.Vars.iter
+      (fun vi _ ->
+         if vi.vsource then
+           filetree#set_global_attribute
+             ~strikethrough:(Db.Value.is_computed () && not (used_var vi))
+             vi
+      );
+    if not (filetree#flat_mode) then
+      List.iter
+        (fun file ->
+           (* the display name removes the path *)
+           let name, _globals = Globals.FileIndex.find file in
+           let globals_state = filetree#get_file_globals name in
+           filetree#set_file_attribute
+             ~strikethrough:(Db.Value.is_computed () &&
+                             List.for_all snd globals_state)
+             name
+        )
+        (Globals.FileIndex.get_files ())
+  end
+(* Else:
+   Some lines may have disappeared. We should reset the entire filetree,
+   but the method reset of design.ml already does this. *)
 
 
 let hide_unused_function_or_var g =
@@ -1414,8 +1428,10 @@ let add_keybord_shortcut_evaluate (main_ui:main_ui) cm =
       let fdec = Kernel_function.get_definition kf in
       let bl = Ast_info.block_of_local fdec vi in
       select (find_loc kf fdec bl)
-    | PIP (Property.IPCodeAnnot (kf, stmt,
-                                 {annot_content = AAssert (_, _) | AInvariant (_, true, _)} )) ->
+    | PIP
+        (Property.IPCodeAnnot
+           (kf, stmt,
+            {annot_content = AAssert (_, _) | AInvariant (_, true, _)} )) ->
       select (Some (GL_Stmt (kf, stmt)))
     | PIP (Property.IPPredicate (_, kf, Kglobal, _) as ip) ->
       select (Gui_eval.classify_pre_post kf ip)

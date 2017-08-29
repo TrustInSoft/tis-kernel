@@ -830,7 +830,7 @@ module Cfg (W : Mcfg.S) = struct
         let annot_cfg = pp_cfg_edges_annot res in
         debug "[wp-cfg] computing done.";
         [goal] , annot_cfg
-      with Wp_error.Error (_, msg) ->
+      with Wp_error.WP_Error (_, msg) ->
         Wp_parameters.warning "@[calculus failed on strategy@ @[for %a@]@ \
                                because@ %s (abort)@]"
           WpStrategy.pp_info_of_strategy strategy

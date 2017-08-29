@@ -160,9 +160,10 @@ let rec singleton = function
   | Empty | List _ -> None
   | Add(x,t) | App(t,x) -> if is_empty t then Some x else None
   | Concat(a,b) ->
-    match singleton a with
-    | Some x -> if is_empty b then Some x else None
-    | None -> if is_empty a then singleton b else None
+    begin match singleton a with
+      | Some x -> if is_empty b then Some x else None
+      | None -> if is_empty a then singleton b else None
+    end
 
 let rec collect t xs =
   match t with

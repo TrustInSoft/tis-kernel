@@ -42,7 +42,6 @@ open Cil_datatype
 open Clabels
 open Ctypes
 open Lang
-open Lang.F
 open Memory
 open Definitions
 
@@ -90,7 +89,7 @@ struct
   let fresh_lvar ?basename ltyp =
     let tau = Lang.tau_of_ltype ltyp in
     let x = Lang.freshvar ?basename tau in
-    let p = Cvalues.has_ltype ltyp (e_var x) in
+    let p = Cvalues.has_ltype ltyp (Lang.F.e_var x) in
     Lang.assume p ; x
 
   let fresh_cvar ?basename typ =
@@ -103,28 +102,28 @@ struct
   type call = {
     kf : kernel_function ;
     formals : value Varinfo.Map.t ;
-    mutable result : var option ;
-    mutable status : var option ;
+    mutable result : Lang.F.var option ;
+    mutable status : Lang.F.var option ;
   }
 
   type frame = {
-    name : string ;
-    pool : pool ;
+    f_name : string ;
+    pool : Lang.F.pool ;
     gamma : gamma ;
     call : call option ;
     types : string list ;
     mutable triggers : trigger list ;
-    mutable labels : sigma LabelMap.t ;
+    mutable f_labels : sigma LabelMap.t ;
   }
 
   let pp_frame fmt f =
     begin
-      Format.fprintf fmt "Frame '%s':@\n" f.name ;
+      Format.fprintf fmt "Frame '%s':@\n" f.f_name ;
       LabelMap.iter
         (fun l m ->
            Format.fprintf fmt "@[<hov 4>Label '%a': %a@]@\n"
              Clabels.pretty l Sigma.pretty m
-        ) f.labels ;
+        ) f.f_labels ;
     end
 
   (* -------------------------------------------------------------------------- *)
@@ -133,13 +132,13 @@ struct
 
   let logic_frame a types =
     {
-      name = a ;
+      f_name = a ;
       pool = Lang.new_pool () ;
       gamma = Lang.new_gamma () ;
       types = types ;
       triggers = [] ;
       call = None ;
-      labels = LabelMap.empty ;
+      f_labels = LabelMap.empty ;
     }
 
   let call0 kf =
@@ -151,35 +150,35 @@ struct
 
   let frame kf =
     {
-      name = Kernel_function.get_name kf ;
+      f_name = Kernel_function.get_name kf ;
       types = [] ;
       pool = Lang.new_pool () ;
       gamma = Lang.new_gamma () ;
       triggers = [] ;
       call = Some (call0 kf) ;
-      labels = LabelMap.empty ;
+      f_labels = LabelMap.empty ;
     }
 
   let call_pre init call mem =
     {
-      name = "Pre " ^ Kernel_function.get_name call.kf ;
+      f_name = "Pre " ^ Kernel_function.get_name call.kf ;
       types = [] ;
       pool = Lang.get_pool () ;
       gamma = Lang.get_gamma () ;
       triggers = [] ;
       call = Some call ;
-      labels = wrap_mem [ Clabels.Init , init ; Clabels.Pre , mem ] ;
+      f_labels = wrap_mem [ Clabels.Init , init ; Clabels.Pre , mem ] ;
     }
 
   let call_post init call seq =
     {
-      name = "Post " ^ Kernel_function.get_name call.kf ;
+      f_name = "Post " ^ Kernel_function.get_name call.kf ;
       types = [] ;
       pool = Lang.get_pool () ;
       gamma = Lang.get_gamma () ;
       triggers = [] ;
       call = Some call ;
-      labels = wrap_mem [
+      f_labels = wrap_mem [
           Clabels.Init , init ;
           Clabels.Pre , seq.pre ;
           Clabels.Post , seq.post ;
@@ -201,18 +200,18 @@ struct
 
   let mem_at_frame frame label =
     assert (label <> Clabels.Here) ;
-    try LabelMap.find label frame.labels
+    try LabelMap.find label frame.f_labels
     with Not_found ->
       let s = M.Sigma.create () in
-      frame.labels <- LabelMap.add label s frame.labels ; s
+      frame.f_labels <- LabelMap.add label s frame.f_labels ; s
 
   let mem_frame label = mem_at_frame (Context.get cframe) label
 
   let get_call = function
-    | { call = Some call } -> call
-    | { name } ->
+    | { call = Some call; _ } -> call
+    | { f_name; _ } ->
       Wp_parameters.fatal
-        "Frame '%s' has is outside a function definition" name
+        "Frame '%s' has is outside a function definition" f_name
 
   let formal x =
     let f = get_call (Context.get cframe) in
@@ -267,7 +266,7 @@ struct
     let lvars = List.fold_left
         (fun lvars lv ->
            let x = fresh_lvar ~basename:lv.lv_name lv.lv_type in
-           let v = Vexp(e_var x) in
+           let v = Vexp(Lang.F.e_var x) in
            Logic_var.Map.add lv v lvars)
         Logic_var.Map.empty lvars in
     { lhere = None ; current = None ; vars = lvars }
@@ -331,8 +330,8 @@ struct
     | [] -> { vars=vars ; lhere=None ; current=None } , domain , List.rev sigv
     | lv :: profile ->
       let x = param_of_lv lv in
-      let h = Cvalues.has_ltype lv.lv_type (e_var x) in
-      let v = Cvalues.plain lv.lv_type (e_var x) in
+      let h = Cvalues.has_ltype lv.lv_type (Lang.F.e_var x) in
+      let v = Cvalues.plain lv.lv_type (Lang.F.e_var x) in
       profile_env
         (Logic_var.Map.add lv v vars)
         (h::domain)
@@ -347,7 +346,7 @@ struct
   (* --- Generic Compiler                                                   --- *)
   (* -------------------------------------------------------------------------- *)
 
-  let occurs_pvars f p = Vars.exists f (F.varsp p)
+  let occurs_pvars f p = Lang.F.Vars.exists f (F.varsp p)
   let occurs_ps x ps = List.exists (F.occursp x) ps
 
   let compile_step
@@ -356,9 +355,9 @@ struct
       (profile:logic_var list)
       (labels:logic_label list)
       (cc : env -> 'a -> 'b)
-      (filter : 'b -> var -> bool)
+      (filter : 'b -> Lang.F.var -> bool)
       (data : 'a)
-    : var list * trigger list * pred list * 'b * sig_param list =
+    : Lang.F.var list * trigger list * Lang.F.pred list * 'b * sig_param list =
     let frame = logic_frame name types in
     in_frame frame
       begin fun () ->
@@ -383,14 +382,14 @@ struct
                       ( x::parm , s::sigm )
                     else acc)
                  (Sigma.domain sigma) acc)
-            frame.labels (parp,sigp)
+            frame.f_labels (parp,sigp)
         in
         parm , frame.triggers , domain , result , sigm
       end ()
 
-  let cc_term : (env -> Cil_types.term -> term) ref
+  let cc_term : (env -> Cil_types.term -> Lang.F.term) ref
     = ref (fun _ _ -> assert false)
-  let cc_pred : (polarity -> env -> predicate named -> pred) ref
+  let cc_pred : (polarity -> env -> predicate named -> Lang.F.pred) ref
     = ref (fun _ _ -> assert false)
   let cc_logic : (env -> Cil_types.term -> logic) ref
     = ref (fun _ _ -> assert false)
@@ -463,7 +462,7 @@ struct
       | None -> ()
       | Some p ->
         let name = "T" ^ Lang.logic_id l in
-        let vs = List.map e_var ldef.d_params in
+        let vs = List.map Lang.F.e_var ldef.d_params in
         let rec conditions vs sigp =
           match vs , sigp with
           | v::vs , Sig_value lv :: sigp ->
@@ -471,7 +470,7 @@ struct
             cond :: conditions vs sigp
           | _ -> [] in
         let result = F.e_fun ldef.d_lfun vs in
-        let lemma = p_hyps (conditions vs sigp) (p result) in
+        let lemma = Lang.F.p_hyps (conditions vs sigp) (p result) in
         let trigger = Trigger.of_term result in
         Definitions.define_lemma {
           l_name = name ;
@@ -768,7 +767,7 @@ struct
       (labels:(logic_label * logic_label) list)
       (parameters:F.term list) : F.term =
     match signature phi with
-    | CST c -> e_zint c
+    | CST c -> Lang.F.e_zint c
     | SIG sparam ->
       let es = call_params env phi labels sparam parameters in
       F.e_fun (ACSL phi) es
@@ -798,7 +797,7 @@ struct
       let v =
         match LogicBuiltins.logic cst with
         | ACSLDEF -> call_fun env cst [] []
-        | LFUN phi -> e_fun phi []
+        | LFUN phi -> Lang.F.e_fun phi []
       in Cvalues.plain x.lv_type v
     with Not_found ->
       Wp_parameters.fatal "Unbound logic variable '%a'"

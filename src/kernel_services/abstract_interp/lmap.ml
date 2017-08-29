@@ -415,7 +415,7 @@ struct
       (* Special definition of narrow that catches newly-introduced bottom *)
       let narrow x y =
         let r = V.narrow x y in
-        if V.(equal bottom r) then raise NarrowReturnsBottom;
+        if V.equal V.bottom r then raise NarrowReturnsBottom;
         r
     end)
 

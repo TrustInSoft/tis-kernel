@@ -328,26 +328,24 @@ end
 
 (** {2 Fresh Variables and Constraints} *)
 
-open F
-
 type gamma
-val new_pool : ?copy:pool -> unit -> pool
+val new_pool : ?copy:F.pool -> unit -> F.pool
 val new_gamma : ?copy:gamma -> unit -> gamma
 
-val local : ?pool:pool -> ?gamma:gamma -> ('a -> 'b) -> 'a -> 'b
+val local : ?pool:F.pool -> ?gamma:gamma -> ('a -> 'b) -> 'a -> 'b
 
-val freshvar : ?basename:string -> tau -> var
-val freshen : var -> var
-val assume : pred -> unit
+val freshvar : ?basename:string -> tau -> F.var
+val freshen : F.var -> F.var
+val assume : F.pred -> unit
 val without_assume : ('a -> 'b) -> 'a -> 'b
-val epsilon : ?basename:string -> tau -> (term -> pred) -> term
-val hypotheses : gamma -> pred list
-val variables : gamma -> var list
+val epsilon: ?basename:string -> F.tau -> (F.term -> F.pred) -> F.term
+val hypotheses : gamma -> F.pred list
+val variables : gamma -> F.var list
 
-val get_pool : unit -> pool
+val get_pool : unit -> F.pool
 val get_gamma : unit -> gamma
-val get_hypotheses : unit -> pred list
-val get_variables : unit -> var list
+val get_hypotheses : unit -> F.pred list
+val get_variables : unit -> F.var list
 
 (** {2 Alpha Conversion} *)
 
@@ -356,11 +354,11 @@ sig
 
   type t
   val create : unit -> t
-  val get : t -> var -> var
-  val iter : (var -> var -> unit) -> t -> unit
+  val get : t -> F.var -> F.var
+  val iter : (F.var -> F.var -> unit) -> t -> unit
 
-  val convert : t -> term -> term
-  val convertp : t -> pred -> pred
+  val convert : t -> F.term -> F.term
+  val convertp : t -> F.pred -> F.pred
 
 end
 

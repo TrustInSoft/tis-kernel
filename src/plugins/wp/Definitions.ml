@@ -41,9 +41,8 @@ open Cil_datatype
 open Ctypes
 open Qed.Logic
 open Lang
-open Lang.F
 
-type trigger = (var,lfun) Qed.Engine.ftrigger
+type trigger = (Lang.F.var,lfun) Qed.Engine.ftrigger
 type typedef = (tau,field,lfun) Qed.Engine.ftypedef
 
 let rec rev_iter f = function
@@ -66,23 +65,23 @@ and dlemma = {
   l_cluster : cluster ;
   l_assumed : bool ;
   l_types : int ;
-  l_forall : var list ;
+  l_forall : Lang.F.var list ;
   l_triggers : trigger list list (* OR of AND triggers *) ;
-  l_lemma : pred ;
+  l_lemma : Lang.F.pred ;
 }
 
 and dfun = {
   d_lfun   : lfun ;
   d_cluster : cluster ;
   d_types  : int ;
-  d_params : var list ;
+  d_params : Lang.F.var list ;
   d_definition : definition ;
 }
 
 and definition =
   | Logic of tau (* return type of an abstract function *)
-  | Value of tau * recursion * term
-  | Predicate of recursion * pred
+  | Value of tau * recursion * Lang.F.term
+  | Predicate of recursion * Lang.F.pred
   | Inductive of dlemma list
 
 and recursion = Def | Rec
@@ -111,12 +110,12 @@ struct
 
   let rec collect xs = function
     | TgAny -> xs
-    | TgVar x -> Vars.add x xs
+    | TgVar x -> Lang.F.Vars.add x xs
     | TgGet(a,k) -> collect (collect xs a) k
     | TgSet(a,k,v) -> collect (collect (collect xs a) k) v
     | TgFun(_,ts) | TgProp(_,ts) -> List.fold_left collect xs ts
 
-  let vars = collect Vars.empty
+  let vars = collect Lang.F.Vars.empty
 
 end
 
@@ -252,11 +251,11 @@ let matrix = function
 
 let call_fun lfun cc es =
   Symbol.compile (Lang.local cc) lfun ;
-  e_fun lfun es
+  Lang.F.e_fun lfun es
 
 let call_pred lfun cc es =
   Symbol.compile (Lang.local cc) lfun ;
-  p_call lfun es
+  Lang.F.p_call lfun es
 
 (* -------------------------------------------------------------------------- *)
 (* --- Cluster Dependencies                                               --- *)
@@ -281,7 +280,7 @@ type axioms = cluster * logic_lemma list
 class virtual visitor main =
   object(self)
 
-    val mutable terms    = Tset.empty
+    val mutable terms    = Lang.F.Tset.empty
     val mutable types    = DT.empty
     val mutable comps    = DR.empty
     val mutable symbols  = DF.empty
@@ -356,7 +355,7 @@ class virtual visitor main =
       | Record _ -> assert false
       | Data(a,ts) -> self#vadt a ; List.iter self#vtau ts
 
-    method vparam x = self#vtau (tau_of_var x)
+    method vparam x = self#vtau (Lang.F.tau_of_var x)
 
     method private repr ~bool = function
       | Fun(f,_) -> self#vsymbol f
@@ -372,16 +371,16 @@ class virtual visitor main =
         if bool then self#on_library "bool"
 
     method vterm t =
-      if not (Tset.mem t terms) then
+      if not (Lang.F.Tset.mem t terms) then
         begin
-          terms <- Tset.add t terms ;
+          terms <- Lang.F.Tset.add t terms ;
           self#repr ~bool:true (F.repr t) ;
           F.lc_iter self#vterm t ;
         end
 
     method vpred p =
       let t = F.e_prop p in
-      if not (Tset.mem t terms) then
+      if not (Lang.F.Tset.mem t terms) then
         begin
           self#repr ~bool:false (F.repr t) ;
           F.p_iter self#vpred self#vterm p

@@ -79,7 +79,8 @@ external set_round_downward: unit -> unit = "set_round_downward" [@@noalloc]
       assert (Integer.gt num Integer.zero);
       assert (Integer.gt den Integer.zero);
 (*
-  Format.printf "make_float: num den exp:@\n%a@\n@\n%a@\n@\n%d@.min_exp:%d max_exp:%d@."
+  Format.printf
+    "make_float: num den exp:@\n%a@\n@\n%a@\n@\n%d@.min_exp:%d max_exp:%d@."
     Datatype.Integer.pretty num Datatype.Integer.pretty den exp min_exp max_exp;
 *)
       let size_bi = Integer.of_int man_size in
@@ -120,9 +121,10 @@ external set_round_downward: unit -> unit = "set_round_downward" [@@noalloc]
           Integer.shift_left rem Integer.one
         in
         let man = Integer.to_int64 man in
-        (* Format.printf "pre-round: num den man rem:@\n%a@\n@\n%a@\n@\n%Ld@\n@\n%a@."
-                Datatype.Integer.pretty num Datatype.Integer.pretty den
-                man Datatype.Integer.pretty rem; *)
+        (* Format.printf
+             "pre-round: num den man rem:@\n%a@\n@\n%a@\n@\n%Ld@\n@\n%a@."
+              Datatype.Integer.pretty num Datatype.Integer.pretty den
+              man Datatype.Integer.pretty rem; *)
         let lowb = ldexp (Int64.to_float man) exp in
         if Integer.is_zero rem2 then {
           f_lower = lowb ;
@@ -219,8 +221,10 @@ external set_round_downward: unit -> unit = "set_round_downward" [@@noalloc]
               num,
               (Integer.power_int_positive_int 5 (~- exp10)),
               exp10
-          else (Format.printf "Could not parse floating point number %S@." s;
-                assert false)
+          else begin
+            Format.printf "Could not parse floating point number %S@." s;
+            assert false
+          end
         in
         if Integer.is_zero num
         then zero
@@ -381,7 +385,8 @@ external set_round_downward: unit -> unit = "set_round_downward" [@@noalloc]
     (** See e.g. http://www.h-schmidt.net/FloatConverter/IEEE754.html *)
     let bits_of_max_float = Integer.of_int64 0x7F7FFFFFL
     let bits_of_most_negative_float =
-      let v = Int64.of_int32 0xFF7FFFFFl in(* cast to int32 to get negative value *)
+      (* cast to int32 to get negative value *)
+      let v = Int64.of_int32 0xFF7FFFFFl in
       Integer.of_int64 v
 
     external fround: float -> float = "c_round"

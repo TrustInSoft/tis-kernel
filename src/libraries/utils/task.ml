@@ -232,7 +232,10 @@ let start_command ~timeout ?time ?stdout ?stderr cmd args =
            (fun c -> Format.fprintf fmt "@ %s" c) args) ;
     let timed = timeout > 0 || time <> None in
     let time_start = if timed then Unix.gettimeofday () else 0.0 in
-    let time_stop = if timeout > 0 then time_start +. float_of_int timeout else 0.0 in
+    let time_stop =
+      if timeout > 0 then time_start +. float_of_int timeout
+      else 0.0
+    in
     let async = Command.command_async ?stdout ?stderr cmd args in
     {
       name = cmd ;
@@ -314,29 +317,31 @@ let ping_shared sh = function
   | Coin ->
     begin match Monad.finished sh.shared with
       | Some r ->
-        if retry_shared sh r then sh.shared <- todo sh.builder ;
+        if retry_shared sh r then
+          sh.shared <- todo sh.builder;
         Return r
-      | None -> sh.shared <- Monad.progress sh.shared ; Yield
+      | None ->
+        sh.shared <- Monad.progress sh.shared;
+        Yield
     end
   | Kill ->
-    if sh.clients > 1 then
-      begin
-        sh.clients <- pred sh.clients ;
-        Return Canceled
-      end
-    else
-      ( if sh.clients = 1 then
-          begin
-            sh.clients <- 0 ;
-            sh.shared <- Monad.cancel sh.shared ;
-          end ;
-        Yield )
-
-let share sh = todo
-    begin fun () ->
-      sh.clients <- succ sh.clients ;
-      Monad.async (ping_shared sh)
+    if sh.clients > 1 then begin
+      sh.clients <- pred sh.clients;
+      Return Canceled
     end
+    else begin
+      if sh.clients = 1 then begin
+        sh.clients <- 0;
+        sh.shared <- Monad.cancel sh.shared;
+      end;
+      Yield
+    end
+
+let share sh =
+  todo
+    (fun () ->
+       sh.clients <- succ sh.clients;
+       Monad.async (ping_shared sh))
 
 (* ------------------------------------------------------------------------ *)
 (* ---  Server                                                          --- *)
@@ -436,37 +441,38 @@ let rec run_server server () =
     server.running <- List.filter
         (fun task ->
            if running task then true
-           else
-             ( (* running -- ; terminated ++ => invariant preserved *)
-               server.terminated <- succ server.terminated ; false )
-        ) server.running ;
-    Array.iter (schedule server) server.queue ;
+           else begin
+             (* running -- ; terminated ++ => invariant preserved *)
+             server.terminated <- succ server.terminated;
+             false
+           end)
+        server.running;
+    Array.iter (schedule server) server.queue;
     try
-      !Db.progress () ;
-      fire server.activity ;
-      if server.running <> [] then
-        begin
-          if not server.waiting && is_empty server then
-            begin
-              fire server.wait ;
-              server.waiting <- true ;
-            end ;
-          true
-        end
-      else
-        begin
-          fire server.stop ;
-          server.scheduled <- 0 ;
-          server.terminated <- 0 ;
-          false
-        end
+      !Db.progress ();
+      fire server.activity;
+      if server.running <> [] then begin
+        if not server.waiting && is_empty server then begin
+          fire server.wait;
+          server.waiting <- true;
+        end;
+        true
+      end
+      else begin
+        fire server.stop;
+        server.scheduled <- 0;
+        server.terminated <- 0;
+        false
+      end
     with _ -> (* Db.Cancel ... *)
-      cancel_all server ;
+      cancel_all server;
       run_server server ()
   end
 
 let launch server =
-  if server.scheduled > server.terminated
-  then ( fire server.start ; !on_idle (run_server server) )
+  if server.scheduled > server.terminated then begin
+    fire server.start;
+    !on_idle (run_server server)
+  end
 
 let run th = !on_idle (fun () -> not (running th))

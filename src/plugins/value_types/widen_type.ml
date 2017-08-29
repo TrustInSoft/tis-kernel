@@ -87,7 +87,7 @@ let hints_for_base default_hints hints_by_base b =
         (* Try the frontier of the block: further accesses are invalid
            anyway. This also works great for constant strings (this computes
            the offset of the null terminator). *)
-        let bound = Integer.(pred (div (succ m) eight)) in
+        let bound = Integer.pred (Integer.div (Integer.succ m) Integer.eight) in
         Ival.Widen_Hints.add bound widen_zero
       | Base.Empty | Base.Invalid -> widen_zero
   )

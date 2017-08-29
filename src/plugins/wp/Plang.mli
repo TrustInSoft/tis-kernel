@@ -31,31 +31,34 @@
 (*                                                                        *)
 (**************************************************************************)
 
-open Format
-open Qed.Logic
-open Lang
-open Lang.F
-
 (** Lang Pretty-Printer *)
 
 type scope = Qed.Engine.scope
-module Env : Qed.Engine.Env with type term := term
+module Env : Qed.Engine.Env with type term := Lang.F.term
 
 type pool
-val pool : unit -> pool
-val xmark_e : pool -> (var -> unit) -> term -> unit
-val xmark_p : pool -> (var -> unit) -> pred -> unit
-val xmark : pool -> Vars.t
+val pool: unit -> pool
+val xmark_e: pool -> (Lang.F.var -> unit) -> Lang.F.term -> unit
+val xmark_p: pool -> (Lang.F.var -> unit) -> Lang.F.pred -> unit
+val xmark: pool -> Lang.F.Vars.t
 
 class engine :
   object
-    inherit [Z.t,ADT.t,Field.t,Fun.t,tau,var,term,Env.t] Qed.Engine.engine
-    method marks : Env.t * Lang.F.marks
-    method pp_pred : Format.formatter -> pred -> unit
-    method lookup : term -> scope
+    inherit [ Z.t,
+              Lang.ADT.t,
+              Lang.Field.t,
+              Lang.Fun.t,
+              Lang.tau,
+              Lang.F.var,
+              Lang.F.term,
+              Env.t ]
+        Qed.Engine.engine
+    method marks: Env.t * Lang.F.marks
+    method pp_pred: Format.formatter -> Lang.F.pred -> unit
+    method lookup: Lang.F.term -> scope
     (**/**)
     inherit Lang.idprinting
-    method infoprover : 'a. 'a infoprover -> 'a
-    method op_spaced : string -> bool
+    method infoprover: 'a. 'a Lang.infoprover -> 'a
+    method op_spaced: string -> bool
     (**/**)
   end

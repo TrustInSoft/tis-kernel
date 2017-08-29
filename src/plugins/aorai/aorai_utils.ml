@@ -37,7 +37,6 @@
 open Cil
 open Logic_const
 open Logic_utils
-open Data_for_aorai
 open Cil_types
 open Cil_datatype
 open Promelaast
@@ -67,11 +66,16 @@ let isCrossable tr func st =
     | TOr  (c1, c2) -> bool3or (isCross c1) (isCross c2)
     | TAnd (c1, c2) -> bool3and (isCross c1) (isCross c2)
     | TNot c1 -> bool3not (isCross c1)
-    | TCall (kf,None) when Kernel_function.equal func kf && st=Call -> True
-    | TCall (kf, Some _) when Kernel_function.equal func kf && st=Call ->
+    | TCall (kf, None)
+      when Kernel_function.equal func kf && st = Promelaast.Call ->
+      True
+    | TCall (kf, Some _)
+      when Kernel_function.equal func kf && st = Promelaast.Call ->
       Undefined
     | TCall _ -> False
-    | TReturn kf when Kernel_function.equal func kf && st=Return -> True
+    | TReturn kf
+      when Kernel_function.equal func kf && st = Promelaast.Return ->
+      True
     | TReturn _ -> False
     | TTrue -> True
     | TFalse -> False
@@ -79,8 +83,9 @@ let isCrossable tr func st =
   in
   let cond,_ = tr.cross in
   let res = isCross cond <> False in
-  Aorai_option.debug ~level:2 "Function %a %s-state, \
-                               transition %s -> %s is%s possible" Kernel_function.pretty func
+  Aorai_option.debug ~level:2
+    "Function %a %s-state, \
+     transition %s -> %s is%s possible" Kernel_function.pretty func
     (if st=Call then "pre" else "post")
     tr.start.Promelaast.name
     tr.stop.Promelaast.name
@@ -89,7 +94,7 @@ let isCrossable tr func st =
 
 (** Returns the lval associated to the curState generated variable *)
 let state_lval () =
-  Cil.var (get_varinfo curState)
+  Cil.var (Data_for_aorai.get_varinfo Data_for_aorai.curState)
 
 (* ************************************************************************* *)
 
@@ -519,12 +524,12 @@ let initFile f =
   file := f;
   Data_for_aorai.setCData ();
   (* Adding C variables into our hashtable *)
-  Globals.Vars.iter (fun vi _ -> set_varinfo vi.vname vi);
+  Globals.Vars.iter (fun vi _ -> Data_for_aorai.set_varinfo vi.vname vi);
   Globals.Functions.iter
     (fun kf ->
        let fname = Kernel_function.get_name kf in
        List.iter
-         (fun vi -> set_paraminfo fname vi.vname vi)
+         (fun vi -> Data_for_aorai.set_paraminfo fname vi.vname vi)
          (Kernel_function.get_formals kf);
        if not (Data_for_aorai.isIgnoredFunction fname) then
          begin
@@ -534,7 +539,8 @@ let initFile f =
              | Cil_types.Return (Some e,_) ->
                (match e.enode with
                 | Lval (Var vi,NoOffset) ->
-                  set_returninfo fname vi (* Add the vi of return stmt *)
+                  (* Add the vi of return stmt *)
+                  Data_for_aorai.set_returninfo fname vi
                 | _ -> () (* function without returned value *))
              | _ -> () (* function without returned value *)
            with Kernel_function.No_Statement ->
@@ -576,13 +582,13 @@ let mk_global_c_initialized_vars name ty ini=
   vi.vghost<-true;
   mk_global (GVar(vi,ini,vi.vdecl));
   Globals.Vars.add vi ini;
-  set_varinfo name vi
+  Data_for_aorai.set_varinfo name vi
 
 let mk_global_var_init vi ini =
   vi.vghost<-true;
   mk_global (GVar(vi,ini,vi.vdecl));
   Globals.Vars.add vi ini;
-  set_varinfo vi.vname vi
+  Data_for_aorai.set_varinfo vi.vname vi
 
 let mk_global_var vi =
   let ini =
@@ -597,7 +603,7 @@ let mk_global_c_var_init name init =
   let ini = { Cil_types.init = Some(SingleInit init) } in
   mk_global(GVar(vi,ini,vi.vdecl));
   Globals.Vars.add vi ini;
-  set_varinfo name vi
+  Data_for_aorai.set_varinfo name vi
 
 let mk_int_const value =
   new_exp
@@ -630,7 +636,7 @@ let mk_global_c_enum_type_tagged name elements_l =
       elements_l
   in
   einfo.eitems <- l;
-  set_usedinfo name einfo;
+  Data_for_aorai.set_usedinfo name einfo;
   mk_global (GEnumTag(einfo, Location.unknown));
   einfo
 
@@ -642,7 +648,10 @@ let mk_global_c_enum_type name elements =
   ignore (mk_global_c_enum_type_tagged name elements)
 
 let mk_global_c_initialized_enum name name_enuminfo ini =
-  mk_global_c_initialized_vars name (TEnum(get_usedinfo name_enuminfo,[])) ini
+  mk_global_c_initialized_vars
+    name
+    (TEnum (Data_for_aorai.get_usedinfo name_enuminfo, []))
+    ini
 
 (* ************************************************************************* *)
 (** {b Terms management / computation} *)
@@ -700,7 +709,8 @@ let host_trans_term () =
   lval_to_term_lval ~cast:true (Cil.var (get_varinfo curTrans))
 *)
 let state_term () =
-  Logic_const.tvar (Cil.cvar_to_lvar (get_varinfo curState))
+  Logic_const.tvar
+    (Cil.cvar_to_lvar (Data_for_aorai.get_varinfo Data_for_aorai.curState))
 
 (*
 let stateOld_term () =
@@ -732,7 +742,7 @@ let is_state_exp state loc =
     Cil.mkBinOp
       loc Eq
       (int2enumstate_exp loc state.nums)
-      (Cil.evar ~loc (Data_for_aorai.get_varinfo curState))
+      (Cil.evar ~loc (Data_for_aorai.get_varinfo Data_for_aorai.curState))
   else
     Cil.mkBinOp
       loc Eq (Cil.evar (Data_for_aorai.get_state_var state)) (Cil.one loc)
@@ -763,7 +773,7 @@ let is_out_of_state_exp state loc =
     Cil.mkBinOp
       loc Ne
       (int2enumstate_exp loc state.nums)
-      (evar ~loc (Data_for_aorai.get_varinfo curState))
+      (evar ~loc (Data_for_aorai.get_varinfo Data_for_aorai.curState))
   else
     Cil.mkBinOp
       loc Eq
@@ -796,13 +806,19 @@ let mk_global_states_init root =
     states
 
 let func_to_init name =
-  {Cil_types.init=
+  {Cil_types.init =
      Some(SingleInit(
-         new_exp ~loc:(CurrentLoc.get()) (Const(func_to_cenum (name)))))}
+         new_exp
+           ~loc:(CurrentLoc.get())
+           (Const (Data_for_aorai.func_to_cenum name))))}
 
 let funcStatus_to_init st =
-  {Cil_types.init=Some(SingleInit(new_exp ~loc:(CurrentLoc.get())
-                                    (Const(op_status_to_cenum (st)))))}
+  {Cil_types.init=
+     Some
+       (SingleInit
+          (new_exp
+             ~loc:(CurrentLoc.get())
+             (Const (Data_for_aorai.op_status_to_cenum st))))}
 
 class visit_decl_loops_init () =
   object(self)
@@ -874,23 +890,32 @@ let change_vars subst subst_res kf label pred =
 
 let pred_of_condition subst subst_res label cond =
   let mk_func_event f =
-    let op = tat (mk_term_from_vi (get_varinfo curOp),label) in
+    let op =
+      tat
+        (mk_term_from_vi
+           (Data_for_aorai.get_varinfo Data_for_aorai.curOp), label)
+    in
     (* [VP] TODO: change int to appropriate enum type. Also true
        elsewhere.
     *)
     let f =
       term
-        (TConst (constant_to_lconstant (func_to_cenum f)))
-        (Ctype (func_enum_type ()))
+        (TConst (constant_to_lconstant (Data_for_aorai.func_to_cenum f)))
+        (Ctype (Data_for_aorai.func_enum_type ()))
     in
     prel (Req,op,f)
   in
   let mk_func_status f status =
-    let curr = tat (mk_term_from_vi (get_varinfo curOpStatus),label) in
+    let curr =
+      tat
+        (mk_term_from_vi
+           (Data_for_aorai.get_varinfo Data_for_aorai.curOpStatus), label)
+    in
     let call =
       term
-        (TConst (constant_to_lconstant (op_status_to_cenum status)))
-        (Ctype (status_enum_type()))
+        (TConst
+           (constant_to_lconstant (Data_for_aorai.op_status_to_cenum status)))
+        (Ctype (Data_for_aorai.status_enum_type ()))
     in
     Logic_const.pand (mk_func_event f, prel(Req,curr,call))
   in
@@ -983,9 +1008,9 @@ let make_enum_states () =
         is none of the others. Note that ISO C does not impose this
         limitation to values of enum types.
       *)
-      (get_fresh "aorai_reject_state", -2)::state_list
+      (Data_for_aorai.get_fresh "aorai_reject_state", -2)::state_list
   in
-  let enum = mk_global_c_enum_type_tagged states state_list in
+  let enum = mk_global_c_enum_type_tagged Data_for_aorai.states state_list in
   let mapping =
     List.map
       (fun (name,id) ->
@@ -1013,17 +1038,24 @@ let initGlobals root complete =
   if Aorai_option.Deterministic.get () then make_enum_states ();
   (* non deterministic mode uses one variable for each possible state *)
   mk_global_c_enum_type
-    listOp (List.map (fun e -> func_to_op_func e) (getFunctions_from_c()));
-  mk_global_c_initialized_enum curOp listOp
+    Data_for_aorai.listOp
+    (List.map
+       (fun e -> Data_for_aorai.func_to_op_func e)
+       (Data_for_aorai.getFunctions_from_c ()));
+  mk_global_c_initialized_enum Data_for_aorai.curOp Data_for_aorai.listOp
     (func_to_init (Kernel_function.get_name root));
-  mk_global_c_enum_type  listStatus (callStatus::[termStatus]);
+  mk_global_c_enum_type
+    Data_for_aorai.listStatus
+    (Data_for_aorai.callStatus :: [ Data_for_aorai.termStatus ]);
   mk_global_c_initialized_enum
-    curOpStatus listStatus (funcStatus_to_init Promelaast.Call);
+    Data_for_aorai.curOpStatus
+    Data_for_aorai.listStatus
+    (funcStatus_to_init Promelaast.Call);
 
   mk_global_comment "//* ";
   mk_global_comment "//* States and Trans Variables";
   if Aorai_option.Deterministic.get () then
-    mk_global_c_var_init curState (getInitialState())
+    mk_global_c_var_init Data_for_aorai.curState (getInitialState())
   else
     mk_global_states_init root;
 
@@ -1092,12 +1124,12 @@ let automaton_assigns loc = Writes (automaton_locations loc)
 
 let aorai_assigns state loc =
   let merged_states =
-    Aorai_state.Map.fold
+    Data_for_aorai.Aorai_state.Map.fold
       (fun _ state acc -> Data_for_aorai.merge_end_state state acc)
-      state Aorai_state.Map.empty
+      state Data_for_aorai.Aorai_state.Map.empty
   in
   let bindings =
-    Aorai_state.Map.fold
+    Data_for_aorai.Aorai_state.Map.fold
       (fun _ (_,_,b) acc -> Data_for_aorai.merge_bindings b acc)
       merged_states Cil_datatype.Term.Map.empty
   in
@@ -1852,7 +1884,7 @@ let auto_func_block loc f st status res =
 
   let copies, local_var =
     if Aorai_option.Deterministic.get () then begin
-      let orig = Data_for_aorai.get_varinfo curState in
+      let orig = Data_for_aorai.get_varinfo Data_for_aorai.curState in
       let copy = Cil.copyVarinfo orig (orig.vname ^ "_tmp") in
       List.map (fun st -> (st, copy)) states, [copy]
     end else begin
@@ -1889,7 +1921,7 @@ let auto_func_block loc f st status res =
 
   let copies_update =
     if Aorai_option.Deterministic.get () then
-      let orig = Data_for_aorai.get_varinfo curState in
+      let orig = Data_for_aorai.get_varinfo Data_for_aorai.curState in
       [ equalsStmt (Cil.var (List.hd local_var)) (Cil.evar ~loc orig) ]
     else
       List.map
@@ -1911,7 +1943,7 @@ let auto_func_block loc f st status res =
   (* Finally, we replace the state var values by the ones computed in copies. *)
   let stvar_update =
     if Aorai_option.Deterministic.get () then
-      let orig = Data_for_aorai.get_varinfo curState in
+      let orig = Data_for_aorai.get_varinfo Data_for_aorai.curState in
       [ equalsStmt (Cil.var (List.hd local_var)) (Cil.evar ~loc orig)]
     else
       List.map
@@ -1971,16 +2003,16 @@ let treat_val loc base range pred =
   let add_cst i = add (Logic_const.tinteger i) in
   let res =
     match range with
-    | Fixed i -> Logic_const.prel (Req,loc, add_cst i)
-    | Interval(min,max) ->
+    | Data_for_aorai.Fixed i -> Logic_const.prel (Req,loc, add_cst i)
+    | Data_for_aorai.Interval (min, max) ->
       let min = Logic_const.prel (Rle, add_cst min, loc) in
       let max = Logic_const.prel (Rle, loc, add_cst max) in
-      Logic_const.pand (min,max)
-    | Bounded (min,max) ->
+      Logic_const.pand (min, max)
+    | Data_for_aorai.Bounded (min, max) ->
       let min = Logic_const.prel (Rle, add_cst min, loc) in
       let max = Logic_const.prel (Rle, loc, add max) in
-      Logic_const.pand (min,max)
-    | Unbounded min -> Logic_const.prel (Rle, add_cst min, loc)
+      Logic_const.pand (min, max)
+    | Data_for_aorai.Unbounded min -> Logic_const.prel (Rle, add_cst min, loc)
   in
   Aorai_option.debug ~dkey:action_dkey "Action predicate: %a"
     Printer.pp_predicate_named res;

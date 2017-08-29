@@ -23,7 +23,7 @@
 #define MAP_SHARED	0x01		/* Share changes.  */
 #define MAP_PRIVATE	0x02		/* Changes are private.  */
 #define MAP_FIXED	0x10		/* Interpret addr exactly */
-
+#define MAP_ANONYMOUS   0x20
 #define MAP_FAILED	((void *) -1)
 
 void *mmap(void *addr, size_t length, int prot, int flags,

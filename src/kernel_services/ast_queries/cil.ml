@@ -6175,7 +6175,14 @@ let initGccBuiltins () : unit =
      uint32_t,"_uint32_t";
      uint64_t,"_uint64_t"]
   in
-  (* Legacy 'sync' builtins *)
+  (* Legacy 'sync' builtins are also monomorphized by Clang *)
+  let atomic_sized =
+    atomic_instances @
+    [uint8_t, "_1";
+     uint16_t,"_2";
+     uint32_t,"_4";
+     uint64_t,"_8"]
+  in
   let add_sync (typ,name) f =
     match typ with
     | Some typ ->
@@ -6183,7 +6190,7 @@ let initGccBuiltins () : unit =
     | None -> ()
   in
   let add_sync f =
-    List.iter (fun typ -> add_sync typ f) atomic_instances
+    List.iter (fun typ -> add_sync typ f) atomic_sized;
   in
   add_sync "fetch_and_add";
   add_sync "fetch_and_sub";
@@ -6206,7 +6213,7 @@ let initGccBuiltins () : unit =
           [ TPtr(typ,[]); typ ; typ]
           true
       | None -> ())
-    atomic_instances;
+    atomic_sized;
   List.iter (fun (typ,n) ->
       match typ with
       | Some typ ->
@@ -6215,7 +6222,7 @@ let initGccBuiltins () : unit =
           [ TPtr(typ,[]); typ ; typ]
           true
       | None -> ())
-    atomic_instances;
+    atomic_sized;
   List.iter (fun (typ,n) ->
       match typ with
       | Some typ ->
@@ -6224,7 +6231,7 @@ let initGccBuiltins () : unit =
           [ TPtr(typ,[]) ]
           true;
       | None -> ())
-    atomic_instances;
+    atomic_sized;
   add ~prefix:"" "__sync_synchronize" voidType [] true;
 
   (* Modern C11 atomic builtins and the __c11_atomic Clang's counterpart. *)

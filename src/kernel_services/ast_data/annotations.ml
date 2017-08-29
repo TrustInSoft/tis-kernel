@@ -301,7 +301,8 @@ let merge_funspec s1 s2 =
 module StmtContractMap = FCMap.Make(Datatype.String.Set)
 
 let is_same_behavior_set l1 l2 =
-  Datatype.String.Set.(equal (of_list l1) (of_list l2))
+  Datatype.String.Set.equal
+    (Datatype.String.Set.of_list l1) (Datatype.String.Set.of_list l2)
 
 let merge_stmt_contracts contracts =
   let add_one acc c =
@@ -1168,9 +1169,8 @@ let add_code_annot emitter ?kf stmt ca =
          let merged_ca = { a with annot_content = AAssigns(bhvs,assigns') }
          in
          let ip =
-           Property.(
-             ip_of_assigns
-               kf (Kstmt stmt) (Id_loop merged_ca) assigns')
+           Property.ip_of_assigns
+             kf (Kstmt stmt) (Id_loop merged_ca) assigns'
          in
          Extlib.may Property_status.remove ip;
          (match assigns' with
@@ -1179,9 +1179,7 @@ let add_code_annot emitter ?kf stmt ca =
             List.iter
               (fun from ->
                  let ip =
-                   Property.(
-                     ip_of_from kf (Kstmt stmt)
-                       (Id_loop merged_ca) from)
+                   Property.ip_of_from kf (Kstmt stmt) (Id_loop merged_ca) from
                  in
                  Extlib.may Property_status.remove ip)
               l);
@@ -1192,9 +1190,8 @@ let add_code_annot emitter ?kf stmt ca =
          in
          let ips =
            Extlib.list_of_opt
-             Property.(
-               ip_of_assigns
-                 kf (Kstmt stmt) (Id_loop new_ca) new_assigns)
+             (Property.ip_of_assigns
+                kf (Kstmt stmt) (Id_loop new_ca) new_assigns)
          in
          let ips =
            match new_assigns with
@@ -1204,9 +1201,7 @@ let add_code_annot emitter ?kf stmt ca =
                (fun acc f ->
                   Extlib.opt_fold
                     (fun x y -> x::y)
-                    Property.(
-                      ip_of_from kf (Kstmt stmt)
-                        (Id_loop new_ca) f)
+                    (Property.ip_of_from kf (Kstmt stmt) (Id_loop new_ca) f)
                     acc)
                ips l
          in
@@ -1245,9 +1240,7 @@ let add_code_annot emitter ?kf stmt ca =
            { a with annot_content = AAllocation(bhvs,alloc') }
          in
          let ip =
-           Property.(
-             ip_of_allocation kf (Kstmt stmt)
-               (Id_loop merged_a) alloc')
+           Property.ip_of_allocation kf (Kstmt stmt) (Id_loop merged_a) alloc'
          in
          Extlib.may Property_status.remove ip;
          let new_alloc = Logic_utils.merge_allocation alloc' alloc in
@@ -1255,9 +1248,7 @@ let add_code_annot emitter ?kf stmt ca =
            { a with annot_content = AAllocation(bhvs,new_alloc) }
          in
          let ip =
-           Property.(
-             ip_of_allocation
-               kf (Kstmt stmt) (Id_loop new_a) new_alloc)
+           Property.ip_of_allocation kf (Kstmt stmt) (Id_loop new_a) new_alloc
          in
          let emit_a =
            match code_annot ~emitter ~filter stmt with

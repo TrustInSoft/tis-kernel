@@ -59,7 +59,7 @@ val interp_call :
   lval option ->
   exp ->
   exp list ->
-  get_node:(stmt -> State_node.last_action -> Cvalue.Model.t -> State_node.t) ->
+  get_node:(stmt -> State_node.last_action -> Model.t -> State_node.t) ->
   State_node.t ->
   (Cvalue.Model.t * State_node.t option) list * Value_types.cacheable
 

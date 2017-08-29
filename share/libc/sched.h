@@ -55,5 +55,7 @@ int sched_getscheduler(pid_t);
 int sched_getparam(pid_t, struct sched_param *);
 int sched_get_priority_max(int);
 int sched_get_priority_min(int);
+int clone(int (*__fn)(void *), void *__child_stack,
+          int __flags, void *__arg, ...);
 __END_DECLS
 #endif

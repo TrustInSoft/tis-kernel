@@ -213,9 +213,9 @@ let get_property ds p =
 let add_goal (gs:fcstat) wpo =
   begin
     let section = match Wpo.get_index wpo with
-      | Wpo.Axiomatic None -> Axiom ""
-      | Wpo.Axiomatic (Some a) -> Axiom a
-      | Wpo.Function(kf,_) -> Fun kf
+      | Wpo.IAxiomatic None -> Axiom ""
+      | Wpo.IAxiomatic Some a -> Axiom a
+      | Wpo.IFunction (kf, _) -> Fun kf
     in
     let ds : dstats = get_section gs section in
     let (ok,prop) = Wpo.get_proof wpo in

@@ -107,13 +107,6 @@ module String
       include X
     end)
 
-module EmptyString(X: Input_with_arg) =
-  P.Empty_string
-    (struct
-      let () = Parameter_customize.set_module_name X.module_name
-      include X
-    end)
-
 module String_set(X: Input_with_arg) =
   P.String_set
     (struct
@@ -864,6 +857,20 @@ module WarnDecimalFloat =
   end)
 let () = WarnDecimalFloat.set_possible_values ["none"; "once"; "all"]
 
+let () = Parameter_customize.set_group parsing
+let () = Parameter_customize.do_not_reset_on_copy ()
+module Language =
+  String(struct
+    let module_name = "Language"
+    let option_name = "-language"
+    let default = "unspecified"
+    let arg_name = "language"
+    let help = "process input file(s) as the given language regardless of the \
+                file extension. Allowed values are \"unspecified\" (default), \
+                \"c\" and \"c++\"."
+  end)
+let () = Language.set_possible_values ["unspecified"; "c"; "c++"]
+
 (* ************************************************************************* *)
 (** {2 Customizing Normalization} *)
 (* ************************************************************************* *)
@@ -1366,6 +1373,9 @@ let () =
 (** {2 Others options} *)
 (* ************************************************************************* *)
 
+(* This three options are parsed and used directly from Cmdline *)
+[@@@warning "-60"]
+
 let () = Parameter_customize.set_negative_option_name ""
 let () = Parameter_customize.set_cmdline_stage Cmdline.Early
 let () = Parameter_customize.is_invisible ()
@@ -1401,6 +1411,9 @@ module Deterministic =
       let option_name = "-deterministic"
       let help = ""
     end)
+
+[@@@warning "+60"]
+
 
 (* ************************************************************************* *)
 (** {2 Checks} *)

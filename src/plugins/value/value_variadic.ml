@@ -24,9 +24,12 @@ let register_subcategory subcategory =
   Value_parameters.register_category ("variadic:" ^ subcategory)
 
 (* In the helper functions. *)
-let dkey_reduce_ptr_to_valid_values       = register_subcategory "reduce_ptr_to_valid_values"
-let dkey_reduce_arg_ptr_to_valid_values   = register_subcategory "reduce_arg_ptr_to_valid_values"
-let dkey_convert_arg_ptr_values_to_a_type = register_subcategory "convert_arg_ptr_values_to_a_type"
+let dkey_reduce_ptr_to_valid_values =
+  register_subcategory "reduce_ptr_to_valid_values"
+let dkey_reduce_arg_ptr_to_valid_values =
+  register_subcategory "reduce_arg_ptr_to_valid_values"
+let dkey_convert_arg_ptr_values_to_a_type =
+  register_subcategory "convert_arg_ptr_values_to_a_type"
 
 (* In the variadic macros. *)
 let dkey_va_start = register_subcategory "va_start"
@@ -123,8 +126,10 @@ end = struct
     try
       KFHashtbl.find kf
     with Not_found ->
-      Value_parameters.fatal ~current:true "get_va_args_varinfo_of_function: \
-                                            va_args variable for function \"%a\" does not exist!%t"
+      Value_parameters.fatal
+        ~current:true
+        "get_va_args_varinfo_of_function: \
+         va_args variable for function \"%a\" does not exist!%t"
         Kernel_function.pretty kf
         pp_callstack
 
@@ -156,8 +161,8 @@ end = struct
 
   (* The ArgsHashtbl data structure parameters. *)
   module ArgsHashtblInfoWithSize = struct
-    let name         = "Value.Variadic.Variadic_arguments"
-    let size         = 50
+    let name = "Value.Variadic.Variadic_arguments"
+    let size = 50
     let dependencies = [Db.Value.self]
   end
 
@@ -218,7 +223,8 @@ let get_current_call_depth_v () : V.t =
 
 (* = Handling initializedness. = *)
 
-(* Two basic initializedness-related predicates on Cvalue.V_Or_Uninitialized.t values. *)
+(* Two basic initializedness-related predicates on
+   Cvalue.V_Or_Uninitialized.t values. *)
 
 let is_initialized : V_Or_Uninitialized.t -> bool =
   V_Or_Uninitialized.is_initialized
@@ -226,7 +232,8 @@ let is_initialized : V_Or_Uninitialized.t -> bool =
 let is_bottom (v_or_uninit : V_Or_Uninitialized.t) : bool =
   V.is_bottom (V_Or_Uninitialized.get_v v_or_uninit)
 
-(* For clarity we introduce a separate predicate for each initializedness case. *)
+(* For clarity we introduce a separate predicate for each
+   initializedness case. *)
 let is_definitely_init   v_or_uninit =      is_initialized v_or_uninit
 
 let is_possibly_init     v_or_uninit = not (is_bottom      v_or_uninit)
@@ -270,7 +277,10 @@ let has_ptr_a_valid_part (size : Int_Base.t) (ptr : V.t) : bool =
 
 (* [get_v_or_uninit_under_ptr state size ptr] retrieves the value written under
    the given pointer in the given abstract state. *)
-let get_v_or_uninit_under_ptr state (size : Int_Base.t) (ptr : V.t) : V_Or_Uninitialized.t =
+let get_v_or_uninit_under_ptr
+    state
+    (size : Int_Base.t)
+    (ptr : V.t) : V_Or_Uninitialized.t =
   let ptr_loc = loc_of_ptr size ptr in
   let (_, ptr_v_or_uninit : bool * V_Or_Uninitialized.t) =
     Model.find_unspecified state ptr_loc
@@ -324,47 +334,60 @@ module Va_list_object_struct : sig
 
   (* - The fields of the va_list object structure. - *)
   type struct_field =
-    | F_arg_ptr_ptr     (* arg_ptr_ptr:     The pointer to the pointer to the next argument. *)
-    | F_init_call_depth (* init_call_depth: The call depth on which this object has been initialized. *)
+    | F_arg_ptr_ptr
+    (* arg_ptr_ptr: The pointer to the pointer to the next argument. *)
+    | F_init_call_depth
+    (* init_call_depth: The call depth on which this object has been
+       initialized. *)
 
 
   (* - Building and destroying the structure. - *)
-  val create        : string -> Model.t -> t * Model.t
-  val remove        : t      -> Model.t ->     Model.t
+  val create: string -> Model.t -> t * Model.t
+  val remove: t -> Model.t -> Model.t
 
 
   (* - Whole structure operations. - *)
 
   (* Set the value of all the object's fields to UNINITIALIZED. *)
-  val deinitialize : with_alarms:CilE.warn_mode -> t -> Model.t        -> Model.t
+  val deinitialize: with_alarms:CilE.warn_mode -> t -> Model.t -> Model.t
 
   (* Set the object's arg_ptr_ptr field to the provided value and initialize the
      object's init_call_depth to the current call_depth. *)
-  val initialize   : with_alarms:CilE.warn_mode -> t -> Model.t -> V.t -> Model.t
+  val initialize: with_alarms:CilE.warn_mode -> t -> Model.t -> V.t -> Model.t
 
   (* Copy the object's arg_ptr_ptr's field's value from the given source va_list
      object and initialize the object's init_call_depth to the current
      call_depth. *)
-  val copy         : with_alarms:CilE.warn_mode -> t -> Model.t -> t   -> Model.t
+  val copy: with_alarms:CilE.warn_mode -> t -> Model.t -> t -> Model.t
 
 
   (* - Transformations. - *)
-  val get_loc        : t -> Model.t -> Locations.location
-  val of_ptr         : V.t                -> Model.t -> t
-  val of_va_list_loc : Locations.location -> Model.t -> t
+  val get_loc: t -> Model.t -> Locations.location
+  val of_ptr: V.t -> Model.t -> t
+  val of_va_list_loc: Locations.location -> Model.t -> t
 
 
   (* - Operations on fields. - *)
 
   (* Get the location corresponding to a given va_list object's field. *)
-  val field_get_loc          : struct_field -> Model.t -> t -> Locations.location
+  val field_get_loc: struct_field -> Model.t -> t -> Locations.location
 
   (* Get the value of a given va_list object's field. *)
-  val field_find_unspecified : struct_field -> Model.t -> t -> V_Or_Uninitialized.t
-  val field_find             : struct_field -> Model.t -> t -> V.t
+  val field_find_unspecified:
+    struct_field
+    -> Model.t
+    -> t
+    -> V_Or_Uninitialized.t
+  val field_find: struct_field -> Model.t -> t -> V.t
 
   (* Set the value of a given va_list object's field. *)
-  val field_add_binding      : struct_field -> with_alarms:CilE.warn_mode -> Model.t -> t -> V.t -> Model.t
+  val field_add_binding:
+    struct_field
+    -> with_alarms:CilE.warn_mode
+    -> Model.t
+    -> t
+    -> V.t
+    -> Model.t
 
 end = struct
 
@@ -399,12 +422,18 @@ end = struct
         let loc = Cil.builtinLoc in (* Cil.builtinLoc is the location of
                                        the prototypes of builtin functions. *)
         (fun _ ->
-           [
-             (*field's name       field's type,        key?, type's attributes,                    loc *)
-             "arg_ptr_ptr",     arg_ptr_ptr_typ,     None, mk_single_attr "va_list_arg_ptr_ptr", loc;
-             "init_call_depth", integer_counter_typ, None, mk_single_attr "va_list_call_depth",  loc
-           ]
-        ) in
+           [ (* field's name, field's type, key?, type's attributes, loc *)
+             ("arg_ptr_ptr",
+              arg_ptr_ptr_typ,
+              None,
+              mk_single_attr "va_list_arg_ptr_ptr",
+              loc);
+             ("init_call_depth",
+              integer_counter_typ,
+              None,
+              mk_single_attr "va_list_call_depth",
+              loc); ])
+      in
       let compinfo_attributes =
         mk_single_attr "va_list_obj_structure_compinfo"
       in
@@ -433,19 +462,25 @@ end = struct
       Locations.Location_Bytes.fold_i (fun base offset _acc ->
           (* Check the offset. *)
           begin
-            if(not (Ival.is_zero offset)) then
-              Value_parameters.fatal ~current:true "invalid va_list location: \
-                                                    offset is not a singleton zero!%t" pp_callstack
+            if not (Ival.is_zero offset) then
+              Value_parameters.fatal
+                ~current:true
+                "invalid va_list location: \
+                 offset is not a singleton zero!%t"
+                pp_callstack
           end;
           (* Check the type of the base. *)
           begin
             let typ_option = Base.typeof base in
             match typ_option with
             | None ->
-              Value_parameters.fatal ~current:true "invalid va_list location: \
-                                                    base with no type!%t" pp_callstack
+              Value_parameters.fatal
+                ~current:true
+                "invalid va_list location: \
+                 base with no type!%t"
+                pp_callstack
             | Some typ ->
-              if(not (Cabs2cil.compatibleTypesp (obj_typ ()) typ)) then
+              if not (Cabs2cil.compatibleTypesp (obj_typ ()) typ) then
                 Value_parameters.fatal ~current:true
                   "invalid va_list location: base with wrong type! \
                    type = %a; expected type = %a%t"
@@ -483,9 +518,11 @@ end = struct
     assert (is_definitely_init va_list_value_or_uninit);
     assert (not (is_bottom va_list_value_or_uninit));
 
-    (* Apparently this assertion does not necessarily hold: it may happen then
-       a va_list is retuned conditionally, then the return value is imprecise. *)
-    (* assert (V_Or_Uninitialized.cardinal_zero_or_one va_list_value_or_uninit); *)
+    (* Apparently this assertion does not necessarily hold: it may
+       happen then a va_list is retuned conditionally, then the return
+       value is imprecise. *)
+    (* assert (V_Or_Uninitialized.cardinal_zero_or_one
+       va_list_value_or_uninit); *)
 
     let va_list_value = V_Or_Uninitialized.get_v va_list_value_or_uninit in
     of_ptr va_list_value state
@@ -518,10 +555,12 @@ end = struct
         let va_list_obj_loc_bytes =
           Locations.loc_to_loc_without_size va_list_obj_loc
         in
-        Locations.Location_Bytes.fold_i (fun base offset loc_bytes_acc ->
-            assert (Ival.is_zero offset); (* Checked just before in is_va_list_obj_loc, so it must hold. *)
-            Locations.Location_Bytes.add base location_offset loc_bytes_acc
-          ) va_list_obj_loc_bytes Locations.Location_Bytes.bottom
+        Locations.Location_Bytes.fold_i
+          (fun base offset loc_bytes_acc ->
+             assert (Ival.is_zero offset);
+             (* Checked just before in is_va_list_obj_loc, so it must hold. *)
+             Locations.Location_Bytes.add base location_offset loc_bytes_acc)
+          va_list_obj_loc_bytes Locations.Location_Bytes.bottom
       in
       Locations.loc_bytes_to_loc_bits field_loc_bytes
     in
@@ -550,12 +589,22 @@ end = struct
     let exact = Locations.(Location_Bits.cardinal_zero_or_one field_loc.loc) in
     Eval_op.add_binding ~with_alarms ~exact state field_loc v
 
-  let field_add_binding_unspecified field ~with_alarms state va_list_obj_loc v_or_uninit =
+  let field_add_binding_unspecified
+      field
+      ~with_alarms
+      state
+      va_list_obj_loc
+      v_or_uninit =
     (* va_list_obj.field := v_or_uninit *)
     let _ = is_va_list_obj_loc va_list_obj_loc state in
     let field_loc = field_get_loc field state va_list_obj_loc in
     let exact = Locations.(Location_Bits.cardinal_zero_or_one field_loc.loc) in
-    Eval_op.add_binding_unspecified ~with_alarms ~exact state field_loc v_or_uninit
+    Eval_op.add_binding_unspecified
+      ~with_alarms
+      ~exact
+      state
+      field_loc
+      v_or_uninit
 
   let deinitialize ~with_alarms va_list_obj_loc state : Model.t =
     (* va_list_obj.arg_ptr_ptr      := UNINITIALIZED *)
@@ -624,8 +673,11 @@ end = struct
     (* Write the uninitialized value to the appropriate location. *)
     let loc = Locations.loc_of_base base in
     let _, state =
-      Model.add_binding_unspecified ~exact:true state
-        loc (V_Or_Uninitialized.uninitialized)
+      Model.add_binding_unspecified
+        ~exact:true
+        state
+        loc
+        V_Or_Uninitialized.uninitialized
     in
     (* Return the location and the new abstract state. *)
     (loc, state)
@@ -638,11 +690,13 @@ end = struct
       Locations.loc_to_loc_without_size va_list_obj_loc
     in
     let varinfos_to_remove =
-      Locations.Location_Bytes.fold_i (fun base offset varinfos ->
-          assert (Ival.is_zero offset); (* Checked just before in is_va_list_obj_loc, so it must hold. *)
-          let varinfo = Base.to_varinfo base in
-          VarinfoSet.add varinfo varinfos
-        ) va_list_obj_loc_bytes VarinfoSet.empty
+      Locations.Location_Bytes.fold_i
+        (fun base offset varinfos ->
+           (* Checked just before in is_va_list_obj_loc, so it must hold. *)
+           assert (Ival.is_zero offset);
+           let varinfo = Base.to_varinfo base in
+           VarinfoSet.add varinfo varinfos)
+        va_list_obj_loc_bytes VarinfoSet.empty
     in
     let varinfos_to_remove = VarinfoSet.elements varinfos_to_remove in
     Model.remove_variables varinfos_to_remove state
@@ -725,14 +779,18 @@ let are_arg_ptr_are_base_and_offset_valid ~dkey base offset =
   (* Check the base's validity properties. *)
   let is_base_valid_from_the_beginning, _base_validity_size =
     let base_validity = Base.validity base in
-    Abstract_interp.Int.(
-      match base_validity with
-      | Base.Empty                -> (false, zero)
-      | Base.Known    (fst, lst)  -> (is_zero fst, add (sub lst fst) one)
-      | Base.Unknown  (fst, _, _) -> (is_zero fst, zero)
-      | Base.Variable  _          -> (false, zero) (* TODO: Handle this properly? *)
-      | Base.Invalid              -> (false, zero)
-    )
+    match base_validity with
+    | Base.Empty -> (false, Abstract_interp.Int.zero)
+    | Base.Known (fst, lst) ->
+      (Abstract_interp.Int.is_zero fst,
+       Abstract_interp.Int.add
+         (Abstract_interp.Int.sub lst fst)
+         Abstract_interp.Int.one)
+    | Base.Unknown (fst, _, _) ->
+      (Abstract_interp.Int.is_zero fst, Abstract_interp.Int.zero)
+    | Base.Variable _ ->
+      (false, Abstract_interp.Int.zero) (* TODO: Handle this properly? *)
+    | Base.Invalid -> (false, Abstract_interp.Int.zero)
   in
   Value_parameters.debug ~dkey ":> %s"
     (if is_base_valid_from_the_beginning
@@ -753,57 +811,70 @@ let are_arg_ptr_are_base_and_offset_valid ~dkey base offset =
   is_offset_a_singleton_zero
 
 
+type arg_ptr_value_conformance =
+  | Arg_Type_C11_Conformant
+  | Arg_Type_XSI_Conformant
+  | Arg_Type_Wrong
+
 (* Helper to check argument pointer's value's type. *)
 let is_type_of_the_arg_ptr_value_as_expected ~dkey state base expected_arg_typ =
 
   (* Get the type of the value from the base. *)
-  let arg_typ_option = Base.typeof base in
+  let actual_arg_typ_option = Base.typeof base in
 
   (* Debug printing... *)
   Value_parameters.debug ~dkey "expected type: %a, actual type %a"
     Printer.pp_typ expected_arg_typ
-    pp_typ_option arg_typ_option;
+    pp_typ_option actual_arg_typ_option;
 
-  match arg_typ_option with
-  | Some arg_typ ->
-      (*
-         From C11 standard (7.16.1.1.2):
+  match actual_arg_typ_option with
+  | Some actual_arg_typ ->
+    (*
+       From C11 standard (7.16.1.1.2):
 
-         "(...) if type is not compatible with the type of the actual next
-         argument (as promoted according to the default argument
-         promotions), the behavior is undefined, except for the following
-         cases:
-         - one type is a signed integer type, the other type is the
-           corresponding unsigned integer type, and the value is
-           representable in both types;
-         - one type is pointer to void and the other is a pointer to a
-           character type."
-       *)
+       "(...) if type is not compatible with the type of the actual next
+       argument (as promoted according to the default argument
+       promotions), the behavior is undefined, except for the following
+       cases:
+       - one type is a signed integer type, the other type is the
+         corresponding unsigned integer type, and the value is
+         representable in both types;
+       - one type is pointer to void and the other is a pointer to a
+         character type."
+
+       X/Open Systems Interfaces (XSI) extends this with a third exception case:
+       "- Both types are pointers."
+
+       (http://pubs.opengroup.org/onlinepubs/9699919799/basedefs/stdarg.h.html)
+     *)
+
+    (* Prepare the types:
+       - promote the type of the actual next argument,
+       - unroll both types. *)
+    let actual_arg_typ =
+      let unrolled_arg_typ = Cil.unrollTypeDeep actual_arg_typ in
+      if Cil.isIntegralType unrolled_arg_typ
+      then Cil.integralPromotion unrolled_arg_typ
+      else unrolled_arg_typ
+    in
+    let expected_arg_typ = Cil.unrollTypeDeep expected_arg_typ in
 
     (* Check the compatibility. *)
-    let are_types_compatible = lazy (
-      (* Promote the argument type. *)
-      let promoted_arg_typ =
-        if Cil.isIntegralType arg_typ
-        then Cil.integralPromotion arg_typ
-        else arg_typ
-      in
-      (* Compare the unrolled argument types. *)
-      Bit_utils.equal_type_no_attribute
-        (Cil.unrollTypeDeep promoted_arg_typ)
-        (Cil.unrollTypeDeep expected_arg_typ)
-        (* Cabs2cil.compatibleTypesp promoted_arg_typ expected_arg_typ *)
-    ) in
+    let are_types_compatible = lazy
+      (* Compare the types. *)
+      (* NOTE: Why not use [Cabs2cil.compatibleTypesp]? *)
+      (Bit_utils.equal_type_no_attribute actual_arg_typ expected_arg_typ)
+    in
 
     Value_parameters.debug ~dkey ":> %s"
       (if Lazy.force are_types_compatible
-       then "the expected and actual types are the same."
-       else "the expected and actual types are NOT the same.");
+       then "the expected and actual types are compatible."
+       else "the expected and actual types are NOT compatible.");
 
     (* Special case 1:
        signed and unsigned versions of the same integer type. *)
-    let are_corresponding_signed_and_unsigned_integers = lazy (
-      match arg_typ, expected_arg_typ with
+    let are_corresponding_signed_and_unsigned_integers = lazy begin
+      match actual_arg_typ, expected_arg_typ with
       | TInt((IBool)                as actual_arg_ikind,   _),
         TInt((IBool)                as expected_arg_ikind, _)
       | TInt((IChar|ISChar|IUChar)  as actual_arg_ikind,   _),
@@ -844,10 +915,17 @@ let is_type_of_the_arg_ptr_value_as_expected ~dkey state base expected_arg_typ =
                   Model.find state loc
                 in
                 try V.find_lonely_key arg_value
-                with Not_found -> assert false (* We've just created the location and it has only one base. *)
+                with Not_found ->
+                  (* We've just created the location and it has only
+                     one base. *)
+                  assert false
               in
-              assert (Base.is_null base); (* The value is of an integral type, thus the base must be null. *)
-              Value_parameters.debug ~dkey ":> actual ival = %a"
+              (* The value is of an integral type, thus the base must
+                 be null. *)
+              assert (Base.is_null base);
+              Value_parameters.debug
+                ~dkey
+                ":> actual ival = %a"
                 Ival.pretty ival;
 
               (* Get the max and min. *)
@@ -859,7 +937,8 @@ let is_type_of_the_arg_ptr_value_as_expected ~dkey state base expected_arg_typ =
             then begin
               assert (not is_actual_arg_typ_signed);
               (* Expected type signed, actual type unsigned:
-                 -> Values greater that max signed value representable don't fit! *)
+                 -> Values greater that max signed value representable
+                    don't fit! *)
               Value_parameters.debug ~dkey
                 ":> expected type SIGNED, actual type UNSIGNED!";
 
@@ -872,8 +951,10 @@ let is_type_of_the_arg_ptr_value_as_expected ~dkey state base expected_arg_typ =
               (* Does actual max is greater that max signed value? *)
               let some_values_do_not_fit =
                 match actual_max with
-                | None            -> true
-                | Some actual_max -> Abstract_interp.Int.gt actual_max max_signed_value
+                | None ->
+                  true
+                | Some actual_max ->
+                  Abstract_interp.Int.gt actual_max max_signed_value
               in
               Value_parameters.debug ~dkey ":> %s"
                 (if some_values_do_not_fit
@@ -883,8 +964,10 @@ let is_type_of_the_arg_ptr_value_as_expected ~dkey state base expected_arg_typ =
               (* Does actual min is lower or equal to the max signed value? *)
               let some_values_fit =
                 match actual_min with
-                | None            -> true
-                | Some actual_min -> Abstract_interp.Int.le actual_min max_signed_value
+                | None ->
+                  true
+                | Some actual_min ->
+                  Abstract_interp.Int.le actual_min max_signed_value
               in
               Value_parameters.debug ~dkey ":> %s"
                 (if some_values_do_not_fit
@@ -904,7 +987,7 @@ let is_type_of_the_arg_ptr_value_as_expected ~dkey state base expected_arg_typ =
                      value of the argument fits in the (signed) type \
                      provided to the va_arg macro%t"
                     Printer.pp_typ expected_arg_typ
-                    Printer.pp_typ arg_typ
+                    Printer.pp_typ actual_arg_typ
                     pp_callstack
               end;
 
@@ -956,7 +1039,7 @@ let is_type_of_the_arg_ptr_value_as_expected ~dkey state base expected_arg_typ =
                      the (signed) value of the argument fits in the \
                      (unsigned) type provided to the va_arg macro%t"
                     Printer.pp_typ expected_arg_typ
-                    Printer.pp_typ arg_typ
+                    Printer.pp_typ actual_arg_typ
                     pp_callstack
               end;
 
@@ -968,27 +1051,38 @@ let is_type_of_the_arg_ptr_value_as_expected ~dkey state base expected_arg_typ =
         end
 
       | _ -> false
-    ) in
+    end
+    in
 
     (* Special case 2:
        one is a void pointer and the other a char pointer. *)
-    let are_both_void_or_char_pointer_types = lazy (
-      let isVoidOrCharPointerType typ =
-        Cil.((isVoidPtrType typ) || (isCharPtrType typ))
-      in
-      (isVoidOrCharPointerType          arg_typ) &&
-      (isVoidOrCharPointerType expected_arg_typ)
-    ) in
+    let are_a_void_pointer_and_a_char_pointer =
+      lazy
+        ((isVoidPtrType actual_arg_typ && isCharPtrType expected_arg_typ) ||
+         (isCharPtrType actual_arg_typ && isVoidPtrType expected_arg_typ))
+    in
 
-    (* Check if the types are compatible or if one of the special cases applies. *)
-    Lazy.force are_types_compatible
-    || Lazy.force are_both_void_or_char_pointer_types
+    (* Special case 3 (XSI only!):
+       both are pointers. *)
+    let are_both_pointers = lazy
+      (Cil.isPointerType actual_arg_typ && Cil.isPointerType expected_arg_typ)
+    in
+
+    (* Check if the types are compatible or if one of the special cases
+       applies. *)
+    if Lazy.force are_types_compatible
+    || Lazy.force are_a_void_pointer_and_a_char_pointer
     || Lazy.force are_corresponding_signed_and_unsigned_integers
+    then Arg_Type_C11_Conformant
+    else
+    if Lazy.force are_both_pointers
+    then Arg_Type_XSI_Conformant
+    else Arg_Type_Wrong
 
   | None ->
     (* What does it mean if we cannot get the argument base's type?
        I'm not sure, but this is definitely a type mismatch. *)
-    false
+    Arg_Type_Wrong
 
 (* [reduce_arg_ptr_to_valid_values arg_ptr expected_arg_typ] reduces the
    pointer to an argument to valid values, expecially we verify here if the type
@@ -1010,14 +1104,20 @@ let reduce_arg_ptr_to_valid_values state arg_ptr expected_arg_typ =
            then "the base and the offset are valid. OK."
            else "the base and the offset are NOT valid! WRONG!");
 
-        (* The type of the value under the pointer should be the  *)
+        (* The type of the value under the pointer should be compatible with the
+           expected type. *)
         let is_type_of_the_value_as_expected =
-          is_type_of_the_arg_ptr_value_as_expected ~dkey state base expected_arg_typ
+          is_type_of_the_arg_ptr_value_as_expected
+            ~dkey
+            state
+            base
+            expected_arg_typ
         in
         Value_parameters.debug ~dkey ":> %s"
-          (if is_type_of_the_value_as_expected
-           then "the type is as expected. OK."
-           else "the type is NOT as expected! WRONG!");
+          (match is_type_of_the_value_as_expected with
+           | Arg_Type_C11_Conformant -> "the type is as expected. OK."
+           | Arg_Type_XSI_Conformant -> "the type is XSI-conformant. OK?"
+           | Arg_Type_Wrong -> "the type is NOT as expected! WRONG!");
 
         begin
           if not are_base_and_offset_valid then
@@ -1025,91 +1125,113 @@ let reduce_arg_ptr_to_valid_values state arg_ptr expected_arg_typ =
               "next variadic argument is invalid; assert all variadic \
                arguments are valid%t" pp_callstack;
 
-          if not is_type_of_the_value_as_expected then
+          if is_type_of_the_value_as_expected <> Arg_Type_C11_Conformant then
             begin
-              if Value_parameters.WarnVaArgTypeMismatch.get () then
-                begin
-                  Value_parameters.warning ~current:true
-                    "the actual type of the next variadic argument (%a) does not \
-                     match the type provided to the va_arg macro (%a); assert the \
-                     type of each variadic arguments provided to a function matches \
-                     the type given to the corresponding call to the va_arg macro%t"
-                    pp_typ_option (Base.typeof base)
-                    Printer.pp_typ expected_arg_typ
-                    pp_callstack
-                end else begin
+              match Value_parameters.WarnVaArgTypeMismatch.get () with
+              | true ->
+                let note_about_XSI_conformance =
+                  match is_type_of_the_value_as_expected with
+                  | Arg_Type_XSI_Conformant ->
+                    " (note however, that the two types are XSI-conformant)"
+                  | _ -> ""
+                in
+                Value_parameters.warning ~current:true
+                  "the actual type of the next variadic argument (%a) does not \
+                   match the type provided to the va_arg macro (%a)%s; assert \
+                   the type of each variadic arguments provided to a function \
+                   matches the type given to the corresponding call to the \
+                   va_arg macro%t"
+                  pp_typ_option (Base.typeof base)
+                  Printer.pp_typ expected_arg_typ
+                  note_about_XSI_conformance
+                  pp_callstack;
+              | false ->
                 Value_parameters.feedback ~current:true
                   "continuing past mismatch in the actual type of the next \
                    variadic argument (%a) and the type provided to the va_arg \
                    macro (%a)"
                   pp_typ_option (Base.typeof base)
-                  Printer.pp_typ expected_arg_typ
-              end;
-
-              (* Also: If the size of the expected argument type is smaller than
-                 the size of an integer then it may be a problem related to
-                 integer promotion. *)
-              let do_integer_promotion_warning =
-                try
-                  (* Expected size of the argument. *)
-                  let arg_expected_size_int =
-                    let arg_expected_size = Bit_utils.sizeof expected_arg_typ in
-                    Int_Base.project arg_expected_size
-                  in
-                  (* Size of an integer. *)
-                  let integer_size_int =
-                    let integer_size = Bit_utils.sizeof intType in
-                    Int_Base.project integer_size
-                  in
-                  (* Compare. *)
-                  Abstract_interp.Int.lt arg_expected_size_int integer_size_int
-                with Int_Base.Error_Top -> false
-              in
-              if do_integer_promotion_warning then
-                Value_parameters.warning ~current:true
-                  "the type provided to the va_arg macro is smaller than \
-                   integer; because of the integer promotion performed \
-                   automatically on all function arguments this is almost \
-                   definitely an error%t"
-                  pp_callstack
+                  Printer.pp_typ expected_arg_typ;
             end;
+
+          begin
+            (* Also: If the size of the expected argument type is smaller than
+               the size of an integer then it may be a problem related to
+               integer promotion. *)
+            let do_integer_promotion_warning =
+              try
+                (* Expected size of the argument. *)
+                let arg_expected_size_int =
+                  let arg_expected_size = Bit_utils.sizeof expected_arg_typ in
+                  Int_Base.project arg_expected_size
+                in
+                (* Size of an integer. *)
+                let integer_size_int =
+                  let integer_size = Bit_utils.sizeof intType in
+                  Int_Base.project integer_size
+                in
+                (* Compare. *)
+                Abstract_interp.Int.lt arg_expected_size_int integer_size_int
+              with Int_Base.Error_Top -> false
+            in
+            if do_integer_promotion_warning then
+              Value_parameters.warning ~current:true
+                "the type provided to the va_arg macro is smaller than \
+                 integer; because of the integer promotion performed \
+                 automatically on all function arguments this is almost \
+                 definitely an error%t"
+                pp_callstack
+          end;
         end;
 
         (* Decide to keep or skip this value. *)
-        let is_type_of_the_value_as_expected =
+        let keep_the_value =
+          (* Is the type as expected? (At least XSI-conformant.) *)
+          (is_type_of_the_value_as_expected = Arg_Type_C11_Conformant) ||
+          (is_type_of_the_value_as_expected = Arg_Type_XSI_Conformant) ||
           (* Should we ignore the type mismatch? *)
-          is_type_of_the_value_as_expected ||
           (not (Value_parameters.WarnVaArgTypeMismatch.get ()))
         in
-        if are_base_and_offset_valid && is_type_of_the_value_as_expected then
+        if are_base_and_offset_valid && keep_the_value then
           (* Everything is ok (or we ignore the type mismatch on purpose)! *)
           (* This value stays. *)
           let cvalue = V.inject base offset in
           V.join cvalue cvalue_acc
         else
-          (* Something is wrong! Print the appropriate warnings and skip this value. *)
+          (* Something is wrong! Print the appropriate warnings and
+             skip this value. *)
           (* Skip the value! *)
           cvalue_acc
 
       ) arg_ptr V.bottom
   with V.Error_Top ->
-    (* NOTE: I think it's not possible for an argument pointer to be top, as I see
-       no way of making that happen: it is a value of a cell of the argument
-       pointers array that we build ourselves. However, in order to get there we
-       pass through two pointer levels: the va_list variable and the arg_ptr_ptr
-       of the underlying va_list object. I think the va_list variable cannot be
-       imprecise without using direct conditional assignments, and assigning a
-       value to a va_list variable directly is forbidden. When we use the va_start
-       and va_copy macros only the arg_ptr_ptr field is touched, not the variable
-       itself. And I don't know how we could make arg_ptr_ptr top, as we can
-       modify it only using the variadic macros. *)
-    Value_parameters.fatal ~current:true "a variadic argument pointer with \
-                                          a top value encountered!%t" pp_callstack
+    (* NOTE: I think it's not possible for an argument pointer to be
+       top, as I see no way of making that happen: it is a value of a
+       cell of the argument pointers array that we build
+       ourselves. However, in order to get there we pass through two
+       pointer levels: the va_list variable and the arg_ptr_ptr of the
+       underlying va_list object. I think the va_list variable cannot
+       be imprecise without using direct conditional assignments, and
+       assigning a value to a va_list variable directly is
+       forbidden. When we use the va_start and va_copy macros only the
+       arg_ptr_ptr field is touched, not the variable itself. And I
+       don't know how we could make arg_ptr_ptr top, as we can modify
+       it only using the variadic macros. *)
+    Value_parameters.fatal
+      ~current:true
+      "a variadic argument pointer with a top value encountered!%t"
+      pp_callstack
 
-(* [convert_arg_ptr_values_to_a_type ~with_alarms state dst_typ arg_size arg_ptr]
-   builds the properly typed argument value by converting the type of all the
-   possible argument values to the [dst_typ] one by one. *)
-let convert_arg_ptr_values_to_a_type ~with_alarms state dst_typ arg_typ arg_ptr =
+(* [convert_arg_ptr_values_to_a_type ~with_alarms state dst_typ
+   arg_size arg_ptr] builds the properly typed argument value by
+   converting the type of all the possible argument values to the
+   [dst_typ] one by one. *)
+let convert_arg_ptr_values_to_a_type
+    ~with_alarms
+    state
+    dst_typ
+    arg_typ
+    arg_ptr =
   let dkey = dkey_convert_arg_ptr_values_to_a_type in
 
   (* Flags used to mark if any argument value is potentially uninitialized
@@ -1183,8 +1305,10 @@ let convert_arg_ptr_values_to_a_type ~with_alarms state dst_typ arg_typ arg_ptr 
         ) arg_ptr V.bottom
 
     with V.Error_Top ->
-      Value_parameters.fatal ~current:true "a variadic argument pointer with \
-                                            a top value encountered!%t" pp_callstack
+      Value_parameters.fatal
+        ~current:true
+        "a variadic argument pointer with a top value encountered!%t"
+        pp_callstack
   in
 
   (* Use the flags in order to create the appropriate variant of the possibly
@@ -1212,7 +1336,8 @@ let get_next_arg_ptr_ptr (arg_ptr_ptr : V.t) : V.t =
 
 (* == Variadic macros implementation. == *)
 
-(* Exception used in the va_* functions to return the bottom state immediately. *)
+(* Exception used in the va_* functions to return the bottom state
+   immediately. *)
 exception Reduce_to_bottom
 
 
@@ -1247,8 +1372,9 @@ let va_start' ~with_alarms current_kf va_list_lv state =
   (* First, we check if the function is variadic. *)
   if not (Value_util.is_function_variadic current_kf) then
     begin
-      warning_once_current "va_start macro \
-                            called in a non-variadic function %a; assert function %a is variadic%t"
+      warning_once_current
+        "va_start macro \
+         called in a non-variadic function %a; assert function %a is variadic%t"
         Kernel_function.pretty current_kf
         Kernel_function.pretty current_kf
         pp_callstack;
@@ -1258,10 +1384,11 @@ let va_start' ~with_alarms current_kf va_list_lv state =
   (* Second, we check if the function is not the entry point. *)
   if Kernel_function.is_entry_point current_kf then
     begin
-      warning_once_current "va_start macro \
-                            called in function %a which is the entry point (i.e. the program's main \
-                            function); assert va_start macro is not called in the entry point \
-                            functions%t"
+      warning_once_current
+        "va_start macro \
+         called in function %a which is the entry point (i.e. the program's \
+         main function); assert va_start macro is not called in the \
+         entry point functions%t"
         Kernel_function.pretty current_kf
         pp_callstack;
       raise Reduce_to_bottom
@@ -1272,9 +1399,11 @@ let va_start' ~with_alarms current_kf va_list_lv state =
      prefer to abort in a clean way than to assert this though. *)
   if not (Va_args.has_function_va_args_varinfo current_kf) then
     begin
-      Value_parameters.fatal ~current:true "va_start macro \
-                                            called in function %a, whose variadic arguments have not been correctly \
-                                            handled and prepared!%t"
+      Value_parameters.fatal
+        ~current:true
+        "va_start macro \
+         called in function %a, whose variadic arguments have not been \
+         correctly handled and prepared!%t"
         Kernel_function.pretty current_kf pp_callstack
     end;
 
@@ -1298,11 +1427,12 @@ let va_start' ~with_alarms current_kf va_list_lv state =
 
     (* If our arg_ptr_ptr MIGHT BE initialized: emit a warning. *)
     if is_possibly_init arg_ptr_ptr_v_or_uninit then
-      warning_once_current "va_start macro \
-                            called on a va_list variable %a that has been already initialized \
-                            using va_start or va_copy macro without of a subsequent call to the \
-                            va_end macro; assert each call to va_start or va_copy macro \
-                            preceding this call to va_start macro has a matching va_end call%t"
+      warning_once_current
+        "va_start macro \
+         called on a va_list variable %a that has been already initialized \
+         using va_start or va_copy macro without of a subsequent call to the \
+         va_end macro; assert each call to va_start or va_copy macro \
+         preceding this call to va_start macro has a matching va_end call%t"
         Printer.pp_lval va_list_lv pp_callstack;
 
     (* If our arg_ptr_ptr is DEFINITELY initialized: the abstract state
@@ -1355,7 +1485,9 @@ let va_copy' ~with_alarms _current_kf (va_list_dest_lv, va_list_src_exp) state =
 
   (* Get the va_list from the provided destination va_list lvalue. *)
   let va_list_dest =
-    let va_list_dest_loc = Eval_exprs.lval_to_loc ~with_alarms state va_list_dest_lv in
+    let va_list_dest_loc =
+      Eval_exprs.lval_to_loc ~with_alarms state va_list_dest_lv
+    in
     Va_list_object.of_va_list_loc va_list_dest_loc state
   in
 
@@ -1372,11 +1504,13 @@ let va_copy' ~with_alarms _current_kf (va_list_dest_lv, va_list_src_exp) state =
 
     (* If our destination arg_ptr_ptr MIGHT BE initialized: emit a warning. *)
     if is_possibly_init arg_ptr_ptr_dest_v_or_uninit then
-      warning_once_current "va_copy macro \
-                            called on a destination va_list variable %a that has been already \
-                            initialized using va_start or va_copy macro without of a subsequent \
-                            call to the va_end macro; assert each call to va_start or va_copy \
-                            macro preceding this call to va_copy macro has a matching va_end call%t"
+      warning_once_current
+        "va_copy macro \
+         called on a destination va_list variable %a that has been already \
+         initialized using va_start or va_copy macro without of a subsequent \
+         call to the va_end macro; assert each call to va_start or va_copy \
+         macro preceding this call to va_copy macro has a matching va_end \
+         call%t"
         Printer.pp_lval va_list_dest_lv pp_callstack;
 
     (* If our destination arg_ptr_ptr is DEFINITELY initialized: the abstract
@@ -1444,10 +1578,11 @@ let va_end' ~with_alarms _current_kf va_list_lv state =
 
     (* If our arg_ptr_ptr MIGHT BE uninitialized: emit a warning. *)
     if is_possibly_uninit arg_ptr_ptr_v_or_uninit then
-      warning_once_current "va_end macro \
-                            called on a va_list variable %a that is not initialized (using \
-                            va_start or va_copy macro); assert va_start or va_copy macro has \
-                            been called before calling va_end macro%t"
+      warning_once_current
+        "va_end macro \
+         called on a va_list variable %a that is not initialized (using \
+         va_start or va_copy macro); assert va_start or va_copy macro has \
+         been called before calling va_end macro%t"
         Printer.pp_lval va_list_lv pp_callstack;
 
     (* If our arg_ptr_ptr is DEFINITELY uninitialized: the abstract state
@@ -1461,19 +1596,24 @@ let va_end' ~with_alarms _current_kf va_list_lv state =
        this is an error, as it can be the case only if va_start or va_copy macro
        was called on the provided va_list variable in a different function than
        the current one. *)
-    let init_call_depth_v = Va_list_object.(field_find F_init_call_depth state va_list) in
+    let init_call_depth_v =
+      Va_list_object.(field_find F_init_call_depth state va_list)
+    in
     let current_call_depth_v = get_current_call_depth_v () in
-    Value_parameters.debug ~dkey "call_depth value = %a; current call depth = %a"
+    Value_parameters.debug
+      ~dkey
+      "call_depth value = %a; current call depth = %a"
       V.pretty init_call_depth_v V.pretty current_call_depth_v;
 
     (* If our init_call_depth MIGHT BE different that the current one:
        emit a warning. *)
     let call_depth_difference = V.diff init_call_depth_v current_call_depth_v in
     if not (V.is_bottom call_depth_difference) then
-      warning_once_current "va_end macro \
-                            called on a va_list variable %a that was initialized (using va_start \
-                            or va_copy macro) in a different function; assert va_start or va_copy \
-                            macro has been called in the same function that the va_end macro%t"
+      warning_once_current
+        "va_end macro \
+         called on a va_list variable %a that was initialized (using va_start \
+         or va_copy macro) in a different function; assert va_start or va_copy \
+         macro has been called in the same function that the va_end macro%t"
         Printer.pp_lval va_list_lv pp_callstack;
 
     (* If our init_call_depth is DEFINITELY different than the current one:
@@ -1487,7 +1627,11 @@ let va_end' ~with_alarms _current_kf va_list_lv state =
 
 
 (* Implementation of the va_arg macro. *)
-let va_arg' ~with_alarms _current_kf (va_list_lv, expected_arg_typ, dest_lv) state =
+let va_arg'
+    ~with_alarms
+    _current_kf
+    (va_list_lv, expected_arg_typ, dest_lv)
+    state =
 
   Valarms.set_syntactic_context (Valarms.SyMem va_list_lv);
   let dkey = dkey_va_arg in
@@ -1564,10 +1708,11 @@ let va_arg' ~with_alarms _current_kf (va_list_lv, expected_arg_typ, dest_lv) sta
 
     (* If our arg_ptr_ptr MIGHT BE uninitialized: emit a warning. *)
     if is_possibly_uninit arg_ptr_ptr_v_or_uninit then
-      warning_once_current "va_arg macro \
-                            called on a va_list variable %a that is not initialized (using \
-                            va_start or va_copy macro); assert va_start or va_copy macro has \
-                            been called before calling va_arg macro%t"
+      warning_once_current
+        "va_arg macro \
+         called on a va_list variable %a that is not initialized (using \
+         va_start or va_copy macro); assert va_start or va_copy macro has \
+         been called before calling va_arg macro%t"
         Printer.pp_lval va_list_lv pp_callstack;
 
     (* If our arg_ptr_ptr is DEFINITELY uninitialized: the abstract state
@@ -1610,9 +1755,11 @@ let va_arg' ~with_alarms _current_kf (va_list_lv, expected_arg_typ, dest_lv) sta
 
     (* If going past the last argument is POSSIBLE: emit a warning. *)
     if not is_arg_ptr_ptr_valid then
-      warning_once_current "va_arg macro \
-                            called when all the variadic arguments have been already used up; \
-                            assert enough arguments%t" pp_callstack;
+      warning_once_current
+        "va_arg macro \
+         called when all the variadic arguments have been already used up; \
+         assert enough arguments%t"
+        pp_callstack;
 
     (* If going past the last argument is SURE: the abstract state becomes
        bottom. *)
@@ -1741,21 +1888,21 @@ let va_arg' ~with_alarms _current_kf (va_list_lv, expected_arg_typ, dest_lv) sta
   (* (In order to read the following variadic argument the next time
      when the va_arg macro is called.) *)
 
-  (* We write a new value to pointer to the arg_ptr_ptr of the provided va_list. *)
-  let state =
-    (* We advance the existing pointer by one. *)
-    let state' =
-      let arg_ptr_ptr_new_value : V.t = get_next_arg_ptr_ptr arg_ptr_ptr in
-      Va_list_object.(field_add_binding
-                        F_arg_ptr_ptr ~with_alarms state va_list arg_ptr_ptr_new_value)
-    in
-    Value_parameters.debug ~dkey "va_list's arg_ptr_ptr incremented!";
-
-    state'
+  (* We write a new value to pointer to the arg_ptr_ptr of the
+     provided va_list. *)
+  (* We advance the existing pointer by one. *)
+  let state' =
+    let arg_ptr_ptr_new_value : V.t = get_next_arg_ptr_ptr arg_ptr_ptr in
+    Va_list_object.(field_add_binding
+                      F_arg_ptr_ptr
+                      ~with_alarms
+                      state
+                      va_list
+                      arg_ptr_ptr_new_value)
   in
-
+  Value_parameters.debug ~dkey "va_list's arg_ptr_ptr incremented!";
   (* Everything is done! *)
-  state
+  state'
 
 
 (* All the va_* macros implementations are wrapped in order to intercept
@@ -1839,7 +1986,10 @@ let add_variadic_arguments_to_state kf call_site actuals state =
           then varinfos_and_actuals_do_not_match ();
           (* Prepare the argument's value. *)
           let (v_or_uninit : V_Or_Uninitialized.t) =
-            let with_alarms = CilE.warn_none_mode in (* TODO: Right warning mode? *)
+            let with_alarms =
+              (* TODO: Right warning mode? *)
+              CilE.warn_none_mode
+            in
             Eval_op.v_uninit_of_offsetmap ~with_alarms ~typ offsetmap
           in
           Value_parameters.debug ~dkey
@@ -1862,114 +2012,108 @@ let add_variadic_arguments_to_state kf call_site actuals state =
   in
 
   (* 2. We create the array of pointers to the variadic arguments. *)
-  let state =
 
-    (* 2.1. We prepare the array's type and values. *)
+  (* 2.1. We prepare the array's type and values. *)
 
-    let decl_loc = Kernel_function.get_location kf in
+  let decl_loc = Kernel_function.get_location kf in
 
-    (* The contents of the array of pointers are the bases of the arguments. *)
-    let values =
-      let bases = List.map Base.of_varinfo va_args_varinfos in
-      (* The actual value of each cell is the address of the corresponding
-         argument (i.e. the base) with an offset zero. *)
-      List.map (fun base -> V.inject base Ival.zero) bases
-    in
-
-    (* The array's type. *)
-    let array_typ =
-      (* The values are generic void* pointers. *)
-      let value_typ =
-        Cil.voidPtrType
-      in
-      (* The array's length. *)
-      let length : exp option =
-        let values_count = List.length values in
-        Some (Cil.kinteger64 ~loc:decl_loc (Abstract_interp.Int.of_int values_count))
-      in
-      (* The attribute identifying the array as a variadic argument array. *)
-      let array_attributes =
-        let attribute = Attr ("variadic_arguments_array", []) in
-        Cil.addAttribute attribute []
-      in
-      let bitsSizeofTypCache = Cil.empty_size_cache () in
-      TArray (value_typ, length, bitsSizeofTypCache, array_attributes)
-    in
-
-    (* 2.2. We initialize the array. *)
-    let array_base, state =
-
-      (* The name of the variable corresponding to the array contains
-         the function's name. *)
-      let name =
-        Format.sprintf "__va_args_array_%s" (Kernel_function.get_name kf)
-      in
-      let typ = array_typ in
-
-      (* Prepare the variable. *)
-      let varinfo =
-        let var_name = name in
-        let var_name_desc = "*" ^ name in
-        let varinfo = Value_util.create_new_var var_name typ in
-        varinfo.vdescr <- Some var_name_desc;
-        varinfo
-      in
-
-      (* Prepare the base. *)
-      let base =
-        let validity = Base.validity_from_type varinfo in
-        Base.register_memory_var varinfo validity
-      in
-
-      (* Write the uninitialized value to the appropriate location. *)
-      let loc = Locations.loc_of_base base in
-      let _, state =
-        Model.add_binding_unspecified ~exact:true state
-          loc (V_Or_Uninitialized.uninitialized)
-      in
-
-      (* Set the variable as the va_args variable of the current function. *)
-      Va_args.add_va_args_varinfo_for_function kf varinfo;
-
-      base, state
-    in
-
-    (* 2.3. We fill the array with values. *)
-    let state =
-      (* Attribute an index (i.e. the index of its cell in the array) to each value. *)
-      let indexed_values = List.mapi (fun i value -> (i, value)) values in
-
-      (* Write the values one by one in the abstract state. *)
-      List.fold_left (fun state (i, ith_value) ->
-
-          (* Prepare the location corresponding to the offset i. *)
-          let ith_location =
-            let offset =
-              let offset_exp = Cil.kinteger64 ~loc:decl_loc (Abstract_interp.Int.of_int i) in
-              Index(offset_exp, NoOffset)
-            in
-            Locations.loc_of_typoffset array_base array_typ offset
-          in
-
-          (* Write the value at the location. *)
-          let _, state =
-            Model.add_binding ~exact:true state ith_location ith_value
-          in
-
-          (* Pass on the new abstract state. *)
-          state
-
-        ) state indexed_values
-
-    in
-
-    (* Return the new abstract state. *)
-    state
-
+  (* The contents of the array of pointers are the bases of the arguments. *)
+  let values =
+    let bases = List.map Base.of_varinfo va_args_varinfos in
+    (* The actual value of each cell is the address of the corresponding
+       argument (i.e. the base) with an offset zero. *)
+    List.map (fun base -> V.inject base Ival.zero) bases
   in
 
-  (* Done! *)
-  state
+  (* The array's type. *)
+  let array_typ =
+    (* The values are generic void* pointers. *)
+    let value_typ =
+      Cil.voidPtrType
+    in
+    (* The array's length. *)
+    let length : exp option =
+      let values_count = List.length values in
+      Some
+        (Cil.kinteger64 ~loc:decl_loc (Abstract_interp.Int.of_int values_count))
+    in
+    (* The attribute identifying the array as a variadic argument array. *)
+    let array_attributes =
+      let attribute = Attr ("variadic_arguments_array", []) in
+      Cil.addAttribute attribute []
+    in
+    let bitsSizeofTypCache = Cil.empty_size_cache () in
+    TArray (value_typ, length, bitsSizeofTypCache, array_attributes)
+  in
+
+  (* 2.2. We initialize the array. *)
+  let array_base, state =
+
+    (* The name of the variable corresponding to the array contains
+       the function's name. *)
+    let name =
+      Format.sprintf "__va_args_array_%s" (Kernel_function.get_name kf)
+    in
+    let typ = array_typ in
+
+    (* Prepare the variable. *)
+    let varinfo =
+      let var_name = name in
+      let var_name_desc = "*" ^ name in
+      let varinfo = Value_util.create_new_var var_name typ in
+      varinfo.vdescr <- Some var_name_desc;
+      varinfo
+    in
+
+    (* Prepare the base. *)
+    let base =
+      let validity = Base.validity_from_type varinfo in
+      Base.register_memory_var varinfo validity
+    in
+
+    (* Write the uninitialized value to the appropriate location. *)
+    let loc = Locations.loc_of_base base in
+    let _, state =
+      Model.add_binding_unspecified ~exact:true state
+        loc V_Or_Uninitialized.uninitialized
+    in
+
+    (* Set the variable as the va_args variable of the current function. *)
+    Va_args.add_va_args_varinfo_for_function kf varinfo;
+
+    base, state
+  in
+
+  (* 2.3. We fill the array with values. *)
+
+  (* Attribute an index (i.e. the index of its cell in the array) to
+     each value. *)
+  let indexed_values = List.mapi (fun i value -> (i, value)) values in
+
+  (* Write the values one by one in the abstract state.
+     And then it is done! *)
+  List.fold_left (fun state (i, ith_value) ->
+
+      (* Prepare the location corresponding to the offset i. *)
+      let ith_location =
+        let offset =
+          let offset_exp =
+            Cil.kinteger64 ~loc:decl_loc (Abstract_interp.Int.of_int i)
+          in
+          Index(offset_exp, NoOffset)
+        in
+        Locations.loc_of_typoffset array_base array_typ offset
+      in
+
+      (* Write the value at the location. *)
+      let _, state =
+        Model.add_binding ~exact:true state ith_location ith_value
+      in
+
+      (* Pass on the new abstract state. *)
+      state)
+
+    state indexed_values
 
 
 let variadic_arg_varinfos_of_arg_ptr_ptr arg_ptr_ptr state =
@@ -2026,21 +2170,17 @@ let variadic_arg_varinfos_of_arg_ptr_ptr arg_ptr_ptr state =
   in
 
   (* Now get the list of variables corresponding to arguments.*)
-  let arg_varinfos =
-    List.rev_map
-      (fun arg_ptr_value ->
-         let (arg_base, _arg_ival) =
-           try V.find_lonely_key arg_ptr_value
-           with Not_found ->
-             (* It was checked by assertions before that the cardinality
-                of each arg_ptr_value is exactly one. *)
-             assert false
-         in
-         Base.to_varinfo arg_base)
-      arg_ptrs
-  in
-
-  arg_varinfos
+  List.rev_map
+    (fun arg_ptr_value ->
+       let (arg_base, _arg_ival) =
+         try V.find_lonely_key arg_ptr_value
+         with Not_found ->
+           (* It was checked by assertions before that the cardinality
+              of each arg_ptr_value is exactly one. *)
+           assert false
+       in
+       Base.to_varinfo arg_base)
+    arg_ptrs
 
 let map_varinfos_from_va_list va_list state f =
   let arg_ptr_ptr =
@@ -2107,29 +2247,25 @@ let remove_variadic_arguments_from_state kf state =
         args_array_varinfo :: arg_varinfos
     in
 
-    let state =
-      (* Remove both the variable corresponding to the array of pointers to
-         the arguments and the variables corresponding to each argument. *)
-      let varinfos_to_remove = va_args_varinfo :: arg_varinfos_to_remove in
+    (* Remove both the variable corresponding to the array of pointers to
+       the arguments and the variables corresponding to each argument. *)
+    let varinfos_to_remove = va_args_varinfo :: arg_varinfos_to_remove in
 
-      (* Pretty printer for lists of variables. *)
-      let pp_varinfos = Format.pp_print_list
-          ~pp_sep:(fun fmt () -> Format.fprintf fmt "@\n+ ")
-          Printer.pp_varinfo
-      in
-
-      Value_parameters.debug ~dkey "Removing hidden variadic variables \
-                                    in function \"%a\":@\n+ %a"
-        Kernel_function.pretty kf
-        pp_varinfos varinfos_to_remove;
-
-      (* Proceed with the removal. *)
-      Model.remove_variables varinfos_to_remove state
+    (* Pretty printer for lists of variables. *)
+    let pp_varinfos = Format.pp_print_list
+        ~pp_sep:(fun fmt () -> Format.fprintf fmt "@\n+ ")
+        Printer.pp_varinfo
     in
 
-    (* The returned state is free of variadic variables of the given function. *)
-    state
+    Value_parameters.debug ~dkey "Removing hidden variadic variables \
+                                  in function \"%a\":@\n+ %a"
+      Kernel_function.pretty kf
+      pp_varinfos varinfos_to_remove;
 
+    (* Proceed with the removal. *)
+    Model.remove_variables varinfos_to_remove state
+    (* The returned state is free of variadic variables of the given
+       function. *)
   end
 
 
@@ -2244,22 +2380,26 @@ let check_variadic_variables current_kf state varinfos =
     let (va_list_varinfos_with_initializedness : (varinfo * bool * bool) list) =
       begin
         if va_list_varinfos <> [] then
-          Value_parameters.debug ~dkey "Checking if local va_list \
-                                        variables in function \"%a\" are all uninitialized \
-                                        (this check may be at the end of the function \
-                                        or one of its\blocks):"
+          Value_parameters.debug
+            ~dkey
+            "Checking if local va_list \
+             variables in function \"%a\" are all uninitialized \
+             (this check may be at the end of the function \
+             or one of its\blocks):"
             Kernel_function.pretty current_kf
       end;
 
       List.map (fun va_list_varinfo ->
 
-          (* Get the value of the arg_ptr_ptr corresponding to the given va_list. *)
+          (* Get the value of the arg_ptr_ptr corresponding to the
+             given va_list. *)
           let arg_ptr_ptr_v_or_uninit =
             let va_list_object =
               let va_list_loc = Locations.loc_of_varinfo va_list_varinfo in
               Va_list_object.of_va_list_loc va_list_loc state
             in
-            Va_list_object.(field_find_unspecified F_arg_ptr_ptr state va_list_object)
+            Va_list_object.(field_find_unspecified
+                              F_arg_ptr_ptr state va_list_object)
           in
 
           (* Get the initializedness information of the arg_ptr_ptr. *)
@@ -2291,8 +2431,8 @@ let check_variadic_variables current_kf state varinfos =
           match is_initialized, is_bottom with
           | true, false -> true
           (* | true, true  -> true *)
-          (* TODO: We ignore this case on purpose, because I'm quite sure it only
-                   happens when a variable is out of scope. *)
+          (* TODO: We ignore this case on purpose, because I'm quite
+             sure it only happens when a variable is out of scope. *)
           | _           -> false
         ) extract_varinfo va_list_varinfos_with_initializedness
     in
@@ -2312,7 +2452,8 @@ let check_variadic_variables current_kf state varinfos =
 
   in
 
-  (* Print warnings for each variable which arg_ptr_ptr is POSSIBLY uninitialized. *)
+  (* Print warnings for each variable which arg_ptr_ptr is POSSIBLY
+     uninitialized. *)
   List.iter (fun varinfo ->
       warning_once_current
         "local variable %a of type va_list in function %a has been initialized \
@@ -2329,7 +2470,8 @@ let check_variadic_variables current_kf state varinfos =
 
 
 
-(* Two functions managing the variadic variables when entering / exiting a block. *)
+(* Two functions managing the variadic variables when entering /
+   exiting a block. *)
 
 (* NOTE:
 
@@ -2350,13 +2492,14 @@ let check_variadic_variables current_kf state varinfos =
    1. Current status.
    2. Use references.
    3. Use hooks.
-   4. Move these functions to [Value_util] and [Cvalue] modules, pass functions
-      [create_structure_for_a_variadic_variable] and [remove_structure_for_variadic_variables]
-      as arguments.
+   4. Move these functions to [Value_util] and [Cvalue] modules, pass
+      functions [create_structure_for_a_variadic_variable] and
+      [remove_structure_for_variadic_variables] as arguments.
 
 *)
 
-(* Create the underlying structure for all the block's local va_list variables. *)
+(* Create the underlying structure for all the block's local va_list
+   variables. *)
 
 let bind_variadic_local_state varinfo state =
   if Cil.isVariadicListType varinfo.vtype then
@@ -2378,7 +2521,8 @@ let bind_variadic_locals_state st b =
     st b.blocals
 
 
-(* Remove the underlying structure for all the block's local va_list variables. *)
+(* Remove the underlying structure for all the block's local va_list
+   variables. *)
 let uninitialize_blocks_variadic_locals blocks state =
   List.fold_left (fun state block ->
       remove_structure_for_variadic_variables block.blocals state

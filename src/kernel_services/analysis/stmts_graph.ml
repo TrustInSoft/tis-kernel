@@ -55,8 +55,6 @@ struct
 
   let () = Ast.add_hook_on_update (fun _ -> HptmapStmtBool.clear_caches ())
 
-  module HashStmtHptmapStmtBool = Stmt.Hashtbl.Make(HptmapStmtBool)
-
   (* this a cache containing the path tests already computed *)
   type path_checker = HptmapStmtBool.t Stmt.Hashtbl.t
 

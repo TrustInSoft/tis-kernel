@@ -33,7 +33,6 @@
 
 open Design
 open Cil_types
-open Property_status
 
 (* Collect all properties that have a status *)
 let all_properties () =
@@ -61,7 +60,7 @@ type property = {
   function_name:string;
   kind:string;
   status_name:string;
-  consolidated_status:Consolidation.consolidated_status option;
+  consolidated_status:Property_status.Consolidation.consolidated_status option;
   consolidated_status_name:string;
   status_icon:Gtk_helper.Icon.kind;
   visible:bool;
@@ -77,9 +76,9 @@ let kf_name_and_module kf =
 let make_property ip =
   let status = Property_status.get ip in
   let status_name = Pretty_utils.sfprintf "%a" Property_status.pretty status in
-  let con_status = Consolidation.get ip in
+  let con_status = Property_status.Consolidation.get ip in
   let consolidated_status_name =
-    Pretty_utils.sfprintf "%a" Consolidation.pretty con_status
+    Pretty_utils.sfprintf "%a" Property_status.Consolidation.pretty con_status
   in
   let function_name, module_name = match Property.get_kf ip with
     | None -> "", "" (* TODO: it would be great to find the location
@@ -90,7 +89,9 @@ let make_property ip =
   let kind =
     Pretty_utils.sfprintf "@[<hov>%a@]" Property.pretty ip
   in
-  let status_icon = Gtk_helper.Icon.Feedback (Feedback.get ip) in
+  let status_icon =
+    Gtk_helper.Icon.Feedback (Property_status.Feedback.get ip)
+  in
   {
     module_name = module_name;
     function_name = function_name;
@@ -417,9 +418,9 @@ let aux_rte kf acc (name, _, rte_status_get: Db.RteGen.status_accessor) =
     let status_name, status =
       if st then
         if Kernel_function.is_definition kf
-        then "Generated", Feedback.Valid
-        else "Considered generated", Feedback.Considered_valid
-      else "Not generated", Feedback.Invalid
+        then "Generated", Property_status.Feedback.Valid
+        else "Considered generated", Property_status.Feedback.Considered_valid
+      else "Not generated", Property_status.Feedback.Invalid
     in
     let function_name, module_name = kf_name_and_module kf in
     let status_icon = Gtk_helper.Icon.Feedback status in
@@ -553,7 +554,10 @@ let make_panel (main_ui:main_window_extension_points) =
            match model#custom_get_iter path with
            | Some { MODEL.finfo = { ip = ip; _ }; _ } ->
              let format_graph ppf =
-               Consolidation_graph.dump (Consolidation_graph.get ip) ppf in
+               Property_status.Consolidation_graph.dump
+                 (Property_status.Consolidation_graph.get ip)
+                 ppf
+             in
              Gtk_helper.graph_window_through_dot
                ~parent:main_ui#main_window ~title:"Dependencies" format_graph
            | None -> ()));
@@ -653,17 +657,17 @@ let make_panel (main_ui:main_window_extension_points) =
     | Property.IPPropertyInstance _ -> instances.get ()
   in
   let visible_status_aux = function
-    | Consolidation.Never_tried -> untried.get ()
-    | Consolidation.Considered_valid -> considered_valid.get ()
-    | Consolidation.Valid _ -> valid.get ()
-    | Consolidation.Valid_under_hyp _ -> validHyp.get ()
-    | Consolidation.Unknown _ -> unknown.get ()
-    | Consolidation.Invalid _ -> invalid.get ()
-    | Consolidation.Invalid_under_hyp _ -> invalidHyp.get ()
-    | Consolidation.Invalid_but_dead _
-    | Consolidation.Valid_but_dead _
-    | Consolidation.Unknown_but_dead _ -> dead.get ()
-    | Consolidation.Inconsistent _ -> inconsistent.get ()
+    | Property_status.Consolidation.Never_tried -> untried.get ()
+    | Property_status.Consolidation.Considered_valid -> considered_valid.get ()
+    | Property_status.Consolidation.Valid _ -> valid.get ()
+    | Property_status.Consolidation.Valid_under_hyp _ -> validHyp.get ()
+    | Property_status.Consolidation.Unknown _ -> unknown.get ()
+    | Property_status.Consolidation.Invalid _ -> invalid.get ()
+    | Property_status.Consolidation.Invalid_under_hyp _ -> invalidHyp.get ()
+    | Property_status.Consolidation.Invalid_but_dead _
+    | Property_status.Consolidation.Valid_but_dead _
+    | Property_status.Consolidation.Unknown_but_dead _ -> dead.get ()
+    | Property_status.Consolidation.Inconsistent _ -> inconsistent.get ()
   in
   let visible_status = Extlib.may_map visible_status_aux ~dft:true in
   let fill_model () =
@@ -773,7 +777,8 @@ let highlighter (buffer:reactive_buffer) localizable ~start ~stop =
     let ips_sure, ips_unsure = Kernel_function.Hptset.fold
         (fun kf (ips_sure, ips_unsure) ->
            let ips_kf =
-             Statuses_by_call.all_call_preconditions_at ~warn_missing:false kf stmt
+             Statuses_by_call.all_call_preconditions_at
+               ~warn_missing:false kf stmt
            in
            let ips_kf_sure, ips_kf_unsure = List.partition filter ips_kf in
            (List.map snd ips_kf_sure @ ips_sure),
@@ -785,14 +790,17 @@ let highlighter (buffer:reactive_buffer) localizable ~start ~stop =
       let validity = Property_status.Feedback.get_conjunction ips in
       let validity =
         match validity with
-        | Feedback.Invalid_under_hyp ->
+        | Property_status.Feedback.Invalid_under_hyp ->
           (* Weaken if the invalidity comes from [ips_unsure]. We do nothing
              for statuses [Invalid] (a path should exist, hence the behavior
              must be active), or [Invalid_but_dead] (equivalent to [True]) *)
-          let invalid ip = Feedback.get ip = Feedback.Invalid_under_hyp in
+          let invalid ip =
+            Property_status.Feedback.get ip =
+            Property_status.Feedback.Invalid_under_hyp
+          in
           if List.exists invalid ips_unsure &&
              not (List.exists invalid ips_sure)
-          then Feedback.Unknown
+          then Property_status.Feedback.Unknown
           else validity
         | _ -> validity
       in

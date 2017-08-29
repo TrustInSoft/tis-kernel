@@ -31,22 +31,20 @@
 (*                                                                        *)
 (**************************************************************************)
 
-open VCS
-
 (* -------------------------------------------------------------------------- *)
 (* --- Prover Implementation against Task API                             --- *)
 (* -------------------------------------------------------------------------- *)
 
 val prove : Wpo.t ->
-  ?mode:mode ->
+  ?mode:VCS.mode ->
   ?start:(Wpo.t -> unit) ->
-  ?callin:(Wpo.t -> prover -> unit) ->
-  ?callback:(Wpo.t -> prover -> result -> unit) ->
-  prover -> bool Task.task
+  ?callin:(Wpo.t -> VCS.prover -> unit) ->
+  ?callback:(Wpo.t -> VCS.prover -> VCS.result -> unit) ->
+  VCS.prover -> bool Task.task
 
 val spawn : Wpo.t ->
   ?start:(Wpo.t -> unit) ->
-  ?callin:(Wpo.t -> prover -> unit) ->
-  ?callback:(Wpo.t -> prover -> result -> unit) ->
-  ?success:(Wpo.t -> prover option -> unit) ->
-  (mode * prover) list -> unit
+  ?callin:(Wpo.t -> VCS.prover -> unit) ->
+  ?callback:(Wpo.t -> VCS.prover -> VCS.result -> unit) ->
+  ?success:(Wpo.t -> VCS.prover option -> unit) ->
+  (VCS.mode * VCS.prover) list -> unit

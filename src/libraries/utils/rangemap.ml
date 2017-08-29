@@ -77,11 +77,13 @@ module type S = sig
   val min_binding: t -> (key * value)
   val max_binding: t -> (key * value)
   val choose: t -> (key * value)
-  val merge: (key -> value option -> value option -> value option) -> t -> t -> t
+  val merge:
+    (key -> value option -> value option -> value option) -> t -> t -> t
   val for_all2: (key -> value option -> value option -> bool) -> t -> t -> bool
   val exists2: (key -> value option -> value option -> bool) -> t -> t -> bool
   val iter2: (key -> value option -> value option -> unit) -> t -> t -> unit
-  val fold2: (key -> value option -> value option -> 'a -> 'a) -> t -> t -> 'a -> 'a
+  val fold2:
+    (key -> value option -> value option -> 'a -> 'a) -> t -> t -> 'a -> 'a
 end
 
 
@@ -377,16 +379,18 @@ module Make(Ord: Datatype.S)(Value: Value) = struct
         f k (Some v) None; aux (cons_enum t e) End
       | (More (k1, v1, t1, e1'), More (k2, v2, t2, e2')) ->
         let c = Ord.compare k1 k2 in
-        if c = 0 then (
+        if c = 0 then begin
           f k1 (Some v1) (Some v2);
           aux (cons_enum t1 e1') (cons_enum t2 e2')
-        ) else if c < 0 then (
+        end
+        else if c < 0 then begin
           f k1 (Some v1) None;
           aux (cons_enum t1 e1') e2
-        ) else (
+        end
+        else begin
           f k2 (Some v2) None;
           aux e1 (cons_enum t2 e2')
-        )
+        end
     in aux (cons_enum m1 End) (cons_enum m2 End)
 
   let exists2 f m1 m2 =
@@ -551,7 +555,8 @@ module Make(Ord: Datatype.S)(Value: Value) = struct
              Value.mem_project == Datatype.never_any_project then
             Datatype.never_any_project
           else
-            (fun s -> exists (fun k v -> Ord.mem_project s k || Value.mem_project s v))
+            (fun s ->
+               exists (fun k v -> Ord.mem_project s k || Value.mem_project s v))
       end)
   let () = Type.set_ml_name ty None
 

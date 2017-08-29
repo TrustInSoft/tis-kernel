@@ -32,14 +32,13 @@
 (**************************************************************************)
 
 open LogicUsage
-open VCS
 open Cil_types
 open Cil_datatype
 open Lang
 
 type index =
-  | Axiomatic of string option
-  | Function of kernel_function * string option
+  | IAxiomatic of string option
+  | IFunction of kernel_function * string option
 
 let bar = String.make 60 '-'
 let flow = ref false
@@ -49,10 +48,11 @@ let flow = ref false
 (* -------------------------------------------------------------------------- *)
 
 let pp_index fmt = function
-  | Axiomatic None -> Format.pp_print_string fmt "Axiomatics"
-  | Axiomatic (Some a) -> Format.pp_print_string fmt a
-  | Function(f,None) -> Kernel_function.pretty fmt f
-  | Function(f,Some b) -> Format.fprintf fmt "%a for %s:" Kernel_function.pretty f b
+  | IAxiomatic None -> Format.pp_print_string fmt "Axiomatics"
+  | IAxiomatic (Some a) -> Format.pp_print_string fmt a
+  | IFunction (f, None) -> Kernel_function.pretty fmt f
+  | IFunction (f, Some b) ->
+    Format.fprintf fmt "%a for %s:" Kernel_function.pretty f b
 
 let pp_axiomatics fmt ax =
   flow := true ;
@@ -75,7 +75,9 @@ let pp_function fmt kf bhv =
 let pp_warnings fmt ws =
   List.iter (fun w -> Format.fprintf fmt "%a@\n" Warning.pretty w) ws
 
-let kf_context = function Axiomatic _ -> `Always | Function(kf,_) -> `Context kf
+let kf_context = function
+  | IAxiomatic _ -> `Always
+  | IFunction (kf, _) -> `Context kf
 
 let pp_dependency context fmt d =
   Format.fprintf fmt " - Assumes %a"
@@ -102,7 +104,7 @@ struct
     let fmt = Format.formatter_of_buffer buffer in
     Format.fprintf fmt "%s/%s/%s" dir mid id ;
     (match prover with None -> () | Some p ->
-        Format.fprintf fmt "_%s" (filename_for_prover p)) ;
+        Format.fprintf fmt "_%s" (VCS.filename_for_prover p)) ;
     (match suffix with None -> () | Some s ->
         Format.fprintf fmt "_%s" s) ;
     Format.fprintf fmt ".%s" ext ;
@@ -117,22 +119,22 @@ struct
     file ~id ~model ~prover ~ext:"err" ()
   let file_goal ~pid ~model ~prover =
     let ext = match prover with
-      | Qed -> "qed"
-      | AltErgo -> "mlw"
-      | Why3 _ -> "why"
-      | Why3ide -> "why"
-      | Coq -> "v"
+      | VCS.Qed -> "qed"
+      | VCS.AltErgo -> "mlw"
+      | VCS.Why3 _ -> "why"
+      | VCS.Why3ide -> "why"
+      | VCS.Coq -> "v"
     in
     let id = WpPropId.get_propid pid in
     file ~id ~model ~prover ~ext ()
 
   let file_kf ~kf ~model ~prover =
     let ext = match prover with
-      | Qed -> "qed"
-      | AltErgo -> "mlw"
-      | Why3 _ -> "why"
-      | Why3ide -> "why"
-      | Coq -> "v"
+      | VCS.Qed -> "qed"
+      | VCS.AltErgo -> "mlw"
+      | VCS.Why3 _ -> "why"
+      | VCS.Why3ide -> "why"
+      | VCS.Coq -> "v"
     in
     let id = (Kf.vi kf).vname in
     file ~id ~model ~prover ~ext ()
@@ -147,7 +149,7 @@ struct
   let pretty ~pid ~model ~prover ~result fmt =
     begin
       Format.fprintf fmt "[%a] Goal %a : %a@\n"
-        pp_prover prover WpPropId.pp_propid pid pp_result result ;
+        VCS.pp_prover prover WpPropId.pp_propid pid VCS.pp_result result ;
       dump_file fmt "StdOut" (file_logout ~pid ~model ~prover) ;
       dump_file fmt "StdErr" (file_logerr ~pid ~model ~prover) ;
     end
@@ -272,10 +274,10 @@ struct
       Format.fprintf fmt "@{<bf>Prove@}: @[<hov 2>%a@]@." (F.pp_epred env) vc.lemma.l_lemma ;
       List.iter
         (fun (prover,result) ->
-           if result.verdict <> NoResult then
+           if result.VCS.verdict <> VCS.NoResult then
              Format.fprintf fmt "Prover %a returns %a@\n"
-               pp_prover prover
-               pp_result result
+               VCS.pp_prover prover
+               VCS.pp_result result
         ) results ;
     end
 
@@ -334,10 +336,10 @@ struct
       Pcond.pretty fmt (GOAL.compute_descr vc.goal) ;
       List.iter
         (fun (prover,result) ->
-           if result.verdict <> NoResult then
+           if result.VCS.verdict <> VCS.NoResult then
              Format.fprintf fmt "Prover %a returns %a@\n"
-               pp_prover prover
-               pp_result result
+               VCS.pp_prover prover
+               VCS.pp_result result
         ) results ;
     end
 
@@ -409,10 +411,10 @@ struct
     | None,None -> 0
   let compare a b =
     match a,b with
-    | Axiomatic a , Axiomatic b -> cmpopt a b
-    | Axiomatic _ , Function _ -> (-1)
-    | Function _ , Axiomatic _ -> 1
-    | Function(f,a) , Function(g,b) ->
+    | IAxiomatic a , IAxiomatic b -> cmpopt a b
+    | IAxiomatic _ , IFunction _ -> (-1)
+    | IFunction _ , IAxiomatic _ -> 1
+    | IFunction (f, a) , IFunction (g, b) ->
       let c =
         if Kernel_function.equal f g then 0 else
           String.compare
@@ -443,7 +445,7 @@ module PODatatype =
       let name = "Wpo.po"
       let reprs =
         [{
-          po_idx = Function(List.hd Kernel_function.reprs,Some "default") ;
+          po_idx = IFunction (List.hd Kernel_function.reprs,Some "default") ;
           po_pid = List.hd WpPropId.PropId.reprs;
           po_sid = "xxx";
           po_gid = "xxx";
@@ -459,10 +461,10 @@ let () = Type.set_ml_name PODatatype.ty (Some "Wpo.po")
 module ProverType =
   Datatype.Make
     (struct
-      type t = prover
+      type t = VCS.prover
       include Datatype.Undefined
       let name = "Wpo.prover"
-      let reprs = [ AltErgo; Coq; Qed; Why3 "z3" ]
+      let reprs = VCS.[ AltErgo; Coq; Qed; Why3 "z3" ]
     end)
 (* to get a "reasonable" API doc: *)
 let () = Type.set_ml_name ProverType.ty (Some "Wpo.prover")
@@ -470,12 +472,12 @@ let () = Type.set_ml_name ProverType.ty (Some "Wpo.prover")
 module ResultType =
   Datatype.Make
     (struct
-      type t = result
+      type t = VCS.result
       include Datatype.Undefined
       let name = "Wpo.result"
       let reprs =
         List.map VCS.result
-          [ Valid ; Invalid ; Unknown ; Timeout ; Failed ]
+          VCS.[ Valid ; Invalid ; Unknown ; Timeout ; Failed ]
     end)
 (* to get a "reasonable" API doc *)
 let () = Type.set_ml_name ResultType.ty (Some "Wpo.result")
@@ -513,26 +515,26 @@ struct
   module Cmap = Map.Make(String)
 
   type t = {
-    mutable dps : result Pmap.t ;
-    mutable cps : result Cmap.t ;
+    mutable dps : VCS.result VCS.Pmap.t ;
+    mutable cps : VCS.result Cmap.t ;
     (* result per class of Why3 provers *)
   }
 
   let not_computing _ r =
-    match r.verdict with VCS.Computing _ -> false | _ -> true
+    match r.VCS.verdict with VCS.Computing _ -> false | _ -> true
 
   let class_of_prover = function
-    | Qed | AltErgo | Coq | Why3ide -> None
-    | Why3 dp ->
+    | VCS.Qed | VCS.AltErgo | VCS.Coq | VCS.Why3ide -> None
+    | VCS.Why3 dp ->
       let cp =
         try String.sub dp 0 (String.index dp ':')
         with Not_found -> dp
       in Some (String.uppercase_ascii cp)
 
-  let create () = { dps = Pmap.empty ; cps = Cmap.empty }
+  let create () = { dps = VCS.Pmap.empty ; cps = Cmap.empty }
 
   let get w p =
-    try Pmap.find p w.dps
+    try VCS.Pmap.find p w.dps
     with Not_found ->
     match class_of_prover p with
     | None -> VCS.no_result
@@ -542,21 +544,21 @@ struct
 
   let replace w p r =
     begin
-      if p = Qed then
+      if p = VCS.Qed then
         begin
-          w.dps <- Pmap.filter not_computing w.dps ;
+          w.dps <- VCS.Pmap.filter not_computing w.dps ;
           w.cps <- Cmap.filter not_computing w.cps ;
         end ;
-      w.dps <- Pmap.add p r w.dps ;
+      w.dps <- VCS.Pmap.add p r w.dps ;
       match class_of_prover p with
       | None -> ()
       | Some c -> w.cps <- Cmap.add c r w.cps
     end
 
   let list w =
-    Pmap.fold
+    VCS.Pmap.fold
       (fun p r w ->
-         if is_verdict r then (p,r)::w else w
+         if VCS.is_verdict r then (p,r)::w else w
       ) w.dps []
 
 end
@@ -664,7 +666,7 @@ let add g =
     system.wpo_ip <- index_wpo Pmap.add Pmap.find ip g system.wpo_ip ;
     begin
       match g.po_idx with
-      | Function(kf,_) ->
+      | IFunction (kf, _) ->
         system.wpo_kf <- index_wpo Fmap.add Fmap.find kf g system.wpo_kf
       | _ -> ()
     end ;
@@ -689,9 +691,9 @@ let remove g =
     system.wpo_ip <- unindex_wpo Pmap.add Pmap.find ip g system.wpo_ip ;
     begin
       match g.po_idx with
-      | Function(kf,_) ->
+      | IFunction (kf, _) ->
         system.wpo_kf <- unindex_wpo Fmap.add Fmap.find kf g system.wpo_kf
-      | Axiomatic _ -> ()
+      | IAxiomatic _ -> ()
     end ;
     system.results <- WPOmap.remove g system.results ;
     Hproof.remove system.proofs (get_model_id g , ip ) ;
@@ -702,9 +704,9 @@ let warnings = function
   | { po_formula = GoalLemma _ } -> []
   | { po_formula = GoalCheck _ } -> []
 
-let is_valid = function { verdict=Valid } -> true | _ -> false
-let get_time = function { prover_time=t } -> t
-let get_steps= function { prover_steps=n } -> n
+let is_valid = function { VCS.verdict=VCS.Valid } -> true | _ -> false
+let get_time = function { VCS.prover_time=t } -> t
+let get_steps= function { VCS.prover_steps=n } -> n
 
 let get_proof g =
   let system = SYSTEM.get () in
@@ -828,11 +830,16 @@ let iter ?ip ?index ?on_axiomatics ?on_behavior ?on_goal () =
     match on_behavior with None -> () | Some phi -> phi f bhv in
   let on_part idx =
     match !current , idx with
-    | Paxiomatic a , Axiomatic b when a=b -> ()
-    | _ , Axiomatic b -> apply_lemma b ; current := Paxiomatic b
-    | Pbehavior(f,None) , Function(g,None) when Kernel_function.equal f g -> ()
-    | Pbehavior(f,Some a) , Function(g,Some b) when Kernel_function.equal f g && a=b -> ()
-    | _ , Function(g,bhv) -> apply_behavior g bhv ; current := Pbehavior(g,bhv)
+    | Paxiomatic a , IAxiomatic b when a = b -> ()
+    | _ , IAxiomatic b ->
+      apply_lemma b;
+      current := Paxiomatic b
+    | Pbehavior(f,None), IFunction (g, None)
+      when Kernel_function.equal f g -> ()
+    | Pbehavior(f,Some a), IFunction (g, Some b)
+      when Kernel_function.equal f g && a = b -> ()
+    | _ , IFunction (g, bhv) ->
+      apply_behavior g bhv ; current := Pbehavior(g,bhv)
   in
   let on_goals poset =
     if not (WPOset.is_empty poset) then
@@ -855,7 +862,7 @@ let iter ?ip ?index ?on_axiomatics ?on_behavior ?on_goal () =
           with Not_found -> WPOset.empty in
         WPOset.iter phi poset
     end
-  | Some (Function(kf,None)),None ->
+  | Some (IFunction (kf, None)),None ->
     begin
       try on_goals (Fmap.find kf system.wpo_kf)
       with Not_found -> ()
@@ -929,10 +936,10 @@ let get_files w =
   let result_files =
     List.fold_right
       (fun (prover,result) files ->
-         if prover <> VCS.Qed && not (is_computing result.verdict) then
+         if prover <> VCS.Qed && not (is_computing result.VCS.verdict) then
            let filename = get_logfile w prover result in
            if filename <> "" && Sys.file_exists filename then
-             let title = name_of_prover prover in
+             let title = VCS.name_of_prover prover in
              (title,filename) :: files
            else files
          else files

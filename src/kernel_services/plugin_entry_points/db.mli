@@ -876,7 +876,8 @@ module Properties : sig
       (** Entry point to get zones needed to evaluate the [predicate]
           relative to the [ctx] of interpretation. *)
 
-      val from_preds: (predicate named list -> t_ctx -> t_zone_info * t_decl) ref
+      val from_preds:
+        (predicate named list -> t_ctx -> t_zone_info * t_decl) ref
       (** Entry point to get zones needed to evaluate the list of
           [predicates] relative to the [ctx] of interpretation. *)
 
@@ -1017,6 +1018,10 @@ module Constant_Propagation: sig
 
 end
 
+module ACSL_importer: sig
+  val emitter: Emitter.t option ref
+  (** Emitter used by ACSL_importer to add properties *)
+end
 
 (** Impact analysis.
     @see <../impact/index.html> internal documentation. *)

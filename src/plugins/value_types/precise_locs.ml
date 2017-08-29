@@ -340,7 +340,7 @@ let reduce_offset_by_validity ~for_writing ~bitfield base offset size =
   else
     match Base.validity base, size with
     | Base.Empty, _ ->
-      if Int_Base.(compare size zero) > 0
+      if Int_Base.compare size Int_Base.zero > 0
       then POBottom
       else reduce_offset_by_range Ival.zero offset
     | Base.Invalid, _ -> POBottom
@@ -373,7 +373,7 @@ let reduce_by_valid_part ~for_writing ~bitfield precise_loc size =
   | PLBottom -> precise_loc
   | PLLoc loc ->
     let loc = Locations.make_loc loc size in
-    PLLoc Locations.((valid_part ~for_writing ~bitfield loc).Locations.loc)
+    PLLoc (Locations.valid_part ~for_writing ~bitfield loc).Locations.loc
   | PLVarOffset (base, offset) ->
     begin
       match

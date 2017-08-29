@@ -117,15 +117,21 @@ let offsetmap_top_addresses_of_locals is_local : topify_offsetmap_approx =
     locals, result
 
 (* Topify the locals in the offsetmaps bound to [bases] in [state]. *)
-let state_top_addresses_of_locals ~exact fwarn_escape (topify_offsetmap:topify_offsetmap_approx) bases state =
+let state_top_addresses_of_locals
+    ~exact
+    fwarn_escape
+    (topify_offsetmap: topify_offsetmap_approx)
+    bases
+    state =
   (* Assumes [offsm] is bound to [base] in [state]. Remove locals from [offsm],
      and bind it again to [base] in the result. *)
   let aux base offsm state =
     let locals, offsm' = topify_offsetmap ~exact offsm in
     let found_locals = not (Cvalue.V_Offsetmap.equal offsm' offsm) in
-    if found_locals then
-      ((fwarn_escape base locals : unit);
-       Cvalue.Model.add_base base offsm' state)
+    if found_locals then begin
+      (fwarn_escape base locals : unit);
+      Cvalue.Model.add_base base offsm' state
+    end
     else state
   in
   (* Clean the locals in the offsetmap bound to [base] in [state] *)
@@ -139,11 +145,12 @@ let state_top_addresses_of_locals ~exact fwarn_escape (topify_offsetmap:topify_o
   try (* Iterate on all the bases that might contain a local, and clean them*)
     Base.SetLattice.fold aux' bases.clob (aux' Base.null state)
   with Base.SetLattice.Error_Top ->
-  (* [bases] is too imprecise. Iterate on the entire memory state instead,
-     which is much slower *)
-  match state with
-  | Cvalue.Model.Top | Cvalue.Model.Bottom -> state
-  | Cvalue.Model.Map m -> Cvalue.Model.fold aux m state
+    (* [bases] is too imprecise. Iterate on the entire memory state instead,
+       which is much slower *)
+    begin match state with
+      | Cvalue.Model.Top | Cvalue.Model.Bottom -> state
+      | Cvalue.Model.Map m -> Cvalue.Model.fold aux m state
+    end
 
 (* Topifies all references to the locals and formals of [fdec]*)
 let top_addresses_of_locals fdec clob =

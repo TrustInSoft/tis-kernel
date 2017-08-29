@@ -131,7 +131,7 @@ module EvalLocation(L : module type of Location_Bytes)(S : Stategy) = struct
            | Base.Allocated _ -> (static, Zone.join allocated zone)
            | _ -> (Zone.join static zone, allocated))
         map
-        Zone.(bottom, bottom)
+        (Zone.bottom, Zone.bottom)
 
   let get_zone ?(top=Zone.top) ?(base=Zone.bottom) ~for_writing loc loc_size =
     match loc with

@@ -247,8 +247,10 @@ let compute_actual ~with_alarms ~warn_indeterminate state e =
     let ploc, state, o =
       try Eval_exprs.offsetmap_of_lv ~with_alarms state lv
       with Int_Base.Error_Top ->
-        Value_parameters.abort ~current:true "Function argument %a has \
-                                              unknown size. Aborting" Printer.pp_exp e;
+        Value_parameters.abort
+          ~current:true
+          "Function argument %a has unknown size. Aborting"
+          Printer.pp_exp e;
     in
     begin
       match o with

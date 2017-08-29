@@ -102,8 +102,6 @@ let dummy =
     unique_name = dummy_unique_name;
     private_ops = dummy_private_ops () }
 
-module Caml_hashtbl = Hashtbl
-
 include Datatype.Make_with_collections
     (struct
       type t = state

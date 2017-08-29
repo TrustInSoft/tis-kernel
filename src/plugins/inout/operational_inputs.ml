@@ -182,7 +182,8 @@ let eval_assigns kf state assigns =
        the usual direction. It works here because diff on non-top zones is
        an exact operation. *)
     let sure_out =
-      Zone.(if equal top inputs then bottom else diff outputs_under inputs)
+      if Zone.equal Zone.top inputs then Zone.bottom
+      else Zone.diff outputs_under inputs
     in
     {
       under_outputs_d = Zone.link acc.under_outputs_d sure_out;

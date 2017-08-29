@@ -155,11 +155,21 @@ let post_kind kf =
   else
     PostBody
 
-let emit_message_and_status kf bhv behav_active ip pre_post pred_status pred named_pred state ~source =
+let emit_message_and_status
+    kf
+    bhv
+    behav_active
+    ip
+    pre_post
+    pred_status
+    pred
+    named_pred
+    state
+    ~source =
   let pp_header = pp_header kf in
   match pre_post with
   | Precondition | Postcondition PostBody ->
-    if (pred_status = False && behav_active) then
+    if pred_status = False && behav_active then
       msg_status ~once:true ~source pred_status
         "%a: %a%a got status %a.%t%t"
         pp_header bhv pp_p_kind pre_post Description.pp_named named_pred
@@ -277,12 +287,13 @@ let eval_and_reduce_p_kind kf b ~active p_kind ips build_prop build_env states =
   let aux_pred behav_active states pred =
     let pr = Logic_utils.named_of_identified_predicate pred in
     let source = fst pr.loc in
-    if State_set.is_empty states then
-      (Value_parameters.result ~once:true ~source ~level:2
-         "%a: no state left in which to evaluate %a, status%a not \
-          computed.%t" pp_header b pp_p_kind p_kind
-         Description.pp_named pr Value_util.pp_callstack;
-       states)
+    if State_set.is_empty states then begin
+      Value_parameters.result ~once:true ~source ~level:2
+        "%a: no state left in which to evaluate %a, status%a not \
+         computed.%t" pp_header b pp_p_kind p_kind
+        Description.pp_named pr Value_util.pp_callstack;
+      states
+    end
     else
       let ip = build_prop pred in
       State_set.fold
@@ -335,7 +346,14 @@ let check_fct_postconditions_of_behavior kf ?(kinstr=Kglobal) ab b kind
         kf b ~active k posts build_prop build_env post_states
 
 (* per-behavior is not useful: the default behavior is always active *)
-let check_fct_postconditions_default_behavior kf ?kinstr ab kind ~result ~pre_state ~post_states =
+let check_fct_postconditions_default_behavior
+    kf
+    ?kinstr
+    ab
+    kind
+    ~result
+    ~pre_state
+    ~post_states =
   try
     let b = ActiveBehaviors.behavior_from_name ab Cil.default_behavior_name in
     check_fct_postconditions_of_behavior
@@ -344,7 +362,16 @@ let check_fct_postconditions_default_behavior kf ?kinstr ab kind ~result ~pre_st
 
 (** Checks the postconditions of [b] and of the default behavior if it is not
     [b] *)
-let check_fct_postconditions_for_behavior kf ?kinstr ab b kind ~result ~per_behavior ~pre_state post_states =
+let check_fct_postconditions_for_behavior
+    kf
+    ?kinstr
+    ab
+    b
+    kind
+    ~result
+    ~per_behavior
+    ~pre_state
+    post_states =
   let post_states =
     check_fct_postconditions_of_behavior kf ?kinstr ab b kind ~per_behavior
       ~result ~pre_state ~post_states
@@ -362,19 +389,38 @@ let check_fct_postconditions_for_behavior kf ?kinstr ab b kind ~result ~per_beha
     The postcondition of the global behavior is applied for each behavior,
     to help reduce the final state. The default behavior is done once,
     at the end. *)
-let check_fct_postconditions kf ?kinstr ab behaviors kind ~result ~per_behavior ~pre_state post_states =
-  let post_states = List.fold_left
+let check_fct_postconditions
+    kf
+    ?kinstr
+    ab
+    behaviors
+    kind
+    ~result
+    ~per_behavior
+    ~pre_state
+    post_states =
+  let post_states =
+    List.fold_left
       (fun post_states b ->
          if b.b_name <> Cil.default_behavior_name then
-           check_fct_postconditions_of_behavior kf ?kinstr ab b kind ~per_behavior
-             ~result ~pre_state ~post_states
-         else post_states
-      ) post_states behaviors
+           check_fct_postconditions_of_behavior
+             kf
+             ?kinstr
+             ab
+             b
+             kind
+             ~per_behavior
+             ~result
+             ~pre_state
+             ~post_states
+         else post_states)
+      post_states behaviors
   in
-  if behaviors <> [] then (
+  if behaviors <> [] then begin
     check_fct_postconditions_default_behavior kf ?kinstr ab kind ~result
       ~pre_state ~post_states
-  ) else post_states
+  end
+  else post_states
 
 
 (* Eval: under-approximation of the term.  Note that ACSL states
@@ -460,10 +506,11 @@ let check_fct_assigns kf ab ~pre_state found_froms =
          let assigns_union = link assigns_zones in
          let status_txt, vstatus, status =
            if not (Zone.is_included outputs assigns_union)
-           then (
+           then begin
              Value_parameters.debug "found_assigns %a stated_assigns %a"
                Zone.pretty outputs Zone.pretty assigns_union;
-             "unknown", Unknown, Property_status.Dont_know)
+             "unknown", Unknown, Property_status.Dont_know
+           end
            else "valid", True, Property_status.True
          in
          msg_status vstatus ~once:true ~source
@@ -482,7 +529,7 @@ let check_fct_assigns kf ab ~pre_state found_froms =
                check_from pre_state asgn assigns_zone deps found_froms
              in
              let ip = Extlib.the (Property.ip_of_from kf Kglobal bol from) in
-             let source = fst (asgn.it_content.term_loc) in
+             let source = fst asgn.it_content.term_loc in
              msg_status status ~once:true ~source
                "%a: \\from ... part in assign clause got status %s.%a%t"
                (pp_header kf) b
@@ -697,7 +744,7 @@ let interp_annot kf ?(stmt_spec=false) ab initial_state slevel states stmt
       State_set.reorder reduced_states
   in
   let aux ca behav p =
-    if State_set.is_empty states then (
+    if State_set.is_empty states then begin
       if record then begin
         let text = code_annotation_text ca in
         Value_parameters.result ~once:true ~source ~level:2
@@ -705,7 +752,8 @@ let interp_annot kf ?(stmt_spec=false) ab initial_state slevel states stmt
            computed.%t" (String.lowercase_ascii text) Value_util.pp_callstack;
       end;
       states
-    ) else
+    end
+    else
       aux_interp ca behav p
   in
   match ca.annot_content with
@@ -795,13 +843,12 @@ let mark_rte () =
   let unsigned = Kernel.UnsignedOverflow.get () in
   Globals.Functions.iter
     (fun kf ->
-       if !Db.Value.is_called kf then (
+       if !Db.Value.is_called kf then begin
          mem kf true;
          arith kf true;
          signed_ovf kf signed;
          unsigned_ovf kf unsigned;
-       )
-    )
+       end)
 
 let c_labels kf cs =
   if !Db.Value.use_spec_instead_of_definition kf then
@@ -837,11 +884,15 @@ let eval_by_callstack kf stmt p =
   | None -> (* dead; ignore, those will be marked 'unreachable' elsewhere *)
     Unknown
   | Some states ->
-    try
-      match Value_callstack.Callstack.Hashtbl.fold aux_callstack states `Bottom with
-      | `Bottom -> Eval_terms.Unknown (* probably never reached *)
-      | `Value status -> status
-    with Exit -> Eval_terms.Unknown
+    begin
+      try
+        match
+          Value_callstack.Callstack.Hashtbl.fold aux_callstack states `Bottom
+        with
+        | `Bottom -> Eval_terms.Unknown (* probably never reached *)
+        | `Value status -> status
+      with Exit -> Eval_terms.Unknown
+    end
 
 (* Detection of terms \at(_, L) where L is a C label *)
 class contains_c_at = object
@@ -896,9 +947,10 @@ let mark_green_and_red () =
         begin
           match eval_by_callstack kf stmt p with
           | Eval_terms.False -> emit `False
-          | Eval_terms.True -> (* should not happen for an alarm that has been
-                                  emitted during this Value analysis. However, this is perfectly
-                                  possible for an 'old' alarm. *)
+          | Eval_terms.True ->
+            (* should not happen for an alarm that has been
+               emitted during this Value analysis. However, this is perfectly
+               possible for an 'old' alarm. *)
             emit `True
           | Eval_terms.Unknown -> ()
         end
@@ -916,21 +968,29 @@ let mark_invalid_initializers () =
     match Alarms.find ca with (* We only check alarms *)
     | None -> ()
     | Some _ ->
-      match ca.annot_content with
-      | AAssert (_, p) ->
-        let ip = Property.ip_of_code_annot_single kf first_stmt ca in
-        (* Evaluate in a fully empty state. Only predicates that do not
-           depend on the memory will result in 'False' *)
-        let bot = Cvalue.Model.bottom in
-        let env = Eval_terms.env_annot ~pre:bot ~here:bot () in
-        begin match Eval_terms.eval_predicate env p with
-          | True | Unknown -> ()
-          | False ->
-            let status = Property_status.False_and_reachable in
-            let distinct = false (* see comment in mark_green_and_red above *) in
-            Property_status.emit ~distinct Value_util.emitter ~hyps:[] ip status;
-        end
-      | _ -> ()
+      begin match ca.annot_content with
+        | AAssert (_, p) ->
+          let ip = Property.ip_of_code_annot_single kf first_stmt ca in
+          (* Evaluate in a fully empty state. Only predicates that do not
+             depend on the memory will result in 'False' *)
+          let bot = Cvalue.Model.bottom in
+          let env = Eval_terms.env_annot ~pre:bot ~here:bot () in
+          begin match Eval_terms.eval_predicate env p with
+            | True | Unknown -> ()
+            | False ->
+              let status = Property_status.False_and_reachable in
+              let distinct =
+                false (* see comment in mark_green_and_red above *)
+              in
+              Property_status.emit
+                ~distinct
+                Value_util.emitter
+                ~hyps:[]
+                ip
+                status;
+          end
+        | _ -> ()
+      end
   in
   Annotations.iter_code_annot do_code_annot first_stmt
 

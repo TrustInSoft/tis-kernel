@@ -2199,15 +2199,19 @@ and constFoldBinOpToInt ~machdep bop e1 e2 =
       | PlusPI | IndexPI | MinusPI | MinusPP -> None
       | Mult -> Some (Integer.mul i1 i2)
       | Div ->
-        if Integer.(equal zero i2) && Integer.(is_zero (rem i1 i2)) then None
+        if Integer.equal Integer.zero i2 && Integer.is_zero (Integer.rem i1 i2)
+        then None
         else Some (Integer.div i1 i2)
-      | Mod -> if Integer.(equal zero i2) then None else Some (Integer.rem i1 i2)
+      | Mod ->
+        if Integer.equal Integer.zero i2 then None else Some (Integer.rem i1 i2)
       | BAnd -> Some (Integer.logand i1 i2)
       | BOr -> Some (Integer.logor i1 i2)
       | BXor -> Some (Integer.logxor i1 i2)
 
-      | Shiftlt when Integer.(ge i2 zero) -> Some (Integer.shift_left i1 i2)
-      | Shiftrt when Integer.(ge i2 zero) -> Some (Integer.shift_right i1 i2)
+      | Shiftlt when Integer.ge i2 Integer.zero ->
+        Some (Integer.shift_left i1 i2)
+      | Shiftrt when Integer.ge i2 Integer.zero ->
+        Some (Integer.shift_right i1 i2)
       | Shiftlt | Shiftrt -> None
 
       | Cil_types.Eq -> comp Integer.equal

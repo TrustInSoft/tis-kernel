@@ -67,7 +67,7 @@ struct itimerspec {
 #define CLOCK_MONOTONIC 1
 #define TIMER_ABSTIME 0
 
-//@ ghost volatile unsigned int __fc_time __attribute__((FRAMA_C_MODEL));
+//@ ghost extern volatile unsigned int __fc_time __attribute__((FRAMA_C_MODEL));
 
 /*@ assigns \result \from __fc_time; */
 clock_t clock(void);
@@ -111,6 +111,7 @@ struct tm *gmtime(const time_t *timer);
   ensures \result == &__fc_time_tm || \result == \null;
 */
 struct tm *localtime(const time_t *timer);
+struct tm *localtime_r(const time_t *timer, struct tm *r) __THROW;
 
 size_t strftime(char * restrict s,
 		size_t maxsize,

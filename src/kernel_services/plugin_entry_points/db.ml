@@ -1277,9 +1277,14 @@ module Properties = struct
         { state_opt: bool option;
           ki_opt: (stmt * bool) option;
           kf:Kernel_function.t }
-      let mk_ctx_func_contrat = ref assert_false
-      let mk_ctx_stmt_contrat = ref assert_false
-      let mk_ctx_stmt_annot = ref assert_false
+      let mk_ctx_func_contrat:
+        (kernel_function -> state_opt:bool option -> t_ctx) ref
+        = ref assert_false
+      let mk_ctx_stmt_contrat:
+        (kernel_function -> stmt -> state_opt:bool option -> t_ctx) ref
+        = ref assert_false
+      let mk_ctx_stmt_annot: (kernel_function -> stmt -> t_ctx) ref =
+        ref assert_false
       type t = {before:bool ; ki:stmt ; zone:Locations.Zone.t}
       type t_zone_info = (t list) option
       type t_decl =
@@ -1288,19 +1293,38 @@ module Properties = struct
       type t_pragmas =
         { ctrl: Stmt.Set.t;
           stmt: Stmt.Set.t }
-      let from_term = ref assert_false
-      let from_terms= ref assert_false
-      let from_pred = ref assert_false
-      let from_preds= ref assert_false
-      let from_zone = ref assert_false
-      let from_stmt_annot= ref assert_false
-      let from_stmt_annots= ref assert_false
-      let from_func_annots= ref assert_false
-      let code_annot_filter= ref assert_false
+      let from_term: (term -> t_ctx -> t_zone_info * t_decl) ref =
+        ref assert_false
+      let from_terms: (term list -> t_ctx -> t_zone_info * t_decl) ref =
+        ref assert_false
+      let from_pred: (predicate named -> t_ctx -> t_zone_info * t_decl) ref =
+        ref assert_false
+      let from_preds:
+        (predicate named list -> t_ctx -> t_zone_info * t_decl) ref
+        = ref assert_false
+      let from_zone: (identified_term -> t_ctx -> t_zone_info * t_decl) ref =
+        ref assert_false
+      let from_stmt_annot:
+        (code_annotation -> stmt * kernel_function
+         -> (t_zone_info * t_decl) * t_pragmas) ref
+        = ref assert_false
+      let from_stmt_annots:
+        ((code_annotation -> bool) option ->
+         stmt * kernel_function -> (t_zone_info * t_decl) * t_pragmas) ref
+        = ref assert_false
+      let from_func_annots:
+        (((stmt -> unit) -> kernel_function -> unit) ->
+         (code_annotation -> bool) option ->
+         kernel_function -> (t_zone_info * t_decl) * t_pragmas) ref
+        = ref assert_false
+      let code_annot_filter:
+        (code_annotation ->
+         threat:bool -> user_assert:bool -> slicing_pragma:bool ->
+         loop_inv:bool -> loop_var:bool -> others:bool -> bool) ref
+        = ref assert_false
     end
 
-    let to_result_from_pred =
-      ref assert_false
+    let to_result_from_pred = ref assert_false
   end
 
   let add_assert emitter kf kinstr prop =
@@ -1315,6 +1339,10 @@ end
 (* ************************************************************************* *)
 (** {2 Others plugins} *)
 (* ************************************************************************* *)
+
+module ACSL_importer = struct
+  let emitter = ref None
+end
 
 module Impact = struct
   let compute_pragmas = ref assert_false

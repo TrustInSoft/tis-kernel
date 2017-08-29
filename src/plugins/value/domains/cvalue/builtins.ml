@@ -47,7 +47,8 @@ let register_builtin name f =
 let () = Db.Value.register_builtin := register_builtin
 
 let registered_builtins () =
-  List.sort (fun (name1, _) (name2, _) -> String.compare name1 name2)
+  List.sort
+    (fun (name1, _) (name2, _) -> String.compare name1 name2)
     (Hashtbl.fold (fun name f acc -> (name, f) :: acc) table [])
 
 let () = Db.Value.registered_builtins := registered_builtins
@@ -190,13 +191,12 @@ let frama_c_load_state state actuals =
          possible unsoundness";
   end;
   let merged_loaded_state = State_import.load_and_merge_function_state state in
-  {
-    Value_types.c_values = [ Value_types.StateOnly (None, merged_loaded_state) ];
+  { Value_types.c_values =
+      [ Value_types.StateOnly (None, merged_loaded_state) ];
     c_clobbered = Base.SetLattice.empty;
     c_cacheable = Value_types.NoCacheCallers;
-    c_from = None(*TODO*);
-    c_sureouts = None;
-  }
+    c_from = None (*TODO*);
+    c_sureouts = None; }
 
 let () = register_builtin "Frama_C_load_state" frama_c_load_state
 

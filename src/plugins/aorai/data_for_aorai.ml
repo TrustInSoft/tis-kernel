@@ -94,7 +94,9 @@ module State_var =
     end)
 
 let get_state_var =
-  let add_var state = Cil.makeVarinfo true false state.name Cil.intType in
+  let add_var state =
+    Cil.makeVarinfo true false state.Promelaast.name Cil.intType
+  in
   State_var.memo add_var
 
 let get_state_logic_var state = Cil.cvar_to_lvar (get_state_var state)
@@ -408,15 +410,15 @@ let is_single elt =
    starting state to the children of the end state.
 *)
 type eps_trans =
-    Normal of typed_condition * action
-  | Epsilon of typed_condition * action
+  | ETNormal of typed_condition * action
+  | ETEpsilon of typed_condition * action
 
 let print_epsilon_trans fmt = function
-  | Normal (c,a) ->
+  | ETNormal (c,a) ->
     Format.fprintf fmt "%a%a"
       Promelaoutput.print_condition c
       Promelaoutput.print_action a
-  | Epsilon (c,a) ->
+  | ETEpsilon (c,a) ->
     Format.fprintf fmt "epsilon-trans:@\n%a%a"
       Promelaoutput.print_condition c
       Promelaoutput.print_action a
@@ -550,12 +552,12 @@ let memo_aux_variable tr counter used_prms vi =
     let my_lvar = Cil.cvar_to_lvar my_var in
     Cil_datatype.Varinfo.Hashtbl.add used_prms vi my_lvar;
     (match tr.cross with
-     | Normal (cond,action) ->
+     | ETNormal (cond, action) ->
        let st = Extlib.opt_map (fun _ -> tr.stop) counter in
        let loc = get_bindings st my_lvar in
        let copy = Copy_value (loc,Logic_const.tvar (Cil.cvar_to_lvar vi)) in
-       tr.cross <- Normal(cond,copy::action)
-     | Epsilon _ ->
+       tr.cross <- ETNormal (cond, copy :: action)
+     | ETEpsilon _ ->
        Aorai_option.fatal "Epsilon transition used as Call event"
     );
     get_bindings_term counter my_lvar (Ctype vi.vtype)
@@ -994,7 +996,7 @@ let rec type_seq default_state tr env needs_pebble curr_start curr_end seq =
       | _ -> new_intermediate_state ()
     in
     Aorai_option.debug "Examining single elt:@\n%s -> %s:@[%a@]"
-      curr_start.name my_end.name Promelaoutput.print_seq_elt elt;
+      curr_start.Promelaast.name my_end.name Promelaoutput.print_seq_elt elt;
     let guard_exit_loop env current counter =
       if is_opt then TTrue
       else
@@ -1035,7 +1037,8 @@ let rec type_seq default_state tr env needs_pebble curr_start curr_end seq =
             [] -> my_end
           | _ -> new_intermediate_state ()
         in
-        let trans_start = new_trans curr_start seq_start (Normal (TTrue,[]))
+        let trans_start =
+          new_trans curr_start seq_start (ETNormal (TTrue, []))
         in
         let inner_env, cond = type_cond needs_pebble env trans_start cond in
         let (env,states, seq_transitions, seq_end) =
@@ -1052,9 +1055,9 @@ let rec type_seq default_state tr env needs_pebble curr_start curr_end seq =
         let states = add_if_needed states curr_start in
         let transitions = trans_start :: seq_transitions in
         (match trans_start.cross with
-         | Normal (conds,action) ->
-           trans_start.cross <- Normal(tand cond conds,action)
-         | Epsilon _ ->
+         | ETNormal (conds,action) ->
+           trans_start.cross <- ETNormal (tand cond conds, action)
+         | ETEpsilon _ ->
            Aorai_option.fatal
              "Transition guard translated as epsilon transition");
         let states = add_if_needed states seq_start in
@@ -1084,7 +1087,7 @@ let rec type_seq default_state tr env needs_pebble curr_start curr_end seq =
     let auto = (inner_states,inner_trans) in
     if at_most_one then begin
       (* Just adds an epsilon transition from start to end *)
-      let opt = new_trans curr_start oth_start (Epsilon (TTrue,[])) in
+      let opt = new_trans curr_start oth_start (ETEpsilon (TTrue, [])) in
       env, states, opt::trans, curr_start, curr_end
     end
     else if has_loop then begin
@@ -1124,10 +1127,10 @@ let rec type_seq default_state tr env needs_pebble curr_start curr_end seq =
                    let init_action = Counter_init (make_counter tr.stop) in
                    let init_cross =
                      match tr.cross with
-                     | Normal (cond, actions) ->
-                       Normal(cond, init_action :: actions)
-                     | Epsilon(cond, actions) ->
-                       Epsilon(cond, init_action :: actions)
+                     | ETNormal (cond, actions) ->
+                       ETNormal (cond, init_action :: actions)
+                     | ETEpsilon (cond, actions) ->
+                       ETEpsilon (cond, init_action :: actions)
                    in
                    Aorai_option.debug "New init trans %s -> %s: %a"
                      st.name tr.stop.name
@@ -1154,10 +1157,10 @@ let rec type_seq default_state tr env needs_pebble curr_start curr_end seq =
                      in
                      let loop_cross =
                        match tr.cross with
-                       | Normal(cond, actions) ->
-                         Normal(tand loop_cond cond, loop_action @ actions)
-                       | Epsilon(cond, actions) ->
-                         Epsilon(tand loop_cond cond, loop_action @ actions)
+                       | ETNormal (cond, actions) ->
+                         ETNormal (tand loop_cond cond, loop_action @ actions)
+                       | ETEpsilon (cond, actions) ->
+                         ETEpsilon (tand loop_cond cond, loop_action @ actions)
                      in
                      Aorai_option.debug "New loop trans %s -> %s: %a"
                        inner_end.name tr.stop.name
@@ -1183,7 +1186,7 @@ let rec type_seq default_state tr env needs_pebble curr_start curr_end seq =
                   in
                   TRel (Cil_types.Req, t, Logic_const.tinteger ~loc 0)
               in
-              let no_seq = new_trans st oth_start (Epsilon (zero_cond,[])) in
+              let no_seq = new_trans st oth_start (ETEpsilon (zero_cond, [])) in
               no_seq :: loop_trans
             end else loop_trans
           in
@@ -1199,7 +1202,7 @@ let rec type_seq default_state tr env needs_pebble curr_start curr_end seq =
               guard_exit_loop env st (make_counter_term curr_end)
             else TTrue
           in
-          let min_cond = Epsilon (min_cond,[]) in
+          let min_cond = ETEpsilon (min_cond, []) in
           Aorai_option.debug "New exit trans %s -> %s: %a"
             inner_end.name oth_start.name
             print_epsilon_trans min_cond;
@@ -1219,7 +1222,7 @@ let rec type_seq default_state tr env needs_pebble curr_start curr_end seq =
               List.fold_left
                 (fun acc tr ->
                    match tr.cross with
-                   | Normal (cond,_) | Epsilon (cond,_) ->
+                   | ETNormal (cond, _) | ETEpsilon (cond,_) ->
                      let cond = change_bound_var tr.stop st cond in
                      tor acc cond)
                 TFalse trans
@@ -1231,9 +1234,8 @@ let rec type_seq default_state tr env needs_pebble curr_start curr_end seq =
              | _ ->
                let reject = get_reject_state () in
                let states = add_if_needed states reject in
-               let trans = new_trans st reject (Normal(cond,[])) :: trans
-               in states, trans @ oth_trans
-            )
+               let trans = new_trans st reject (ETNormal (cond, [])) :: trans in
+               states, trans @ oth_trans)
           end
         end
       in
@@ -1296,8 +1298,8 @@ let type_trans auto env tr =
           List.map
             (fun trans ->
                match trans.cross with
-               | Epsilon _ -> trans
-               | Normal(cond,actions) ->
+               | ETEpsilon _ -> trans
+               | ETNormal (cond, actions) ->
                  let (dest,d_aux) = memo_multi_state tr.stop in
                  let actions =
                    if tr.start.nums <> start.nums then begin
@@ -1307,11 +1309,11 @@ let type_trans auto env tr =
                      let v = Cil.cvar_to_lvar count in
                      let incr = Counter_incr (TVar v, TNoOffset) in
                      let init = Pebble_init (dest, d_aux, v) in
-                     init::incr::actions
+                     init :: incr :: actions
                    end
                  in
                  { trans with
-                   cross = Normal(cond, actions) })
+                   cross = ETNormal (cond, actions) })
             transitions
         in
         states, transitions
@@ -1368,7 +1370,7 @@ let propagate_epsilon_transitions (states, _ as auto) =
     List.fold_left
       (fun acc tr ->
          match tr.cross with
-         | Epsilon (cond,my_actions) ->
+         | ETEpsilon (cond,my_actions) ->
            Aorai_option.debug "Treating epsilon trans %s -> %s"
              curr.name tr.stop.name;
            if List.exists (fun st -> st.nums = tr.stop.nums) known_states
@@ -1377,9 +1379,9 @@ let propagate_epsilon_transitions (states, _ as auto) =
              transitive_closure
                start (tand cond conds, my_actions @ actions)
                known_states tr.stop @ acc
-         | Normal (cond, action) ->
+         | ETNormal (cond, action) ->
            Aorai_option.debug "Adding transition %s -> %s from epsilon trans"
-             start.name tr.stop.name;
+             start.Promelaast.name tr.stop.name;
            new_trans start tr.stop (tand cond conds,action @ actions) ::acc)
       [] trans
   in

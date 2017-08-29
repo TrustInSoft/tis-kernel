@@ -34,7 +34,6 @@
 (*                                                                        *)
 (**************************************************************************)
 
-open Cil_types
 open Logic_ptree
 open Aorai_option
 open Promelaast
@@ -102,7 +101,8 @@ let rec print_condition fmt = function
   | TCall (kf,None) ->
     Format.fprintf fmt "Call(%a)" Kernel_function.pretty kf
   | TCall (kf, Some b) ->
-    Format.fprintf fmt "Call(%a::%s)" Kernel_function.pretty kf b.b_name
+    Format.fprintf fmt "Call(%a::%s)"
+      Kernel_function.pretty kf b.Cil_types.b_name
   | TReturn kf ->
     Format.fprintf fmt "Return(%a)" Kernel_function.pretty kf
   | TOr  (c1,c2) ->
@@ -130,11 +130,11 @@ let print_one_action fmt = function
       Printer.pp_term_lval lv Printer.pp_term_lval lv
   | Pebble_init (set,_,v) ->
     Format.fprintf fmt "@[%a <- {@[ %a @]}@]"
-      Printer.pp_logic_var set.l_var_info Printer.pp_logic_var v
+      Printer.pp_logic_var set.Cil_types.l_var_info Printer.pp_logic_var v
   | Pebble_move(s1,_,s2,_) ->
     Format.fprintf fmt "@[%a <- %a@]"
-      Printer.pp_logic_var s1.l_var_info
-      Printer.pp_logic_var s2.l_var_info
+      Printer.pp_logic_var s1.Cil_types.l_var_info
+      Printer.pp_logic_var s2.Cil_types.l_var_info
   | Copy_value(lv,v) ->
     Format.fprintf fmt "@[%a <- %a@]" Printer.pp_term_lval lv Printer.pp_term v
 

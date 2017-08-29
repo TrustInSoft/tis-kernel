@@ -57,10 +57,9 @@ module Make
     ( L : Logic with type loc = M.loc ) =
 struct
 
-  open M
-  module Dom = Heap.Set
+  module Dom = M.Heap.Set
 
-  type region = (c_object * loc sloc list) list
+  type region = (c_object * M.loc sloc list) list
 
   (* -------------------------------------------------------------------------- *)
   (* --- Domain                                                             --- *)
@@ -101,7 +100,7 @@ struct
       let hs_sloc = Bag.list (M.assigned s_local obj sloc) in
       assigned_seq (Bag.concat hs_sloc hs) s_other tail
 
-  let assigned (s:sigma sequence) (r:region) =
+  let assigned (s:M.sigma sequence) (r:region) =
     let hs = assigned_seq Bag.empty s
         begin
           List.fold_left

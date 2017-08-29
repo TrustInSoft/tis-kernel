@@ -200,8 +200,10 @@ let pre_kf kf callstack =
   match Db.Value.get_initial_state_callstack kf with
   | None -> Cvalue.Model.top (* should not happen *)
   | Some h ->
-    try Value_callstack.Callstack.Hashtbl.find h callstack
-    with Not_found -> Cvalue.Model.top (* should not happen either *)
+    begin
+      try Value_callstack.Callstack.Hashtbl.find h callstack
+      with Not_found -> Cvalue.Model.top (* should not happen either *)
+    end
 
 let env_here kf here callstack =
   let pre = pre_kf kf callstack in
@@ -409,7 +411,9 @@ let make_data ev set_ba ~before ~after exp =
 
 let make_data_all_callstacks append ev ~before ~after expr =
   let exn = ref [] in
-  let single_callstack = (Value_callstack.Callstack.Hashtbl.length before) = 1 in
+  let single_callstack =
+    (Value_callstack.Callstack.Hashtbl.length before) = 1
+  in
   let v_join_before = ref ev.bottom in
   let v_join_after = ref ev.bottom in
   let ok_join = ref true in

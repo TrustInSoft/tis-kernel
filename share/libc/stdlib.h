@@ -132,7 +132,7 @@ unsigned long long int strtoull(
      char ** restrict endptr,
      int base);
 
-//@ ghost int __fc_random_counter __attribute__((unused)) __attribute__((FRAMA_C_MODEL));
+//@ ghost extern int __fc_random_counter __attribute__((unused)) __attribute__((FRAMA_C_MODEL));
 extern const unsigned long __fc_rand_max = __FC_RAND_MAX;
 /* ISO C: 7.20.2 */
 /*@ assigns \result \from __fc_random_counter ;
@@ -396,6 +396,10 @@ strtof_l(const char * restrict nptr, char ** restrict endptr,
 long double
 strtold_l(const char * restrict nptr, char ** restrict endptr,
           locale_t loc);
+
+/* Temporaries */
+int mkstemp(char *__t);
+
 __END_DECLS
 
 #endif

@@ -38,7 +38,6 @@
 open Qed.Logic
 open Cil_types
 open Lang
-open Lang.F
 
 (* -------------------------------------------------------------------------- *)
 (* --- Datatypes                                                          --- *)
@@ -46,7 +45,7 @@ open Lang.F
 
 type step = {
   size : int ; (* number of conditions *)
-  vars : Vars.t ;
+  vars : Lang.F.Vars.t ;
   stmt : stmt option ;
   descr : string option ;
   deps : Property.t list ;
@@ -55,36 +54,46 @@ type step = {
 }
 and sequence = {
   seq_size : int ;
-  seq_vars : Vars.t ;
-  seq_core : Pset.t ;
+  seq_vars : Lang.F.Vars.t ;
+  seq_core : Lang.F.Pset.t ;
   seq_list : step list ;
 }
 and condition =
-  | Type of pred
-  | Have of pred
-  | When of pred
-  | Core of pred
-  | Init of pred
-  | Branch of pred * sequence * sequence
+  | Type of Lang.F.pred
+  | Have of Lang.F.pred
+  | When of Lang.F.pred
+  | Core of Lang.F.pred
+  | Init of Lang.F.pred
+  | Branch of Lang.F.pred * sequence * sequence
   | Either of sequence list
 
 (* -------------------------------------------------------------------------- *)
 (* --- Variable Utilities                                                 --- *)
 (* -------------------------------------------------------------------------- *)
 
-let vars_seqs w = List.fold_left (fun xs s -> Vars.union xs s.seq_vars) Vars.empty w
-let vars_list s = List.fold_left (fun xs s -> Vars.union xs s.vars) Vars.empty s
+let vars_seqs w =
+  List.fold_left
+    (fun xs s -> Lang.F.Vars.union xs s.seq_vars)
+    Lang.F.Vars.empty w
+
+let vars_list s =
+  List.fold_left
+    (fun xs s -> Lang.F.Vars.union xs s.vars)
+    Lang.F.Vars.empty s
+
 let size_list s = List.fold_left (fun n s -> n + s.size) 0 s
 let vars_cond = function
   | Type q | When q | Have q | Core q | Init q -> F.varsp q
-  | Branch(p,sa,sb) -> Vars.union (F.varsp p) (Vars.union sa.seq_vars sb.seq_vars)
+  | Branch(p,sa,sb) ->
+    Lang.F.Vars.union (F.varsp p) (Lang.F.Vars.union sa.seq_vars sb.seq_vars)
   | Either cases -> vars_seqs cases
 let size_cond = function
   | Type _ | When _ | Have _ | Core _ | Init _ -> 1
   | Branch(_,sa,sb) -> 1 + sa.seq_size + sb.seq_size
   | Either cases -> List.fold_left (fun n s -> n + s.seq_size) 1 cases
 let vars_hyp hs = hs.seq_vars
-let vars_seq (hs,g) = Vars.union (F.varsp g) hs.seq_vars
+let vars_seq (hs,g) = Lang.F.Vars.union (F.varsp g) hs.seq_vars
+
 (* -------------------------------------------------------------------------- *)
 (* --- Core Utilities                                                     --- *)
 (* -------------------------------------------------------------------------- *)
@@ -99,27 +108,27 @@ let is_core p = match F.epred p with
   | _ -> false
 
 let rec add_core s p = match F.pred p with
-  | Qed.Logic.And ps -> List.fold_left add_core Pset.empty ps
-  | _ -> if is_core p then Pset.add p s else s
+  | Qed.Logic.And ps -> List.fold_left add_core Lang.F.Pset.empty ps
+  | _ -> if is_core p then Lang.F.Pset.add p s else s
 
 let core_cond = function
-  | Type _ -> Pset.empty
-  | Have p | When p | Core p | Init p -> add_core Pset.empty p
-  | Branch(_,sa,sb) -> Pset.inter sa.seq_core sb.seq_core
-  | Either [] -> Pset.empty
+  | Type _ -> Lang.F.Pset.empty
+  | Have p | When p | Core p | Init p -> add_core Lang.F.Pset.empty p
+  | Branch(_,sa,sb) -> Lang.F.Pset.inter sa.seq_core sb.seq_core
+  | Either [] -> Lang.F.Pset.empty
   | Either (c::cs) ->
-    List.fold_left (fun w s -> Pset.inter w s.seq_core) c.seq_core cs
+    List.fold_left (fun w s -> Lang.F.Pset.inter w s.seq_core) c.seq_core cs
 
-let add_core_step ps s = Pset.union ps (core_cond s.condition)
+let add_core_step ps s = Lang.F.Pset.union ps (core_cond s.condition)
 
-let core_list s = List.fold_left add_core_step Pset.empty s
+let core_list s = List.fold_left add_core_step Lang.F.Pset.empty s
 
 module Core =
 struct
 
   let rec fpred core p = match F.pred p with
     | Qed.Logic.And ps -> F.p_conj (List.map (fpred core) ps)
-    | _ -> if Pset.mem p core then p_true else p
+    | _ -> if Lang.F.Pset.mem p core then Lang.F.p_true else p
 
   let fcond core = function
     | Core p -> Core (fpred core p)
@@ -142,11 +151,11 @@ struct
 
   let factorize a b =
     if Wp_parameters.Core.get () then
-      let core = Pset.inter a.seq_core b.seq_core in
-      if Pset.is_empty core then None else
+      let core = Lang.F.Pset.inter a.seq_core b.seq_core in
+      if Lang.F.Pset.is_empty core then None else
         let ca = List.map (fstep core) a.seq_list in
         let cb = List.map (fstep core) b.seq_list in
-        Some (F.p_conj (Pset.elements core) , seq ca , seq cb)
+        Some (F.p_conj (Lang.F.Pset.elements core) , seq ca , seq cb)
     else None
 
 end
@@ -182,7 +191,7 @@ module Bundle :
 sig
   type t
   val empty : t
-  val vars : t -> Vars.t
+  val vars : t -> Lang.F.Vars.t
   val is_empty : t -> bool
   val is_true : t -> Qed.Logic.maybe
   val add : step -> t -> t
@@ -207,20 +216,20 @@ struct
           if r = 0 then Pervasives.compare k2 k1 else r
       end)
 
-  type t = Vars.t * SEQ.t
+  type t = Lang.F.Vars.t * SEQ.t
 
   let vars = fst
   let cid = ref 0
   let fresh () = incr cid ; assert (!cid > 0) ; !cid
 
-  let add s (xs,t) = Vars.union xs s.vars , SEQ.add (fresh (),s) t
+  let add s (xs,t) = Lang.F.Vars.union xs s.vars , SEQ.add (fresh (),s) t
 
-  let empty = Vars.empty , []
+  let empty = Lang.F.Vars.empty , []
   let is_empty = function (_,[]) -> true | _ -> false
 
   let build seq =
     let xs = List.fold_left
-        (fun xs (_,s) -> Vars.union xs s.vars) Vars.empty seq in
+        (fun xs (_,s) -> Lang.F.Vars.union xs s.vars) Lang.F.Vars.empty seq in
     xs , seq
 
   let factorize (_,a) (_,b) =
@@ -232,7 +241,10 @@ struct
   let freeze (xs,bundle) =
     let seq = List.map snd bundle in
     let size = size_list seq in
-    { seq_size = size ; seq_vars = xs ; seq_core = Pset.empty ; seq_list = seq }
+    { seq_size = size ;
+      seq_vars = xs ;
+      seq_core = Lang.F.Pset.empty ;
+      seq_list = seq }
   let map f b = List.map (fun (_,s) -> f s.condition) (snd b)
   let exists f b = List.exists (fun (_,s) -> f s.condition) (snd b)
   let is_true = function
@@ -269,8 +281,8 @@ and pred_seq seq = F.p_all (fun s -> pred_cond s.condition) seq.seq_list
 let extract bundle = Bundle.map pred_cond bundle
 let sequence = Bundle.freeze
 
-let intersect p bundle = Vars.intersect (F.varsp p) (Bundle.vars bundle)
-let occurs x bundle = Vars.mem x (Bundle.vars bundle)
+let intersect p bundle = Lang.F.Vars.intersect (F.varsp p) (Bundle.vars bundle)
+let occurs x bundle = Lang.F.Vars.mem x (Bundle.vars bundle)
 
 (* -------------------------------------------------------------------------- *)
 (* --- Constructors                                                       --- *)
@@ -330,7 +342,7 @@ type 'a attributed =
 
 let domain ps hs =
   if ps = [] then hs else
-    Bundle.add (step (Type (p_conj ps))) hs
+    Bundle.add (step (Type (Lang.F.p_conj ps))) hs
 
 
 let intros ps hs =
@@ -364,7 +376,7 @@ let branch ?descr ?stmt ?deps ?warn p ha hb =
     match Bundle.is_true ha , Bundle.is_true hb with
     | Yes , Yes -> Bundle.empty
     | _ , No -> assume ?descr ?stmt ?deps ?warn p ha
-    | No , _ -> assume ?descr ?stmt ?deps ?warn (p_not p) hb
+    | No , _ -> assume ?descr ?stmt ?deps ?warn (Lang.F.p_not p) hb
     | _ ->
       let ha,hs,hb = Bundle.factorize ha hb in
       if Bundle.is_empty ha && Bundle.is_empty hb then hs else
@@ -377,7 +389,7 @@ let either ?descr ?stmt ?deps ?warn cases =
   match disjunction Bundle.is_true cases with
   | TRUE -> Bundle.empty
   | FALSE ->
-    let s = step ?descr ?stmt ?deps ?warn (Have p_false) in
+    let s = step ?descr ?stmt ?deps ?warn (Have Lang.F.p_false) in
     Bundle.add s Bundle.empty
   | EITHER cases ->
     let trunk = Bundle.big_inter cases in
@@ -385,7 +397,7 @@ let either ?descr ?stmt ?deps ?warn cases =
     match disjunction Bundle.is_true cases with
     | TRUE -> trunk
     | FALSE ->
-      let s = step ?descr ?stmt ?deps ?warn (Have p_false) in
+      let s = step ?descr ?stmt ?deps ?warn (Have Lang.F.p_false) in
       Bundle.add s Bundle.empty
     | EITHER cases ->
       let cases = List.map Bundle.freeze cases in
@@ -433,7 +445,7 @@ let core_residual step core = {
 let core_branch step p a b =
   let condition =
     if is_seq_true a.seq_list = Yes && is_seq_true b.seq_list = Yes
-    then Have p_true else Branch(p,a,b) in
+    then Have Lang.F.p_true else Branch(p,a,b) in
   let vars = vars_cond condition in
   { step with condition ; vars }
 
@@ -466,7 +478,7 @@ let rec flatten_sequence m = function
           | No , _ ->
             m := true ;
             let vars = F.varsp p in
-            let step = { step with vars ; condition = Have (p_not p) } in
+            let step = { step with vars ; condition = Have (Lang.F.p_not p) } in
             step :: sb @ flatten_sequence m seq
           | _ ->
             begin
@@ -485,7 +497,7 @@ let rec flatten_sequence m = function
       match disjunction is_seq_true cases with
       | TRUE -> m := true ; flatten_sequence m seq
       | FALSE -> m := true ;
-        [ { step with vars = Vars.empty ; condition = Have p_false } ]
+        [ { step with vars = Lang.F.Vars.empty ; condition = Have Lang.F.p_false } ]
       | EITHER [hc] ->
         m := true ; flat_concat hc (flatten_sequence m seq)
       | EITHER cs ->
@@ -501,24 +513,27 @@ let rec flatten_sequence m = function
 module Sigma = Letify.Sigma
 module Defs = Letify.Defs
 
-let used_of_dseq = Array.fold_left (fun ys (xs,_,_) -> Vars.union ys xs) Vars.empty
+let used_of_dseq =
+  Array.fold_left (fun ys (xs,_,_) -> Lang.F.Vars.union ys xs) Lang.F.Vars.empty
+
 let bind_dseq target (_,di,_) sigma =
   Letify.bind (Letify.bind sigma di target) di (Defs.domain di)
 
-let locals sigma ~target ~required ?(step=Vars.empty) k dseq = (* returns ( target , export ) *)
+(* returns ( target , export ) *)
+let locals sigma ~target ~required ?(step=Lang.F.Vars.empty) k dseq =
   let t = ref target in
-  let e = ref (Vars.union required step) in
+  let e = ref (Lang.F.Vars.union required step) in
   Array.iteri
     (fun i (xs,_,_) ->
-       if i > k then t := Vars.union !t xs ;
-       if i <> k then e := Vars.union !e xs ;
+       if i > k then t := Lang.F.Vars.union !t xs ;
+       if i <> k then e := Lang.F.Vars.union !e xs ;
     ) dseq ;
-  Vars.diff !t (Sigma.domain sigma) , !e
+  Lang.F.Vars.diff !t (Sigma.domain sigma) , !e
 
 let dseq_of_step sigma step =
   let xs =
     match step.condition with
-    | Type _ -> Vars.empty
+    | Type _ -> Lang.F.Vars.empty
     | _ -> step.vars in
   let defs =
     match step.condition with
@@ -537,10 +552,10 @@ let letify_assume sref (_,_,step) =
   end ; current
 
 let rec letify_type sigma used p = match F.pred p with
-  | And ps -> p_all (letify_type sigma used) ps
+  | And ps -> Lang.F.p_all (letify_type sigma used) ps
   | _ ->
     let p = Sigma.p_apply sigma p in
-    if Vars.intersect used (F.varsp p) then p else F.p_true
+    if Lang.F.Vars.intersect used (F.varsp p) then p else F.p_true
 
 let rec letify_seq sigma0 ~target ~export (seq : step list) =
   let dseq = Array.map (dseq_of_step sigma0) (Array.of_list seq) in
@@ -548,10 +563,12 @@ let rec letify_seq sigma0 ~target ~export (seq : step list) =
   let sref = ref sigma1 in (* with definitions *)
   let dsigma = Array.map (letify_assume sref) dseq in
   let sigma2 = !sref in (* with assumptions *)
-  let outside = Vars.union export target in
+  let outside = Lang.F.Vars.union export target in
   let inside = used_of_dseq dseq in
-  let used = Vars.diff (Vars.union outside inside) (Sigma.domain sigma2) in
-  let required = Vars.union outside (Sigma.codomain sigma2) in
+  let used =
+    Lang.F.Vars.diff (Lang.F.Vars.union outside inside) (Sigma.domain sigma2)
+  in
+  let required = Lang.F.Vars.union outside (Sigma.codomain sigma2) in
   let sequence =
     Array.mapi (letify_step dseq dsigma ~used ~required ~target) dseq in
   let modified = ref (not (Sigma.equal sigma0 sigma1)) in
@@ -564,26 +581,26 @@ and letify_step dseq dsigma ~required ~target ~used i (_,d,s) =
     | Init p ->
       let p = Sigma.p_apply sigma p in
       let ps = Letify.add_definitions sigma d required [p] in
-      Init (p_conj ps)
+      Init (Lang.F.p_conj ps)
     | Have p ->
       let p = Sigma.p_apply sigma p in
       let ps = Letify.add_definitions sigma d required [p] in
-      Have (p_conj ps)
+      Have (Lang.F.p_conj ps)
     | Core p ->
       let p = Sigma.p_apply sigma p in
       let ps = Letify.add_definitions sigma d required [p] in
-      Core (p_conj ps)
+      Core (Lang.F.p_conj ps)
     | When p ->
       let p = Sigma.p_apply sigma p in
       let ps = Letify.add_definitions sigma d required [p] in
-      When (p_conj ps)
+      When (Lang.F.p_conj ps)
     | Type p -> Type (letify_type sigma used p)
     | Branch(p,a,b) ->
       let p = Sigma.p_apply sigma p in
       let step = F.varsp p in
       let (target,export) = locals sigma ~target ~required ~step i dseq in
       let sa = Sigma.assume sigma p in
-      let sb = Sigma.assume sigma (p_not p) in
+      let sb = Sigma.assume sigma (Lang.F.p_not p) in
       let a = letify_case sa ~target ~export a in
       let b = letify_case sb ~target ~export b in
       Branch(p,a,b)
@@ -652,8 +669,8 @@ let decide_branch modified solvers h =
   | _ -> h
 
 let add_infer modified s hs =
-  let p = p_conj s#infer in
-  if p != p_true then
+  let p = Lang.F.p_conj s#infer in
+  if p != Lang.F.p_true then
     ( modified := true ; step ~descr:s#name (Have p) :: hs )
   else
     hs
@@ -663,7 +680,7 @@ type outcome =
   | Simplified of hsp
   | Trivial
 
-and hsp = step list * pred
+and hsp = step list * Lang.F.pred
 
 let simplify (solvers : simplifier list) (hs,g) =
   if solvers = [] then NoSimplification
@@ -690,8 +707,8 @@ let simplify (solvers : simplifier list) (hs,g) =
 
 let empty = {
   seq_size = 0 ;
-  seq_vars = Vars.empty ;
-  seq_core = Pset.empty ;
+  seq_vars = Lang.F.Vars.empty ;
+  seq_core = Lang.F.Pset.empty ;
   seq_list = [] ;
 }
 
@@ -699,8 +716,8 @@ let append sa sb =
   if sa.seq_size = 0 then sb else
   if sb.seq_size = 0 then sa else
     let seq_size = sa.seq_size + sb.seq_size in
-    let seq_vars = Vars.union sa.seq_vars sb.seq_vars in
-    let seq_core = Pset.union sa.seq_core sb.seq_core in
+    let seq_vars = Lang.F.Vars.union sa.seq_vars sb.seq_vars in
+    let seq_core = Lang.F.Pset.union sa.seq_core sb.seq_core in
     let seq_list = sa.seq_list @ sb.seq_list in
     { seq_size ; seq_vars ; seq_core ; seq_list }
 
@@ -708,10 +725,10 @@ let concat slist =
   if slist = [] then empty else
     let seq_size = List.fold_left (fun n s -> n + s.seq_size) 0 slist in
     let seq_list = List.concat (List.map (fun s -> s.seq_list) slist) in
-    let seq_vars = List.fold_left (fun w s -> Vars.union w s.seq_vars)
-        Vars.empty slist in
-    let seq_core = List.fold_left (fun w s -> Pset.union w s.seq_core)
-        Pset.empty slist in
+    let seq_vars = List.fold_left (fun w s -> Lang.F.Vars.union w s.seq_vars)
+        Lang.F.Vars.empty slist in
+    let seq_core = List.fold_left (fun w s -> Lang.F.Pset.union w s.seq_core)
+        Lang.F.Pset.empty slist in
     { seq_size ; seq_vars ; seq_core ; seq_list }
 
 let seq_branch ?stmt p sa sb =
@@ -726,14 +743,14 @@ struct
 
   open Qed
 
-  type state = term Tmap.t
+  type state = term Lang.F.Tmap.t
 
-  let modified s1 s2 = not (Tmap.equal F.equal s1 s2)
+  let modified s1 s2 = not (Lang.F.Tmap.equal F.equal s1 s2)
 
   type sigma = {
-    mutable dom : Vars.t ; (* support of defs *)
-    mutable def : term Tmap.t ; (* defs *)
-    mutable mem : term Tmap.t ; (* defs+memo *)
+    mutable dom : Lang.F.Vars.t ; (* support of defs *)
+    mutable def : Lang.F.term Lang.F.Tmap.t ; (* defs *)
+    mutable mem : Lang.F.term Lang.F.Tmap.t ; (* defs+memo *)
   }
 
   let is_cst e = match F.repr e with
@@ -742,17 +759,17 @@ struct
 
   let set_def s p a e =
     try
-      let e0 = Tmap.find a s.def in
+      let e0 = Lang.F.Tmap.find a s.def in
       match F.is_true (F.e_eq e e0) with
       | Logic.Yes -> ()
       | Logic.No -> raise Contradiction
       | Logic.Maybe ->
-        if F.compare e e0 < 0 then s.def <- Tmap.add a e0 s.def
+        if F.compare e e0 < 0 then s.def <- Lang.F.Tmap.add a e0 s.def
     with Not_found ->
       begin
-        s.dom <- Vars.union (F.vars a) s.dom ;
-        s.def <- Tmap.add a e s.def ;
-        s.def <- Tmap.add p p s.def ;
+        s.dom <- Lang.F.Vars.union (F.vars a) s.dom ;
+        s.def <- Lang.F.Tmap.add a e s.def ;
+        s.def <- Lang.F.Tmap.add p p s.def ;
       end
 
   let rec assume s p = match F.repr p with
@@ -767,10 +784,10 @@ struct
     | Type _ | Branch _ | Either _ -> ()
 
   let rec e_apply s e =
-    try Tmap.find e s.mem
+    try Lang.F.Tmap.find e s.mem
     with Not_found ->
       let e' = F.lc_map (e_apply s) e in
-      s.mem <- Tmap.add e e' s.mem ; e'
+      s.mem <- Lang.F.Tmap.add e e' s.mem ; e'
 
   let p_apply s p = F.p_bool (e_apply s (F.e_prop p))
 
@@ -793,9 +810,9 @@ struct
 
   let simplify (hs,p) =
     let s = {
-      mem = Tmap.empty ;
-      def = Tmap.empty ;
-      dom = Vars.empty ;
+      mem = Lang.F.Tmap.empty ;
+      def = Lang.F.Tmap.empty ;
+      dom = Lang.F.Vars.empty ;
     } in
     try
       List.iter (fun h -> collect s h.condition) hs ;
@@ -816,19 +833,19 @@ let rec fixpoint n solvers sigma sequent =
   !Db.progress ();
   let hs,p = ConstantFolder.simplify sequent in
   let target = F.varsp p in
-  let export = Vars.empty in
+  let export = Lang.F.Vars.empty in
   let modified , sigma1 , sigma2 , hs =
     letify_seq sigma ~target ~export hs in
   let p = Sigma.p_apply sigma2 p in
   let s = hs , p in
-  if is_trivial_hsp s then [],p_true
+  if is_trivial_hsp s then [],Lang.F.p_true
   else
   if modified
   then fixpoint n solvers sigma1 s
   else
     match simplify solvers s with
     | Simplified s -> fixpoint (succ n) solvers sigma1 s
-    | Trivial -> [],p_true
+    | Trivial -> [],Lang.F.p_true
     | NoSimplification -> s
 
 let letify_hsp ?(solvers=[]) hsp = fixpoint 1 solvers Sigma.empty hsp
@@ -866,7 +883,7 @@ let rec test_cases (s : hsp) = function
   | [] -> s
   | (p,_) :: tail ->
     !Db.progress () ;
-    match test_case p s , test_case (p_not p) s with
+    match test_case p s , test_case (Lang.F.p_not p) s with
     | None , None -> incr tc ; [],F.p_true
     | Some w , None -> incr tc ; test_cases w tail
     | None , Some w -> incr tc ; test_cases w tail
@@ -929,7 +946,7 @@ and clean_seq u s =
   let s = clean_steps u s.seq_list in
   { seq_size = size_list s ;
     seq_vars = vars_list s ;
-    seq_core = Pset.empty ;
+    seq_core = Lang.F.Pset.empty ;
     seq_list = s }
 
 and clean_steps u = function
@@ -958,13 +975,13 @@ struct
 
   type used = {
     mutable fixpoint : bool ;
-    mutable footprint : Gset.t Tmap.t ; (* memoized by terms *)
+    mutable footprint : Gset.t Lang.F.Tmap.t ; (* memoized by terms *)
     mutable gs : Gset.t ; (* used in sequent *)
-    mutable xs : Vars.t ;  (* used in sequent *)
+    mutable xs : Lang.F.Vars.t ;  (* used in sequent *)
   }
 
   let rec gvars_of_term m t =
-    try Tmap.find t m.footprint
+    try Lang.F.Tmap.find t m.footprint
     with Not_found ->
     match F.repr t with
     | Fun(f,[]) -> Gset.singleton f
@@ -973,14 +990,14 @@ struct
       let collect m gs e = gs := Gset.union !gs (gvars_of_term m e) in
       F.lc_iter (collect m gs) t ;
       let s = !gs in
-      m.footprint <- Tmap.add t s m.footprint ; s
+      m.footprint <- Lang.F.Tmap.add t s m.footprint ; s
 
   let gvars_of_pred m p = gvars_of_term m (F.e_prop p)
 
   let collect_have m p =
     begin
       m.gs <- Gset.union m.gs (gvars_of_pred m p) ;
-      m.xs <- Vars.union m.xs (F.varsp p) ;
+      m.xs <- Lang.F.Vars.union m.xs (F.varsp p) ;
     end
 
   let rec collect_condition m = function
@@ -996,15 +1013,15 @@ struct
     match F.pred p with
     | And ps -> F.p_all (filter_pred m) ps
     | _ ->
-      if Vars.subset (F.varsp p) m.xs then
+      if Lang.F.Vars.subset (F.varsp p) m.xs then
         begin
           let gs = gvars_of_pred m p in
           if Gset.subset gs m.gs then p else
           if Gset.intersect gs m.gs then
             (m.fixpoint <- false ; m.gs <- Gset.union gs m.gs ; p)
-          else p_true
+          else Lang.F.p_true
         end
-      else p_true
+      else Lang.F.p_true
 
   let rec filter_steplist m = function
     | [] -> []
@@ -1029,9 +1046,9 @@ struct
 
   let make (seq,g) =
     let m = { gs = Gset.empty ;
-              xs = Vars.empty ;
+              xs = Lang.F.Vars.empty ;
               fixpoint = false ;
-              footprint = Tmap.empty } in
+              footprint = Lang.F.Tmap.empty } in
     List.iter (collect_step m) seq.seq_list ; collect_have m g ;
     let rec loop m hs g =
       m.fixpoint <- true ;
@@ -1048,7 +1065,7 @@ let filter = Filter.make
 (* -------------------------------------------------------------------------- *)
 
 let close_cond = function
-  | Type _ when Wp_parameters.SimplifyType.get () -> p_true
+  | Type _ when Wp_parameters.SimplifyType.get () -> Lang.F.p_true
   | c -> pred_cond c
 
 let hyps s = List.map (fun s -> close_cond s.condition) s.seq_list

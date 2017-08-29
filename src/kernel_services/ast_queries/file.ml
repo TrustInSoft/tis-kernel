@@ -84,10 +84,13 @@ module D =
 include D
 
 let check_suffixes = Hashtbl.create 17
-let new_file_type = Hashtbl.add check_suffixes
+let conditional_new_file_type suffix enabler processor =
+  Hashtbl.add check_suffixes suffix (enabler, processor)
+let new_file_type suffix processor =
+  conditional_new_file_type suffix (fun _ -> true) processor
 let get_suffixes () =
   Hashtbl.fold
-    (fun s _ acc -> s :: acc)
+    (fun s (_,_) acc -> s :: acc)
     check_suffixes
     [ ".c"; ".i"; ".h" ]
 
@@ -137,7 +140,14 @@ let from_filename ?cpp f =
       with Not_found -> (* raised by String.rindex if '.' \notin f *)
         ""
     in
-    if Hashtbl.mem check_suffixes suf then External (f, suf)
+    let can_process_externally f suf =
+      try
+        let enabler, _ = Hashtbl.find check_suffixes suf in
+        enabler f
+      with Not_found ->
+        false
+    in
+    if can_process_externally f suf then External (f, suf)
     else if cpp <> "" then begin
       if not Config.preprocessor_keep_comments then
         Kernel.warning ~once:true
@@ -606,7 +616,8 @@ let parse_cabs mach file out_buf ref_cmdline =
           Buffer.add_string out_buf
             "Output for external commands not supported.";
       end;
-      Hashtbl.find check_suffixes suf f
+      let _, processor = Hashtbl.find check_suffixes suf in
+      processor f
     with Not_found ->
       Kernel.abort "could not find a suitable plugin for parsing %s." f
 

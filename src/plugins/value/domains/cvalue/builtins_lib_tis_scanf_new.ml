@@ -20,7 +20,6 @@ open Locations
 open Cil_types
 open Floating_point
 
-exception Abort_to_top
 exception Invalid_character
 
 (* Exceptions used to handle reading input and formats *)
@@ -118,7 +117,8 @@ let check_string_validity state (exp, cvalue, _) =
   ignore (strlen ~character_bits ~max:str_infinity ~emit_alarm cvalue state)
 
 let bottom_result =
-  { Value_types.c_values = [ Value_types.StateOnly(None, Cvalue.Model.bottom) ] ;
+  { Value_types.c_values =
+      [ Value_types.StateOnly(None, Cvalue.Model.bottom) ] ;
     c_clobbered = Base.SetLattice.bottom;
     c_cacheable = Value_types.NoCache;
     c_from = None; (* TODO?*)
@@ -143,16 +143,7 @@ let with_alarms_from_problem = fun problem ->
     others              = set_problem;
     imprecision_tracing = CilE.a_ignore }
 
-type formatting_result =
-  { string: string;
-    partial: bool }
 
-type result = Unlocked of Buffer.t | LockedImprecise of String.t
-
-let add_char result c =
-  match !result with
-  | Unlocked buffer -> Buffer.add_char buffer c
-  | LockedImprecise _ -> ()
 
 type seen_percent =
     Not_seen
@@ -165,11 +156,6 @@ let abort () =
     "assert(match format and arguments)%t. Aborting."
     Value_util.pp_callstack;
   raise Db.Value.Aborted
-
-let abort_modifier modifier c =
-  Value_parameters.warning ~current:true
-    "Modifier %s not supported (yet) for %%%c" modifier c;
-  abort()
 
 let warn_destination_possibly_invalid () =
   Value_parameters.warning ~current:true
@@ -318,7 +304,8 @@ let handle_overflow typ interpreted_e =
       Cil_printer.pp_typ t;
     raise Undefined_behavior
 
-(* Detect overlap of destination variables with either source or format strings *)
+(* Detect overlap of destination variables with either source or
+   format strings *)
 let src_loc_bits = ref Locations.Location_Bits.bottom
 let src_len = ref Ival.zero
 let fmt_loc_bits = ref Locations.Location_Bits.bottom
@@ -361,7 +348,6 @@ let digits_from_base = function
 
 let reg_base_digit = fun base -> digits_from_base base
 let reg_base_digit_sequence = fun base -> (reg_base_digit base) ^ "+"
-let reg_base_digit_sequence_opt = fun base -> (reg_base_digit base) ^ "*"
 
 
 let reg_digit_sequence = reg_decimal_digit ^ "+"
@@ -540,16 +526,13 @@ let is_base_string ~base = is_integer ~base
 
 
 (* Functions to recognize digits *)
-let is_decimal_digit d = ('0' <= d && d <= '9')
-let is_octal_digit d = ('0' <= d && d <= '7')
-let is_hex_digit d =
-  (is_decimal_digit d) || ('a' <= d && d <= 'f') || ('A' <= d && d <= 'F')
+let is_decimal_digit d = '0' <= d && d <= '9'
 
 let is_whitespace c =
   let whitespace = [' '; '\n'; '\t'; '\r'] in
   List.mem c whitespace
 let is_not_whitespace = fun c -> not (is_whitespace c)
-let is_sign = fun c -> (c = '-' || c = '+')
+let is_sign c = c = '-' || c = '+'
 
 (* ********************** Build functions to parse input ******************** *)
 (* Function built for scanf - s is a string read from the command line
@@ -557,7 +540,7 @@ let is_sign = fun c -> (c = '-' || c = '+')
 let build_functions_from_string s =
   let i = ref 0 in
   let len = String.length s in
-  let get_char () = if (!i = len) then raise Read_String_Done else s.[!i] in
+  let get_char () = if !i = len then raise Read_String_Done else s.[!i] in
   let move_to_next () = incr i in
   (get_char, move_to_next)
 
@@ -746,7 +729,10 @@ let get_input (get_char, move_to_next) directive  =
           * includes a '[', 'c' or 'n' specifier *)
          (match cs with
           | Normal
-              {suppress = _; width; length_modifier = _; conversion_specifier} ->
+              { suppress = _;
+                width;
+                length_modifier = _;
+                conversion_specifier } ->
             check_width width;
             field_width := (match width with None -> -1 | Some w -> w);
             ( match conversion_specifier with
@@ -874,16 +860,16 @@ let rec integer_func length string_s acc initial_value ?base cs =
         | 'o' -> 8
         | 'd'| 'u' | 'n' -> 10
         | 'i' ->
-          if (is_hex_base_zero string_s) then 16
-          else if (is_octal_base_zero string_s) then 8
-          else if (is_decimal_base_zero string_s) then 10
+          if is_hex_base_zero string_s then 16
+          else if is_octal_base_zero string_s then 8
+          else if is_decimal_base_zero string_s then 10
           else assert false
         (* The '-' cs is used only for strtol, atoi and similar functions,
          * not for scanf *)
         | '-' when base = Some 0 ->
-          if (is_hex_base_zero string_s) then 16
-          else if (is_octal_base_zero string_s) then 8
-          else if (is_decimal_base_zero string_s) then 10
+          if is_hex_base_zero string_s then 16
+          else if is_octal_base_zero string_s then 8
+          else if is_decimal_base_zero string_s then 10
           else assert false
         | '-' ->
           (match base with Some b -> b | None -> assert false)
@@ -988,7 +974,7 @@ let write_string_to_memory char_size dst_addr_bytes state input_str ~is_char_cs=
     let loc = Locations.make_loc !dst_addr_bits sizeofchar_size in
     state := Eval_op.add_binding ~exact ~with_alarms !state loc v;
 
-    if (length > i) then
+    if length > i then
       dst_addr_bits :=  Location_Bits.shift sizeofchar_ival !dst_addr_bits
   done;
 
@@ -1025,7 +1011,8 @@ let parse_float_from_string ~length_modifier float_string =
     (* return abstract NAN value HERE and remove exception *)
     raise (Not_yet_implemented "NAN and INFINITY float values")
   else (* regular float (not NAN or INFINITY) *) begin
-    (* Split a float with no decimal point into an integer and an exponent part *)
+    (* Split a float with no decimal point into an integer and an
+       exponent part *)
     let get_int_and_exp_parts float_string ~hex =
       (* This regexp is enough to separate mantissa from exponent,  considering
        * that 'float_string' has already been processed and is thus known to
@@ -1045,30 +1032,29 @@ let parse_float_from_string ~length_modifier float_string =
       int_part,exp_part
     in
 
-    (* The single_precision_of_string function available in
-     * the Floating_point.ml file does not deal with negative floats or integers,
-     * nor with floats without exponent part or decimal-point.
-     * Because of this, we need to modify the string read before passing it *)
+    (* The single_precision_of_string function available in the
+       Floating_point.ml file does not deal with negative floats or
+       integers, nor with floats without exponent part or
+       decimal-point.
+       Because of this, we need to modify the string read before
+       passing it *)
     let float_string =
-      let ret =
-        if String.contains float_string '.' then float_string
-        else
-          (* float doesn't contain a decimal-dot: add it in the right place *)
-          begin
-            let is_hex_float = is_hex_float float_string in
-            let exp_symbol = if is_hex_float then 'p' else 'e' in
-            if not String.(contains (lowercase_ascii float_string) exp_symbol)
-            then (* float has no exponent nor dot, add the dot at the end *)
-              float_string ^ "."
-            else
-              (* float has exponent but no dot, add it before the exponent *)
-              let int_part,exp_part =
-                get_int_and_exp_parts float_string ~hex:is_hex_float
-              in
-              (int_part ^ ".0") ^ exp_part
-          end
-      in
-      ret
+      if String.contains float_string '.' then float_string
+      else
+        (* float doesn't contain a decimal-dot: add it in the right place *)
+        begin
+          let is_hex_float = is_hex_float float_string in
+          let exp_symbol = if is_hex_float then 'p' else 'e' in
+          if not String.(contains (lowercase_ascii float_string) exp_symbol)
+          then (* float has no exponent nor dot, add the dot at the end *)
+            float_string ^ "."
+          else
+            (* float has exponent but no dot, add it before the exponent *)
+            let int_part,exp_part =
+              get_int_and_exp_parts float_string ~hex:is_hex_float
+            in
+            (int_part ^ ".0") ^ exp_part
+        end
     in
 
     (* For negative numbers we create a new string without the minus sign, then
@@ -1170,7 +1156,7 @@ let write_int_to_memory
       str_to_write, l
   in
   let integer =
-    integer_func length s 0 (Integer.zero) base
+    integer_func length s 0 Integer.zero base
   in
   let integer = if is_negative then Integer.neg integer else integer in
   let v = handle_overflow ctype (Cvalue.V.inject_int integer) in
@@ -1256,8 +1242,7 @@ let interpret_format ~character_width state format args (get_source, advance) =
         then c
         else c + 256
       in
-      let c = char_of_int code in
-      c
+      char_of_int code
     in
 
     let move_to_next () =
@@ -1319,7 +1304,7 @@ let interpret_format ~character_width state format args (get_source, advance) =
           ( match c with
             | '^' ->
               (*if we have a pattern like "[^"*)
-              if (!counter_bracket = 0) then
+              if !counter_bracket = 0 then
                 caret := true
               else
                 begin
@@ -1331,7 +1316,7 @@ let interpret_format ~character_width state format args (get_source, advance) =
               (*With a format of "[]" we add ']' to the buffer of chars
                 and we continue searching for the second ']' that will
                 end the sequence of chars to be read*)
-              if (!counter_bracket = 0) then
+              if !counter_bracket = 0 then
                 begin
                   Buffer.add_char bracket_buff ']';
                   let str = Buffer.contents bracket_buff in
@@ -1371,7 +1356,7 @@ let interpret_format ~character_width state format args (get_source, advance) =
                   read_ok_aux := read_ok;
                   num_ch := !num_ch + s1_len;
 
-                  if (s1_len = 0 && not !suppress_bracket) then
+                  if s1_len = 0 && not !suppress_bracket then
                     begin
                       Value_parameters.error ~current:true
                         "Variable will remain not initialized";
@@ -1416,7 +1401,7 @@ let interpret_format ~character_width state format args (get_source, advance) =
               end;
             | '%' ->
               begin
-                if ((length_modifier <> "") || (width <> None) || suppress) then
+                if (length_modifier <> "") || (width <> None) || suppress then
                   begin
                     Value_parameters.error ~current:true "invalid directive";
                     raise Undefined_behavior;
@@ -1453,7 +1438,7 @@ let interpret_format ~character_width state format args (get_source, advance) =
                 let s1,read_ok = get_input (get_source,advance) directive in
 
                 num_ch := !num_ch + (String.length s1);
-                if (not read_ok) then raise Interpret_format_not_finished;
+                if not read_ok then raise Interpret_format_not_finished;
 
                 if not suppress then
                   begin
@@ -1491,8 +1476,8 @@ let interpret_format ~character_width state format args (get_source, advance) =
                 in
                 let ctype = Cil.typeOf_pointed (List.hd typ) in
 
-                let _ = match width with
-                  | None -> None
+                begin match width with
+                  | None -> ()
                   | Some _ ->
                     begin
                       Value_parameters.error ~current:true
@@ -1500,7 +1485,7 @@ let interpret_format ~character_width state format args (get_source, advance) =
                          a field width.@]@.";
                       raise Undefined_behavior;
                     end
-                in
+                end;
 
                 if suppress then
                   begin
@@ -1515,7 +1500,12 @@ let interpret_format ~character_width state format args (get_source, advance) =
                 let num_ch_s = string_of_int !char_count in
 
                 let new_state =
-                  write_int_to_memory arg !state num_ch_s conversion_specifier ctype
+                  write_int_to_memory
+                    arg
+                    !state
+                    num_ch_s
+                    conversion_specifier
+                    ctype
                 in
                 state := new_state
               end;
@@ -1540,12 +1530,12 @@ let interpret_format ~character_width state format args (get_source, advance) =
                 in
                 let s1, read_ok = get_input (get_source,advance) directive in
 
-                if (not read_ok) then
+                if not read_ok then
                   raise Interpret_format_not_finished;
                 (* check if the input string is a valid match *)
                 if not (is_float s1) then raise Matching_failure;
 
-                if (not suppress) then
+                if not suppress then
                   begin
                     let arg = eat_arg_and_reset_seen_percent typ allowable in
                     state :=
@@ -1577,7 +1567,7 @@ let interpret_format ~character_width state format args (get_source, advance) =
                * remains unread), or until no more characters can be read *)
               let directive = Whitespace in
               let _, read_ok = get_input (get_source,advance) directive in
-              if (not read_ok) then
+              if not read_ok then
                 raise Interpret_format_not_finished;
             | _ ->
               (* A directive that is an ordinary multibyte character (neither
@@ -1586,7 +1576,7 @@ let interpret_format ~character_width state format args (get_source, advance) =
               let directive = Char c in
               let _, read_ok = get_input (get_source,advance) directive in
 
-              if (not read_ok) then
+              if not read_ok then
                 raise Interpret_format_not_finished;
           ));
       move_to_next ();
@@ -1790,7 +1780,7 @@ let abstract_strto_int ~is_ato ~state ~nptr ~endptr ~base ~ret_type =
   in
   let integer =
     let tmp = (* integer without optional sign *)
-      integer_func length s 0 (Integer.zero) '-' ~base
+      integer_func length s 0 Integer.zero '-' ~base
     in
     if is_negative then begin
       (* for strtoul (strtoull), if there was a leading sign, the function
@@ -1904,7 +1894,8 @@ let tis_strto_int state args ~ret_type ~fname =
     bottom_result
 
 
-(* Define the strto{l,ll,ul,ull} functions by specializing the generic version *)
+(* Define the strto{l,ll,ul,ull} functions by specializing the generic
+   version *)
 let tis_strtol   state args =
   tis_strto_int state args ~ret_type:Long ~fname:"strtol"
 let tis_strtoll  state args =
@@ -1962,7 +1953,9 @@ let get_min_max_float_from_type ~ret_type =
   let min_float = -. max_single_precision_float in
   let max_double = Pervasives.max_float in
   let min_double = -. Pervasives.max_float in
-  let max_long_double = max_float in (* TODO: long double not supported by Frama-C? *)
+  let max_long_double =
+    max_float (* TODO: long double not supported by Frama-C? *)
+  in
   let min_long_double = min_float in
 
   match ret_type with
@@ -2015,7 +2008,8 @@ let abstract_strto_float ?(is_ato = false) ~state ~nptr ~endptr ~ret_type () =
         Cvalue.V.inject_float (Fval.F.of_float f), read_chars_count, Ival.zero
       else begin
         Value_parameters.warning ~current:true
-          "overflow or underflow trying to write %s to a variable of type \"%a\""
+          "overflow or underflow trying to write %s to a \
+           variable of type \"%a\""
           parsed_float_string  Cil_printer.pp_typ ctype;
         if is_ato then
           (* For the atof function, if the value of the result cannot be
@@ -2024,10 +2018,12 @@ let abstract_strto_float ?(is_ato = false) ~state ~nptr ~endptr ~ret_type () =
           raise Undefined_behavior
         else
           (* strto{d,f,ld} functions *)
-          (* - If the correct value *overflows* and default rounding is in effect,
-             plus or minus HUGE_VAL, HUGE_VALF or HUGE_VALL is returned
-             (according to the return type and sign of the value),
-             and the value of the ERANGE macro is stored in errno.
+
+          (* - If the correct value *overflows* and default rounding
+             is in effect, plus or minus HUGE_VAL, HUGE_VALF or
+             HUGE_VALL is returned (according to the return type and
+             sign of the value), and the value of the ERANGE macro is
+             stored in errno.
              - If the result *underflows*, the functions return a value whose
              magnitude is no greater than the smallest normalized positive
              number in the return type; whether errno acquires the value ERANGE

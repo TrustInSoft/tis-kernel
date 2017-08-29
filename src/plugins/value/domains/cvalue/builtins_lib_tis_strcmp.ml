@@ -227,7 +227,8 @@ let tis_strcmp ~str_or_wcs state actuals =
     in
     if Ival.is_bottom value
     then
-      { Value_types.c_values = [ Value_types.StateOnly(None, Cvalue.Model.bottom) ];
+      { Value_types.c_values =
+          [ Value_types.StateOnly(None, Cvalue.Model.bottom) ];
         c_clobbered = Base.SetLattice.bottom;
         c_cacheable = Value_types.Cacheable;
         c_from = None; (* TODO?*)
@@ -235,7 +236,8 @@ let tis_strcmp ~str_or_wcs state actuals =
       }
     else
       { Value_types.c_values =
-          [ Value_types.StateOnly(Eval_op.wrap_int (V.inject_ival value), state) ];
+          [ Value_types.StateOnly
+              (Eval_op.wrap_int (V.inject_ival value), state) ];
         c_clobbered = Base.SetLattice.bottom;
         c_cacheable = Value_types.Cacheable;
         c_from = None; (* TODO?*)
@@ -284,15 +286,22 @@ let tis_strncmp ~str_or_wcs state actuals =
     let n' = V.project_ival n in
     let min = Extlib.the (Ival.min_int n') in
     let max = Extlib.the (Ival.max_int n') in
-    Aux.additional_ptr_validity_check_for_size_zero ~for_writing:false ~size:n a1;
-    Aux.additional_ptr_validity_check_for_size_zero ~for_writing:false ~size:n a2;
+    Aux.additional_ptr_validity_check_for_size_zero
+      ~for_writing:false
+      ~size:n
+      a1;
+    Aux.additional_ptr_validity_check_for_size_zero
+      ~for_writing:false
+      ~size:n
+      a2;
     let value =
       abstract_strcmp ~character_bits ~min ~max ~emit_alarm ~signed
         str1 exp1 str2 exp2 state
     in
     if Ival.is_bottom value
     then
-      { Value_types.c_values = [ Value_types.StateOnly(None, Cvalue.Model.bottom) ];
+      { Value_types.c_values =
+          [ Value_types.StateOnly(None, Cvalue.Model.bottom) ];
         c_clobbered = Base.SetLattice.bottom;
         c_cacheable = Value_types.Cacheable;
         c_from = None; (* TODO?*)
@@ -300,7 +309,8 @@ let tis_strncmp ~str_or_wcs state actuals =
       }
     else
       { Value_types.c_values =
-          [ Value_types.StateOnly(Eval_op.wrap_int (V.inject_ival value), state) ];
+          [ Value_types.StateOnly
+              (Eval_op.wrap_int (V.inject_ival value), state) ];
         c_clobbered = Base.SetLattice.bottom;
         c_cacheable = Value_types.Cacheable;
         c_from = None; (* TODO?*)

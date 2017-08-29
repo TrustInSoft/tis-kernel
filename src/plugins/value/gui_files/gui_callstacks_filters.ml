@@ -66,36 +66,40 @@ let is_reachable_stmt csf stmt =
   match csf with
   | None -> Db.Value.is_reachable_stmt stmt
   | Some _ as csf ->
-    try
-      let h = Db.Value.Table_By_Callstack.find stmt in
-      Value_callstack.Callstack.Hashtbl.iter
-        (fun cs' state ->
-           let rcs' = from_callstack cs' in
-           if callstack_matches csf rcs' && Db.Value.is_reachable state
-           then raise Exit
-        ) h;
-      false
-    with
-    | Not_found -> false
-    | Exit -> true
+    begin
+      try
+        let h = Db.Value.Table_By_Callstack.find stmt in
+        Value_callstack.Callstack.Hashtbl.iter
+          (fun cs' state ->
+             let rcs' = from_callstack cs' in
+             if callstack_matches csf rcs' && Db.Value.is_reachable state
+             then raise Exit
+          ) h;
+        false
+      with
+      | Not_found -> false
+      | Exit -> true
+    end
 
 (* Called only when the statement is reachable *)
 let is_non_terminating_instr csf stmt =
   match csf with
   | None -> Value_results.is_non_terminating_instr stmt
   | Some _ as csf ->
-    try
-      let h = Db.Value.AfterTable_By_Callstack.find stmt in
-      Value_callstack.Callstack.Hashtbl.iter
-        (fun cs' _state ->
-           let rcs' = from_callstack cs' in
-           (* Bottom states are never stored in this table *)
-           if callstack_matches csf rcs'
-           then raise Exit) h;
-      true
-    with
-    | Not_found -> true
-    | Exit -> false
+    begin
+      try
+        let h = Db.Value.AfterTable_By_Callstack.find stmt in
+        Value_callstack.Callstack.Hashtbl.iter
+          (fun cs' _state ->
+             let rcs' = from_callstack cs' in
+             (* Bottom states are never stored in this table *)
+             if callstack_matches csf rcs'
+             then raise Exit) h;
+        true
+      with
+      | Not_found -> true
+      | Exit -> false
+    end
 
 (* This function evaluates [v] using [ev] at [stmt] (in the pre-state), but
    only for the callstacks matching [csf]. *)
@@ -136,7 +140,8 @@ let set_callstacks_filter  =
   in
   let _eval_tlv =
     Dynamic.register
-      ~comment:"Evaluation of a term, supposed to be a location, on the callstacks focused in the GUI"
+      ~comment:"Evaluation of a term, supposed to be a location, \
+                on the callstacks focused in the GUI"
       ~plugin:"Value" "tlval_to_zone_gui"
       (Datatype.func2 Stmt.ty Term.ty Locations.Zone.ty)
       ~journalize:false tlval_to_zone_gui

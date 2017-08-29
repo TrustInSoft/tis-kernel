@@ -503,7 +503,8 @@ class reused_lval = object (self)
            HLV.iter_sorted
              (fun lv locs ->
                 let sort_loc (_, s1) (_, s2) =
-                  Cil_datatype.(Location.compare (Stmt.loc s1) (Stmt.loc s2))
+                  Cil_datatype.Location.compare
+                    (Cil_datatype.Stmt.loc s1) (Cil_datatype.Stmt.loc s2)
                 in
                 let locs = List.sort sort_loc locs in
                 let locs' = print_lv lv locs in

@@ -21,7 +21,7 @@ install:
 	@test -n "$(TISK_SHARE)" || \
 	  (echo "Error: TIS-Kernel $(TISK_SHARE) share path is empty. Missing installation or wrong path?"; \
 	   exit 1)
-	$(eval BIN_DIR=$(shell realpath "$(TISK_SHARE)/../../bin"))
+	$(eval BIN_DIR=$(realpath $(TISK_SHARE)/../../bin))
 	@echo "Copying $(EXEC) to $(BIN_DIR)"
 	@cp $(EXEC) $(BIN_DIR)/$(EXEC)
 	@test ! -e $(EXEC)-gui || cp $(EXEC)-gui $(BIN_DIR)/$(EXEC)-gui

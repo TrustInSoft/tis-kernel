@@ -56,13 +56,10 @@ module Make
     ( L : Logic with type loc = M.loc ) :
 sig
 
-  open M
-  open Memory
-
-  type region = (c_object * loc sloc list) list
+  type region = (c_object * M.loc sloc list) list
 
   val vars : region -> Vars.t
-  val domain : region -> Heap.set
-  val assigned : sigma sequence -> region -> pred list
+  val domain : region -> M.Heap.set
+  val assigned : M.sigma sequence -> region -> pred list
 
 end

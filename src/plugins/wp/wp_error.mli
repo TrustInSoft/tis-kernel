@@ -39,7 +39,7 @@ val name : string list -> string
 
 open Cil_types
 
-exception Error of string * string
+exception WP_Error of string * string
 (** To be raised a feature of C/ACSL cannot be supported by a memory model
     or is not implemented, or ... *)
 

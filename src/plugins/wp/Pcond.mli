@@ -44,26 +44,26 @@ val pretty : sequent printer
 (** {2 Low-level API} *)
 
 open Cil_types
-open Lang.F
 type env = Plang.Env.t
 
-val xmark_hyp : Plang.pool -> (var -> unit) -> sequence -> unit
-val xmark_seq : Plang.pool -> (var -> unit) -> sequent -> unit
+val xmark_hyp : Plang.pool -> (Lang.F.var -> unit) -> sequence -> unit
+val xmark_seq : Plang.pool -> (Lang.F.var -> unit) -> sequent -> unit
 
 class engine : Plang.engine ->
   object
     (** {2 Printer Components} *)
-    method name : env -> term -> string (** Generate a name for marked term *)
-    method mark : marks -> step -> unit (** Marks terms to share in step *)
+    method name : env -> Lang.F.term -> string (** Generate a name for marked term *)
+    method mark : Lang.F.marks -> step -> unit (** Marks terms to share in step *)
     method pp_clause : string printer (** Default: ["@{<wp:clause>...}"] *)
     method pp_comment : string printer (** Default: ["@{<wp:comment>(* ... *)}"] *)
     method pp_property : Property.t printer (** Default: ["@{<wp:property>(* ... *)}"] *)
     method pp_warning : Warning.t printer (** Default: ["@{<wp:warning>Warning}..."] *)
     method pp_name : string printer (** Default: [Format.pp_print_string] *)
-    method pp_core : term printer (** Default: [plang#pp_sort] *)
+    method pp_core : Lang.F.term printer (** Default: [plang#pp_sort] *)
 
-    method pp_definition : Format.formatter -> string -> term -> unit
-    method pp_intro : step:step -> clause:string -> ?dot:string -> pred printer
+    method pp_definition : Format.formatter -> string -> Lang.F.term -> unit
+    method pp_intro:
+      step:step -> clause:string -> ?dot:string -> Lang.F.pred printer
     method pp_condition : step:step -> condition printer
 
     method pp_step : step printer

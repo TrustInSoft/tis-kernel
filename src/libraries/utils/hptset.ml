@@ -129,7 +129,9 @@ end
 
   let partition f s =
     fold
-      (fun x (w, wo) -> if f x then add x w, wo else w, add x wo) s (empty, empty)
+      (fun x (w, wo) -> if f x then add x w, wo else w, add x wo)
+      s
+      (empty, empty)
 
   let mem x s = try find x s; true with Not_found -> false
 
@@ -223,7 +225,13 @@ end
   let from_shape m = from_shape (fun _ _ -> ()) m
 
   (* Partial application is needed becauses of caches *)
-  let fold2_join_heterogeneous ~cache ~empty_left ~empty_right ~both ~join ~empty =
+  let fold2_join_heterogeneous
+      ~cache
+      ~empty_left
+      ~empty_right
+      ~both
+      ~join
+      ~empty =
     let both k () v = both k v in
     fold2_join_heterogeneous ~cache ~empty_left ~empty_right ~both ~join ~empty
 

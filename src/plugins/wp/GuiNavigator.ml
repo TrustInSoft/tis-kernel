@@ -54,23 +54,23 @@ type focus =
 
 let index_of_lemma (l,_,_,_,_) =
   match LogicUsage.section_of_lemma l with
-  | LogicUsage.Toplevel _ -> Wpo.Axiomatic None
-  | LogicUsage.Axiomatic a -> Wpo.Axiomatic (Some a.LogicUsage.ax_name)
+  | LogicUsage.Toplevel _ -> Wpo.IAxiomatic None
+  | LogicUsage.Axiomatic a -> Wpo.IAxiomatic (Some a.LogicUsage.ax_name)
 
 let focus_of_selection selection filter =
   match selection , filter with
   | S_none , _  | _ , `All -> `All
   | S_call c , `Select -> `Call c
-  | S_call c , `Module -> `Index (Wpo.Function(c.s_caller,None))
-  | S_fun kf , (`Select | `Module) -> `Index(Wpo.Function(kf,None))
-  | S_prop (IPLemma ilem) , `Module -> `Index(index_of_lemma ilem)
-  | S_prop (IPAxiomatic(name,_)) , _ -> `Index(Wpo.Axiomatic (Some name))
+  | S_call c , `Module -> `Index (Wpo.IFunction (c.s_caller, None))
+  | S_fun kf , (`Select | `Module) -> `Index (Wpo.IFunction (kf, None))
+  | S_prop (IPLemma ilem) , `Module -> `Index (index_of_lemma ilem)
+  | S_prop (IPAxiomatic (name, _)) , _ -> `Index (Wpo.IAxiomatic (Some name))
   | S_prop ip , `Select -> `Property ip
   | S_prop ip , `Module ->
     begin
       match Property.get_kf ip with
       | None -> `All
-      | Some kf -> `Index(Wpo.Function(kf,None))
+      | Some kf -> `Index(Wpo.IFunction (kf, None))
     end
 
 exception FIRST of Wpo.t
@@ -79,7 +79,7 @@ let first iter =
   try iter (fun w -> raise (FIRST w)) ; None
   with FIRST w -> Some w
 
-let iter_kf kf f = Wpo.iter ~index:(Wpo.Function(kf,None)) ~on_goal:f ()
+let iter_kf kf f = Wpo.iter ~index:(Wpo.IFunction (kf, None)) ~on_goal:f ()
 let iter_ip ip f = Wpo.iter ~ip ~on_goal:f ()
 let iter_ips ips f = List.iter (fun ip -> Wpo.iter ~ip ~on_goal:f ()) ips
 let calls c = List.map snd (Statuses_by_call.all_call_preconditions_at

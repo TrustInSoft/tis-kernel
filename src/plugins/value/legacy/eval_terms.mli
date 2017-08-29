@@ -34,7 +34,6 @@
 (** Evaluation of terms and predicates *)
 
 open Cil_types
-open Locations
 open Cvalue
 
 (** Evaluating a predicate. [Unknown] is the Top of the lattice *)
@@ -79,14 +78,14 @@ val env_only_here: Model.t -> eval_env
 val env_current_state: eval_env -> Model.t
 
 (** Dependencies needed to evaluate a term or a predicate *)
-type logic_deps = Zone.t Cil_datatype.Logic_label.Map.t
+type logic_deps = Locations.Zone.t Cil_datatype.Logic_label.Map.t
 
 
 
 (** Return a pair of (under-approximating, over-approximating) zones. *)
 val eval_tlval_as_zone_under_over:
   with_alarms:CilE.warn_mode ->
-  for_writing:bool -> eval_env -> term -> Zone.t * Zone.t
+  for_writing:bool -> eval_env -> term -> Locations.Zone.t * Locations.Zone.t
 
 (* ML: Should not be exported. *)
 type 'a eval_result = {
@@ -102,20 +101,20 @@ val eval_term :
 
 val eval_tlval :
   with_alarms:CilE.warn_mode ->
-  eval_env -> term -> Location_Bits.t eval_result
+  eval_env -> term -> Locations.Location_Bits.t eval_result
 
 val eval_tlval_as_location :
   with_alarms:CilE.warn_mode ->
-  eval_env -> term -> location
+  eval_env -> term -> Locations.location
 
 val eval_tlval_as_zone :
   with_alarms:CilE.warn_mode ->
-  for_writing:bool -> eval_env -> term -> Zone.t
+  for_writing:bool -> eval_env -> term -> Locations.Zone.t
 
 exception Not_an_exact_loc
 val eval_term_as_exact_locs :
   with_alarms:CilE.warn_mode ->
-  eval_env -> term -> Cil_datatype.Typ.t * location
+  eval_env -> term -> Cil_datatype.Typ.t * Locations.location
 
 val eval_predicate :
   eval_env -> predicate named -> predicate_status

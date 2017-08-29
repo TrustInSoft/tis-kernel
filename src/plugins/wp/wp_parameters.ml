@@ -174,14 +174,14 @@ module Model =
       let option_name = "-wp-model"
       let arg_name = "model+..."
       let help = "Memory model selection. Available selectors:\n \
-                  * 'Hoare' logic variables only\n \
-                  * 'Typed' typed pointers only\n \
-                  * '+nocast' no pointer cast\n \
-                  * '+cast' unsafe pointer casts\n \
-                  * '+raw' no logic variable\n \
-                  * '+ref' by-reference-style pointers detection\n \
-                  * '+nat/+rg/+int' natural, no-range or machine-integers arithmetics\n \
-                  * '+real/+float' real or IEEE floatting point arithmetics"
+                  - 'Hoare' logic variables only\n \
+                  - 'Typed' typed pointers only\n \
+                  - '+nocast' no pointer cast\n \
+                  - '+cast' unsafe pointer casts\n \
+                  - '+raw' no logic variable\n \
+                  - '+ref' by-reference-style pointers detection\n \
+                  - '+nat/+rg/+int' natural, no-range or machine-integers arithmetics\n \
+                  - '+real/+float' real or IEEE floating point arithmetics"
     end)
 
 let () = Parameter_customize.set_group wp_model

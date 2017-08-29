@@ -1498,7 +1498,8 @@ module AssignInit = struct
   *)
 
   module BlockChunk = Cabs2cil_BlockChunk
-  open BlockChunk
+  let (+++) = BlockChunk.(+++)
+  let (@@) = BlockChunk.(@@)
 
   let ensures_init varinfo offset init_exp =
     let cast = false in
@@ -1590,7 +1591,7 @@ module AssignInit = struct
   and zero_init_cell ~ghost vi off typ =
     let loc = vi.vdecl in
     match Cil.unrollType typ with
-    | TVoid _ -> empty
+    | TVoid _ -> BlockChunk.empty
     | TInt(ikind,_) ->
       let lv = (Var vi,off) in
       Chunk.of_stmt
@@ -1631,14 +1632,14 @@ module AssignInit = struct
         (zero_init_cell ~ghost vi off fi.ftype, ghost)
       in
       if ci.cstruct then
-        List.fold_left treat_one_field empty ci.cfields
+        List.fold_left treat_one_field BlockChunk.empty ci.cfields
       else begin
         (* Standard says that zero initializing an union is done by setting
            its first field to 0
         *)
         match ci.cfields with
         | [] -> Kernel.fatal "Union type without fields"
-        | fst :: _ -> treat_one_field empty fst
+        | fst :: _ -> treat_one_field BlockChunk.empty fst
       end
 
     | TEnum (ei,_) ->

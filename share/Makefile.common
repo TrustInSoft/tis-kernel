@@ -102,7 +102,7 @@ endif
 # in the compilation of external plugins. Note that -warn-error is not used
 # here: it is only set for TrustInSoft Kernel itself (and the standard plugins), and is
 # defined in the root Makefile
-WARNINGS?= -w @a-4-6-9-41-44-45-48-50-58
+WARNINGS?= -w @a-4-6-9-45-48-50
 
 FLAGS	= $(WARNINGS) $(OCAML_ANNOT_OPTION) $(OPTIM)
 DEBUG	= -g

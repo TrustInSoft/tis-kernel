@@ -18,7 +18,7 @@
 let debug_cache = false
 
 type prefix = int * int
-let sentinel_prefix = (-1) , (-1)
+let sentinel_prefix = -1, -1
 
 module Big_Endian = struct
 
@@ -146,40 +146,40 @@ struct
   let compare =
     if Key.compare == Datatype.undefined ||
        V.compare == Datatype.undefined
-    then (
+    then begin
       Cmdline.Kernel_log.debug
         "(%s, %s) ptmap, missing comparison function: %b %b"
         (Type.name Key.ty) (Type.name V.ty)
         (Key.compare == Datatype.undefined)
         (V.compare == Datatype.undefined);
       Datatype.undefined
-    )
+    end
     else
-      let compare t1 t2 =
-        match t1, t2 with
-        | Empty, Empty -> 0
-        | Empty, _ -> -1
-        | _, Empty -> 1
-        | Leaf (k1,x1,_), Leaf (k2,x2,_) ->
-          let c = Key.compare k1 k2 in
-          if c <> 0 then c else V.compare x1 x2
-        | Leaf _, Branch _ -> -1
-        | Branch _, Leaf _ -> 1
-        | Branch (_p1,_m1,_l1,_r1,t1), Branch (_p2,_m2,_l2,_r2,t2) ->
-          let t1 = Tag_comp.get_tag t1 in
-          let t2 = Tag_comp.get_tag t2 in
-          Datatype.Int.compare t1 t2
-          (* Taken and adapted from JCF code for the implementation
+      (fun t1 t2 ->
+         match t1, t2 with
+         | Empty, Empty -> 0
+         | Empty, _ -> -1
+         | _, Empty -> 1
+         | Leaf (k1,x1,_), Leaf (k2,x2,_) ->
+           let c = Key.compare k1 k2 in
+           if c <> 0 then c else V.compare x1 x2
+         | Leaf _, Branch _ -> -1
+         | Branch _, Leaf _ -> 1
+         | Branch (_p1,_m1,_l1,_r1,t1), Branch (_p2,_m2,_l2,_r2,t2) ->
+           let t1 = Tag_comp.get_tag t1 in
+           let t2 = Tag_comp.get_tag t2 in
+           Datatype.Int.compare t1 t2
+           (* Taken and adapted from JCF code for the implementation
                              without tag *)
-          (*let c = Datatype.Int.compare p1 p2 in
+           (*let c = Datatype.Int.compare p1 p2 in
                     if c <> 0 then c else
                     let c = Big_endian.compare m1 m2 in
                     if c <> 0 then c else
                             let c = compare l1 l2 in
                             if c <> 0 then c else
                             compare r1 r2
-          *)
-      in compare
+           *)
+      )
 
   let compositional_bool t =
     match t with
@@ -882,10 +882,10 @@ data, (wrap_Branch prefix mask tree0 tree1)
         Cache.merge
     in
     (* Rewrap of branches.
-       The initials branches and tree are provided in order to avoid the wrapping
-       if the two branches have not been modified.
-       If the merge is increasing, we don't need to test whether the branches
-       are not empty. *)
+       The initials branches and tree are provided in order to avoid
+       the wrapping if the two branches have not been modified.
+       If the merge is increasing, we don't need to test whether the
+       branches are not empty. *)
     let rewrap p m u orig_u v orig_v orig_tree =
       if u == orig_u && v == orig_v then orig_tree
       else wrap_Branch p m u v
@@ -1011,9 +1011,9 @@ data, (wrap_Branch prefix mask tree0 tree1)
   let merge =
     (* Called when one of the tree is empty *)
     let decide_none = function
-      | Neutral      -> fun t -> t
-      | Absorbing    -> fun _ -> Empty
-      | Traversing f -> fun t -> map' f t (* TODO: add a cache? *)
+      | Neutral -> (fun t -> t)
+      | Absorbing -> (fun _ -> Empty)
+      | Traversing f -> (fun t -> map' f t) (* TODO: add a cache? *)
     in
     fun ~cache ~symmetric ~idempotent ~decide_both ~decide_left ~decide_right ->
       let decide_both key value leaf value' leaf' =
@@ -1061,11 +1061,20 @@ data, (wrap_Branch prefix mask tree0 tree1)
     generic_merge ~cache ~symmetric ~idempotent ~increasing:false
       ~decide_both ~decide_left:decide_none ~decide_right:decide_none
 
-  let fold2_join_heterogeneous (type arg) (type result) ~cache ~empty_left ~empty_right ~both ~join ~empty =
+  let fold2_join_heterogeneous
+      (type arg)
+      (type result)
+      ~cache
+      ~empty_left
+      ~empty_right
+      ~both
+      ~join
+      ~empty =
     let cache_merge = match cache with
       | Hptmap_sig.NoCache -> (fun f x y -> f x y)
       | Hptmap_sig.PersistentCache _name | Hptmap_sig.TemporaryCache _name ->
-        if debug_cache then Format.eprintf "CACHE fold2_join_heterogeneous %s@." _name;
+        if debug_cache then
+          Format.eprintf "CACHE fold2_join_heterogeneous %s@." _name;
         let module Arg = struct
           type t = (Key.t, arg) tree
           let hash : t -> int = hash_generic
@@ -1141,7 +1150,13 @@ data, (wrap_Branch prefix mask tree0 tree1)
 
   type decide_fast = Done | Unknown
 
-  let make_predicate cache_merge exn ~decide_fast ~decide_fst ~decide_snd ~decide_both =
+  let make_predicate
+      cache_merge
+      exn
+      ~decide_fast
+      ~decide_fst
+      ~decide_snd
+      ~decide_both =
     let rec aux s t =
       if decide_fast s t = Unknown then
         match s, t with
@@ -1187,7 +1202,8 @@ data, (wrap_Branch prefix mask tree0 tree1)
                 try
                   if (p = q) && (m = n) then
                     begin
-                      (*The trees have the same prefix. Compare their sub-trees.*)
+                      (* The trees have the same prefix. Compare their
+                         sub-trees. *)
                       aux s0 t0;
                       aux s1 t1
                     end
@@ -1233,8 +1249,15 @@ data, (wrap_Branch prefix mask tree0 tree1)
     aux
 
 
-  let generic_predicate exn ~cache ~decide_fast ~decide_fst ~decide_snd ~decide_both =
-    if debug_cache then Format.eprintf "CACHE generic_predicate %s@." (fst cache);
+  let generic_predicate
+      exn
+      ~cache
+      ~decide_fast
+      ~decide_fst
+      ~decide_snd
+      ~decide_both =
+    if debug_cache then
+      Format.eprintf "CACHE generic_predicate %s@." (fst cache);
     let module Cache =
       Binary_cache.Binary_Predicate(Cacheable)(Cacheable)
     in
@@ -1263,7 +1286,13 @@ data, (wrap_Branch prefix mask tree0 tree1)
   let decide_fast_inclusion s t =
     if s == t || s == Empty then PTrue else PUnknown
 
-  let make_binary_predicate cache_merge pt ~decide_fast ~decide_fst ~decide_snd ~decide_both =
+  let make_binary_predicate
+      cache_merge
+      pt
+      ~decide_fast
+      ~decide_fst
+      ~decide_snd
+      ~decide_both =
     (** We cannot use [&&] and [||] under another name, as functions are not
         lazy in OCaml. Instead, we defer the evaluation of the right part by
         calling a function. Due to typing issues, we must actually define
@@ -1355,7 +1384,8 @@ data, (wrap_Branch prefix mask tree0 tree1)
     let cache_merge = match ct with
       | Hptmap_sig.NoCache -> (fun f x y -> f x y)
       | Hptmap_sig.PersistentCache _name | Hptmap_sig.TemporaryCache _name ->
-        if debug_cache then Format.eprintf "CACHE symmetric_binary_predicate %s@." _name;
+        if debug_cache then
+          Format.eprintf "CACHE symmetric_binary_predicate %s@." _name;
         let module Cache = Binary_cache.Symmetric_Binary_Predicate(Cacheable) in
         (match ct with
          | Hptmap_sig.PersistentCache _ ->
@@ -1388,18 +1418,18 @@ data, (wrap_Branch prefix mask tree0 tree1)
         match t with
         | Empty -> empty
         | Leaf(key, value, _) ->
-          (try
-             find ()
-           with Not_found ->
-             mem (f key value)
-          )
+          begin
+            try find ()
+            with Not_found -> mem (f key value)
+          end
         | Branch(_p, _m, s0, s1, _) ->
-          try
-            find ()
-          with Not_found ->
-            let result0 = traverse s0 in
-            let result1 = traverse s1 in
-            mem (joiner result0 result1)
+          begin
+            try find ()
+            with Not_found ->
+              let result0 = traverse s0 in
+              let result1 = traverse s1 in
+              mem (joiner result0 result1)
+          end
       in
       traverse m
 
@@ -1416,24 +1446,23 @@ data, (wrap_Branch prefix mask tree0 tree1)
         | Leaf(key, value, _) ->
           wrap_Leaf key (f key value)
         | Branch(p, m, s0, s1, _) ->
-          try
-            let result = Hashtbl.find table t in
-            (*Format.printf "find %s %d@." name !counter; *)
-            result
-          with Not_found ->
-            let result0 = traverse s0 in
-            let result1 = traverse s1 in
-            let result = wrap_Branch p m result0 result1 in
-            incr counter;
-            if !counter >= cache
-            then begin
-              (*    Format.printf "Clearing %s fold table@." name;*)
-              Hashtbl.clear table;
-              counter := 0;
-            end;
-            (*Format.printf "add  %s %d@." name !counter; *)
-            Hashtbl.add table t result;
-            result
+          begin
+            try Hashtbl.find table t
+            with Not_found ->
+              let result0 = traverse s0 in
+              let result1 = traverse s1 in
+              let result = wrap_Branch p m result0 result1 in
+              incr counter;
+              if !counter >= cache
+              then begin
+                (*    Format.printf "Clearing %s fold table@." name;*)
+                Hashtbl.clear table;
+                counter := 0;
+              end;
+              (*Format.printf "add  %s %d@." name !counter; *)
+              Hashtbl.add table t result;
+              result
+          end
       in
       traverse m
 

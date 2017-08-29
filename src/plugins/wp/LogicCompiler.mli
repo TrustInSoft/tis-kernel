@@ -40,7 +40,6 @@ open Cil_types
 open Cil_datatype
 open Clabels
 open Lang
-open Lang.F
 open Memory
 open Definitions
 
@@ -69,11 +68,11 @@ sig
 
   val formal : varinfo -> value option
   val return : unit -> typ
-  val result : unit -> var
-  val status : unit -> var
+  val result : unit -> Lang.F.var
+  val status : unit -> Lang.F.var
   val trigger : trigger -> unit
 
-  val guards : frame -> pred list
+  val guards : frame -> Lang.F.pred list
   val mem_frame : c_label -> sigma
   val mem_at_frame : frame -> c_label -> sigma
 
@@ -90,18 +89,19 @@ sig
   val env_at : env -> c_label -> env
   val mem_at : env -> c_label -> sigma
   val env_let : env -> logic_var -> logic -> env
-  val env_letp : env -> logic_var -> pred -> env
+  val env_letp : env -> logic_var -> Lang.F.pred -> env
   val env_letval : env -> logic_var -> value -> env
 
   (** {3 Compiler} *)
 
-  val term : env -> Cil_types.term -> term
-  val pred : polarity -> env -> predicate named -> pred
+  val term : env -> Cil_types.term -> Lang.F.term
+  val pred : polarity -> env -> predicate named -> Lang.F.pred
   val logic : env -> Cil_types.term -> logic
   val region : env -> Cil_types.term -> M.loc sloc list
 
-  val bootstrap_term : (env -> Cil_types.term -> term) -> unit
-  val bootstrap_pred : (polarity -> env -> predicate named -> pred) -> unit
+  val bootstrap_term : (env -> Cil_types.term -> Lang.F.term) -> unit
+  val bootstrap_pred :
+    (polarity -> env -> predicate named -> Lang.F.pred) -> unit
   val bootstrap_logic : (env -> Cil_types.term -> logic) -> unit
   val bootstrap_region : (env -> Cil_types.term -> M.loc sloc list) -> unit
 
@@ -109,16 +109,16 @@ sig
 
   val call_fun : env -> logic_info
     -> (logic_label * logic_label) list
-    -> F.term list -> F.term
+    -> Lang.F.term list -> Lang.F.term
 
   val call_pred : env -> logic_info
     -> (logic_label * logic_label) list
-    -> F.term list -> F.pred
+    -> Lang.F.term list -> Lang.F.pred
 
   (** {3 Logic Variable and ACSL Constants} *)
 
   val logic_var : env -> logic_var -> logic
-  val logic_info : env -> logic_info -> pred option
+  val logic_info : env -> logic_info -> Lang.F.pred option
 
   (** {3 Logic Lemmas} *)
 

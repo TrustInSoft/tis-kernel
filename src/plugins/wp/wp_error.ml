@@ -35,7 +35,7 @@
 (* ---  Exception Handling in WP                                        --- *)
 (* ------------------------------------------------------------------------ *)
 
-exception Error of string * string
+exception WP_Error of string * string
 
 let current = ref "wp"
 let set_model m = current := m
@@ -45,7 +45,7 @@ let unsupported ?(model= !current) fmt =
   Buffer.add_string b "unsupported " ;
   let kf fmt =
     Format.pp_print_flush fmt () ;
-    raise (Error(model,Buffer.contents b))
+    raise (WP_Error (model, Buffer.contents b))
   in Format.kfprintf kf (Format.formatter_of_buffer b) fmt
 
 let not_yet_implemented ?(model= !current) fmt =
@@ -53,7 +53,7 @@ let not_yet_implemented ?(model= !current) fmt =
   let kf fmt =
     Format.pp_print_string fmt " not yet implemented" ;
     Format.pp_print_flush fmt () ;
-    raise (Error(model,Buffer.contents b))
+    raise (WP_Error (model, Buffer.contents b))
   in Format.kfprintf kf (Format.formatter_of_buffer b) fmt
 
 open Cil_types
@@ -85,7 +85,7 @@ type 'a cc =
   | Warning of string * string (* model , message *)
 
 let protected = function
-  | Error (model, msg) ->
+  | WP_Error (model, msg) ->
     Some(model , msg)
   | Log.FeatureRequest (plugin,msg) ->
     Some(plugin , Printf.sprintf "%s not yet implemented" msg)

@@ -39,14 +39,14 @@ open Cil_types
 open Cil_datatype
 
 type region =
-  | Var of varinfo   (* &x     - the cell x *)
-  | Ptr of varinfo   (* p      - the cell pointed by p *)
-  | Arr of varinfo   (* p+(..) - the cell and its neighbors pointed by p *)
+  | RVar of varinfo   (* &x     - the cell x *)
+  | RPtr of varinfo   (* p      - the cell pointed by p *)
+  | RArr of varinfo   (* p+(..) - the cell and its neighbors pointed by p *)
 
 let pp_region fmt = function
-  | Var vi  -> Format.fprintf fmt "&%a" Varinfo.pretty vi
-  | Ptr vi  -> Varinfo.pretty fmt vi
-  | Arr vi -> Format.fprintf fmt "%a+(..)" Varinfo.pretty vi
+  | RVar vi -> Format.fprintf fmt "&%a" Varinfo.pretty vi
+  | RPtr vi -> Varinfo.pretty fmt vi
+  | RArr vi -> Format.fprintf fmt "%a+(..)" Varinfo.pretty vi
 
 (* interpreted as \separated(mutex, ... ,\union( other, ... )) *)
 type clause = {
