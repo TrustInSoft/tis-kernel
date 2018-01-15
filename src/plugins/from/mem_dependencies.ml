@@ -176,7 +176,7 @@ class do_memdeps froms get_stmt_state callwise_state_with_formals
                     self#join stmt zone
                   ) stmt_tbl
               end else
-                Format.printf
+                From_parameters.warning ~once:true ~current:true
                   "Assuming library function %a has no mem dependencies@."
                   Kernel_function.pretty kf
             ) dependencies_by_function;
@@ -355,16 +355,18 @@ class do_memdeps_graph froms stmt_to_nodes callwise_state_with_formals table_for
       in
       match exp.enode with
       | BinOp ((Mult | Div | Mod), _, _, _)  ->
-        let stmt = Extlib.the self# current_stmt in
-        let nodes = Stmt.Hashtbl.find stmt_to_nodes stmt in
-        State_node.Set.iter
-          (State_node.with_state (fun state ->
-               let deps = From_compute.find_deps_no_transitivity state exp in
-               let deps = Function_Froms.Deps.to_zone deps in
-               join_deps deps
-             ))
+        ( match self# current_stmt with
+        | Some stmt ->
+          let nodes = Stmt.Hashtbl.find stmt_to_nodes stmt in
+          State_node.Set.iter
+            (State_node.with_state (fun state ->
+                 let deps = From_compute.find_deps_no_transitivity state exp in
+                 let deps = Function_Froms.Deps.to_zone deps in
+                 join_deps deps
+               ))
           nodes;
-        SkipChildren
+        | None -> () (* a size in a declaration, ignore for now XXX VLA? *));
+          SkipChildren
       | AddrOf _lv | StartOf _lv ->
         SkipChildren
 
