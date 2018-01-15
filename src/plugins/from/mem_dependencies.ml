@@ -336,7 +336,7 @@ class do_memdeps_graph froms stmt_to_nodes callwise_state_with_formals table_for
                        self#join stmt zone
                      ) stmt_tbl
                  end else
-                   Format.printf
+                   From_parameters.warning ~once:true ~current:true
                      "Assuming library function %a has no mem dependencies@."
                      Kernel_function.pretty kf
               ) dependencies_by_function

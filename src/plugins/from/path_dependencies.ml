@@ -192,7 +192,7 @@ class do_pathdeps froms get_stmt_state callwise_state_with_formals
                     self#join stmt (Function_Froms.Memory.find state zone))
                   stmt_tbl
               end else
-                Format.printf
+                From_parameters.warning ~once:true ~current:true
                   "Assuming library function %a has no path dependencies@."
                   Kernel_function.pretty kf)
             dependencies_by_function;
@@ -384,7 +384,7 @@ class do_pathdeps_graph froms stmt_to_nodes callwise_state_with_formals callstac
                       self#join stmt (Function_Froms.Memory.find state zone))
                     stmt_tbl
                 end else
-                  Format.printf
+                  From_parameters.warning ~once:true ~current:true
                     "Assuming library function %a has no path dependencies@."
                     Kernel_function.pretty kf)
               dependencies_by_function;
