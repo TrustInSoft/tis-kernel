@@ -1,6 +1,6 @@
 # tis-interpreter
 
-This is [tis-interpreter](http://trust-in-soft.com/tis-interpreter),
+This is TIS Interpreter,
 an interpreter of C for detecting undefined behavior.
 
 tis-interpreter detects subtle bugs in C programs that may not have
@@ -22,4 +22,4 @@ At this stage, the best uses for tis-interpreter are pure C libraries
 with as few dependencies as possible and existing tests. After
 compilation (or after downloading a binary snapshot), you can
 experiment with examples of increasing difficulty (see the
-`EXAMPLES.md` file)
+[EXAMPLES.md](Examples.md] file)
