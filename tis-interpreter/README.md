@@ -22,4 +22,4 @@ At this stage, the best uses for tis-interpreter are pure C libraries
 with as few dependencies as possible and existing tests. After
 compilation (or after downloading a binary snapshot), you can
 experiment with examples of increasing difficulty (see the
-[EXAMPLES.md](Examples.md] file)
+[EXAMPLES.md](Examples.md) file)
