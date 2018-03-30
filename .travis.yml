@@ -16,7 +16,7 @@ install:
 - opam list
 script:
 - autoconf -f
-- ./configure "--prefix=$HOME/tis-interpreter" --disable-from_analysis --disable-gui --disable-impact --disable-inout --disable-metrics --disable-occurrence --disable-pdg --disable-postdominators --enable-rtegen --disable-scope --disable-slicing --disable-sparecode --enable-users --disable-aorai --disable-obfuscator --disable-report --disable-security_slicing --disable-wp --disable-wp-coq --disable-wp-why3 --disable-print_api --with-all-static
+- ./configure "--prefix=$HOME/tis-interpreter" --disable-gui --disable-wp-coq --disable-wp-why3 --disable-wp --with-all-static
 - make depend
 - make
 - make install
